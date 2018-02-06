@@ -18,21 +18,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.apache.aries.cdi.container.internal.command.CdiCommand;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
-import org.apache.aries.cdi.container.internal.phase.Init;
+import org.apache.aries.cdi.container.internal.log.Logs;
 import org.apache.aries.cdi.container.internal.phase.Phase;
+import org.apache.aries.cdi.container.internal.util.Throw;
 import org.apache.felix.utils.extender.Extension;
-import org.osgi.framework.Bundle;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.osgi.service.log.Logger;
 
-public class CdiBundle implements Extension {
+public class CDIBundle implements Extension {
 
-	public CdiBundle(Bundle extenderBundle, Bundle bundle, CdiCommand command) {
-		_extenderBundle = extenderBundle;
-		_bundle = bundle;
-		_command = command;
+	public CDIBundle(CCR ccr, ContainerState containerState, Phase phase) {
+		_ccr = ccr;
+		_containerState = containerState;
+		_nextPhase = phase;
 	}
 
 	@Override
@@ -48,30 +46,25 @@ public class CdiBundle implements Extension {
 
 				_log.warn(
 					"The wait for bundle {0}/{1} being destroyed before starting has been interrupted.",
-					_bundle.getSymbolicName(), _bundle.getBundleId(), e );
+					_containerState.bundle().getSymbolicName(),
+					_containerState.bundle().getBundleId(), e );
 			}
 
 			if (_log.isDebugEnabled()) {
-				_log.debug("CDIe - bundle detected {}", _bundle);
+				_log.debug("CDIe - bundle detected {}", _containerState.bundle());
 			}
 
-			_containerState = new ContainerState(_bundle, _extenderBundle);
+			_ccr.add(_containerState.bundle(), _containerState);
 
-			_command.add(_bundle, _containerState);
-
-			try {
-				_nextPhase = new Init(_bundle, _containerState);
-
-				_nextPhase.open();
-			}
-			catch (Throwable t) {
-				if (_nextPhase != null) {
-					_nextPhase.close();
+			if (_nextPhase != null) {
+				try {
+					_nextPhase.open();
 				}
+				catch (Throwable t) {
+					_nextPhase.close();
 
-				_command.remove(_bundle);
-
-				_containerState = null;
+					_containerState.containerDTO().errors.add(Throw.toString(t));
+				}
 			}
 		}
 		finally {
@@ -94,37 +87,35 @@ public class CdiBundle implements Extension {
 
 				_log.warn(
 					"The wait for bundle {0}/{1} being started before destruction has been interrupted.",
-					_bundle.getSymbolicName(), _bundle.getBundleId(), e);
+					_containerState.bundle().getSymbolicName(),
+					_containerState.bundle().getBundleId(), e);
 			}
 
-			_command.remove(_bundle);
+			if (_nextPhase != null) {
+				_nextPhase.close();
+			}
 
-			_nextPhase.close();
-
-			_nextPhase = null;
-
-			_containerState = null;
 
 			if (_log.isDebugEnabled()) {
-				_log.debug("CDIe - bundle removed {}", _bundle);
+				_log.debug("CDIe - bundle removed {}", _containerState.bundle());
 			}
 		}
 		finally {
 			if (acquired) {
 				_lock.unlock();
+
+				_ccr.remove(_containerState.bundle());
 			}
 		}
 	}
 
 	private static final long DEFAULT_STOP_TIMEOUT = 60000; // TODO make this configurable
 
-	private static final Logger _log = LoggerFactory.getLogger(CdiBundle.class);
+	private static final Logger _log = Logs.getLogger(CDIBundle.class);
 
-	private final Bundle _bundle;
-	private final CdiCommand _command;
-	private volatile ContainerState _containerState;
-	private final Bundle _extenderBundle;
+	private final CCR _ccr;
+	private final ContainerState _containerState;
 	private final Lock _lock = new ReentrantLock();
-	private volatile Phase _nextPhase;
+	private final Phase _nextPhase;
 
 }

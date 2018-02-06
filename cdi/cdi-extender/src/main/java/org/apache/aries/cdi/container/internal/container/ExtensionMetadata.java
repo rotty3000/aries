@@ -12,17 +12,30 @@
  * limitations under the License.
  */
 
-package org.apache.aries.cdi.container.internal.model;
+package org.apache.aries.cdi.container.internal.container;
 
-import org.osgi.framework.ServiceObjects;
-import org.osgi.framework.ServiceReference;
+import javax.enterprise.inject.spi.Extension;
 
-public abstract class Context {
+import org.jboss.weld.bootstrap.spi.Metadata;
 
-	public abstract <T> T getService(ServiceReference<T> reference);
+public class ExtensionMetadata implements Metadata<Extension> {
 
-	public abstract <T> ServiceObjects<T> getServiceObjects(ServiceReference<T> reference);
+	public ExtensionMetadata(Extension extension, String location) {
+		_extension = extension;
+		_location = location;
+	}
 
-	public abstract <T> boolean ungetService(ServiceReference<T> reference);
+	@Override
+	public Extension getValue() {
+		return _extension;
+	}
+
+	@Override
+	public String getLocation() {
+		return _location;
+	}
+
+	private final Extension _extension;
+	private final String _location;
 
 }

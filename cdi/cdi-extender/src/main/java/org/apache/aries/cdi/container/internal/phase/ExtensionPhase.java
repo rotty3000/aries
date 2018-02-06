@@ -16,9 +16,9 @@ package org.apache.aries.cdi.container.internal.phase;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 
-public class Phase_Extension implements Phase {
+public class ExtensionPhase implements Phase {
 
-	public Phase_Extension(ContainerState containerState) {
+	public ExtensionPhase(ContainerState containerState) {
 /*		_containerState = containerState;
 		_bundleContext = _containerState.bundle().getBundleContext();
 

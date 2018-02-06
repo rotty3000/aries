@@ -15,8 +15,8 @@
 package org.apache.aries.cdi.container.internal.model;
 
 import static org.apache.aries.cdi.container.internal.util.Reflection.cast;
-import static org.osgi.service.cdi.CdiConstants.REQUIREMENT_BEANS_ATTRIBUTE;
-import static org.osgi.service.cdi.CdiConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE;
+import static org.osgi.service.cdi.CDIConstants.REQUIREMENT_BEANS_ATTRIBUTE;
+import static org.osgi.service.cdi.CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,9 +29,9 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
+import org.apache.aries.cdi.container.internal.log.Logs;
 import org.apache.aries.cdi.container.internal.util.Throw;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.osgi.service.log.Logger;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXNotRecognizedException;
@@ -162,6 +162,6 @@ public abstract class AbstractModelBuilder {
 		return xsds.toArray(new InputSource[0]);
 	}
 
-	private static final Logger _log = LoggerFactory.getLogger(AbstractModelBuilder.class);
+	private static final Logger _log = Logs.getLogger(AbstractModelBuilder.class);
 
 }

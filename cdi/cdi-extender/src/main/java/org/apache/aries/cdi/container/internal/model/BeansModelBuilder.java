@@ -14,45 +14,21 @@
 
 package org.apache.aries.cdi.container.internal.model;
 
-import static org.osgi.namespace.extender.ExtenderNamespace.EXTENDER_NAMESPACE;
-import static org.osgi.service.cdi.CdiConstants.CDI_CAPABILITY_NAME;
-
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import org.osgi.framework.Bundle;
-import org.osgi.framework.wiring.BundleCapability;
-import org.osgi.framework.wiring.BundleRequirement;
-import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
 
 public class BeansModelBuilder extends AbstractModelBuilder {
 
-	public BeansModelBuilder(ClassLoader classLoader, BundleWiring bundleWiring) {
+	public BeansModelBuilder(ClassLoader classLoader, BundleWiring bundleWiring, Map<String, Object> cdiAttributes) {
 		_classLoader = classLoader;
 		_bundleWiring = bundleWiring;
-		_bundle = _bundleWiring.getBundle();
-
-		List<BundleWire> wires = bundleWiring.getRequiredWires(EXTENDER_NAMESPACE);
-
-		Map<String, Object> cdiAttributes = Collections.emptyMap();
-
-		for (BundleWire wire : wires) {
-			BundleCapability capability = wire.getCapability();
-			Map<String, Object> attributes = capability.getAttributes();
-			String extender = (String)attributes.get(EXTENDER_NAMESPACE);
-
-			if (extender.equals(CDI_CAPABILITY_NAME)) {
-				BundleRequirement requirement = wire.getRequirement();
-				cdiAttributes = requirement.getAttributes();
-				break;
-			}
-		}
-
 		_attributes = cdiAttributes;
+		_bundle = _bundleWiring.getBundle();
 	}
 
 	@Override

@@ -14,8 +14,8 @@
 
 package org.apache.aries.cdi.container.internal;
 
-import static org.osgi.namespace.extender.ExtenderNamespace.EXTENDER_NAMESPACE;
-import static org.osgi.service.cdi.CdiConstants.CDI_CAPABILITY_NAME;
+import static org.osgi.namespace.extender.ExtenderNamespace.*;
+import static org.osgi.service.cdi.CDIConstants.*;
 
 import java.util.Dictionary;
 import java.util.Hashtable;
@@ -24,17 +24,22 @@ import java.util.Map;
 
 import javax.enterprise.inject.spi.CDI;
 
-import org.apache.aries.cdi.container.internal.command.CdiCommand;
+import org.apache.aries.cdi.container.internal.command.CDICommand;
+import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.log.Logs;
+import org.apache.aries.cdi.container.internal.phase.ExtensionPhase;
+import org.apache.aries.cdi.container.internal.phase.InitPhase;
 import org.apache.aries.cdi.provider.CDIProvider;
 import org.apache.felix.utils.extender.AbstractExtender;
 import org.apache.felix.utils.extender.Extension;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.Constants;
 import org.osgi.framework.ServiceRegistration;
 import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.osgi.service.cdi.runtime.CDIComponentRuntime;
+import org.osgi.service.log.Logger;
 
 public class Activator extends AbstractExtender {
 
@@ -54,7 +59,8 @@ public class Activator extends AbstractExtender {
 
 		_bundleContext = bundleContext;
 
-		registerCdiCommand();
+		registerCCR();
+		registerCDICommand();
 
 		super.start(bundleContext);
 
@@ -63,12 +69,22 @@ public class Activator extends AbstractExtender {
 		}
 	}
 
-	private void registerCdiCommand() {
+	private void registerCCR() {
+		Dictionary<String, Object> properties = new Hashtable<>();
+		properties.put(Constants.SERVICE_CHANGECOUNT, 0);
+		properties.put(Constants.SERVICE_DESCRIPTION, "CDI Component Runtime");
+		properties.put(Constants.SERVICE_VENDOR, "Apache Aries");
+
+		_ccr = new CCR();
+		_ccrRegistration = _bundleContext.registerService(CDIComponentRuntime.class, _ccr, properties);
+	}
+
+	private void registerCDICommand() {
 		Dictionary<String, Object> properties = new Hashtable<>();
 		properties.put("osgi.command.scope", "cdi");
 		properties.put("osgi.command.function", new String[] {"list", "info"});
 
-		_command = new CdiCommand();
+		_command = new CDICommand(_ccr);
 		_commandRegistration = _bundleContext.registerService(Object.class, _command, properties);
 	}
 
@@ -80,32 +96,36 @@ public class Activator extends AbstractExtender {
 
 		super.stop(bundleContext);
 
+		_commandRegistration.unregister();
+		_ccrRegistration.unregister();
+
 		if (_log.isDebugEnabled()) {
 			_log.debug("CDIe - stoped {}", bundleContext.getBundle());
-		}
-
-		if (_commandRegistration != null) {
-			_commandRegistration.unregister();
 		}
 	}
 
 	@Override
 	protected Extension doCreateExtension(Bundle bundle) throws Exception {
-		if (!requiresCdiExtender(bundle)) {
+		if (!requiresCDIExtender(bundle)) {
 			return null;
 		}
 
-		return new CdiBundle(_bundleContext.getBundle(), bundle, _command);
+		ContainerState containerState = new ContainerState(bundle, _bundleContext.getBundle());
+
+		return new CDIBundle(_ccr, containerState, new InitPhase(containerState, new ExtensionPhase(containerState)));
 	}
 
 	@Override
 	protected void debug(Bundle bundle, String msg) {
+		if (_log.isDebugEnabled()) {
+			_log.debug(msg, bundle);
+		}
 	}
 
 	@Override
 	protected void warn(Bundle bundle, String msg, Throwable t) {
 		if (_log.isWarnEnabled()) {
-			_log.warn(msg, t);
+			_log.warn(msg, bundle, t);
 		}
 	}
 
@@ -116,7 +136,7 @@ public class Activator extends AbstractExtender {
 		}
 	}
 
-	private boolean requiresCdiExtender(Bundle bundle) {
+	private boolean requiresCDIExtender(Bundle bundle) {
 		BundleWiring bundleWiring = bundle.adapt(BundleWiring.class);
 		List<BundleWire> requiredBundleWires = bundleWiring.getRequiredWires(EXTENDER_NAMESPACE);
 
@@ -137,10 +157,12 @@ public class Activator extends AbstractExtender {
 		return false;
 	}
 
-	private static final Logger _log = LoggerFactory.getLogger(Activator.class);
+	private static final Logger _log = Logs.getLogger(Activator.class);
 
 	private BundleContext _bundleContext;
-	private CdiCommand _command;
+	private CCR _ccr;
+	private ServiceRegistration<CDIComponentRuntime> _ccrRegistration;
+	private CDICommand _command;
 	private ServiceRegistration<?> _commandRegistration;
 
 }

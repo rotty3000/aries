@@ -15,20 +15,23 @@
 package org.apache.aries.cdi.container.internal.command;
 
 import java.util.Collection;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.CCR;
 import org.osgi.framework.Bundle;
+import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 
-public class CdiCommand {
+public class CDICommand {
 
-	public Collection<ContainerState> list() {
-		return _states.values();
+	public CDICommand(CCR ccr) {
+		_ccr = ccr;
 	}
 
-	public ContainerState info(Bundle bundle) {
-		return _states.get(bundle);
+	public Collection<ContainerDTO> list() {
+		return _ccr.getContainerDTOs();
+	}
+
+	public ContainerDTO info(Bundle bundle) {
+		return _ccr.getContainerDTO(bundle);
 		/*
 		try (Formatter f = new Formatter()) {
 			ContainerState containerState = _states.get(bundle);
@@ -124,14 +127,6 @@ public class CdiCommand {
 		 */
 	}
 
-	public void add(Bundle bundle, ContainerState cdiContainerState) {
-		_states.put(bundle, cdiContainerState);
-	}
-
-	public void remove(Bundle bundle) {
-		_states.remove(bundle);
-	}
-
-	private final Map<Bundle, ContainerState> _states = new ConcurrentHashMap<>();
+	private final CCR _ccr;
 
 }

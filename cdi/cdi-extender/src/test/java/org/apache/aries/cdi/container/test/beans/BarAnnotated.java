@@ -18,14 +18,11 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
-import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
-import javax.inject.Named;
 import javax.inject.Provider;
 
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.annotations.Configuration;
-import org.osgi.service.cdi.annotations.Greedy;
 import org.osgi.service.cdi.annotations.PID;
 import org.osgi.service.cdi.annotations.Prototype;
 import org.osgi.service.cdi.annotations.Reference;
@@ -34,19 +31,17 @@ public class BarAnnotated {
 
 	@Inject
 	@Reference
-	Optional<Foo> foo;
-
-	@Inject
-	@Named("foos")
-	@Reference
-	Instance<Foo> instanceFoos;
+	Foo foo;
 
 	@Inject
 	@Reference
-	Provider<Collection<Foo>> collectionFoos;
+	Optional<Foo> fooOptional;
 
 	@Inject
-	@Greedy
+	@Reference
+	Provider<Collection<Foo>> dynamicFoos;
+
+	@Inject
 	@Reference
 	Collection<Map.Entry<Map<String, Object>, Foo>> tupleFoos;
 

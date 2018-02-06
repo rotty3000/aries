@@ -22,7 +22,7 @@ public class MockServiceReference<S> implements ServiceReference<S> {
 			return -1;
 		}
 
-		ServiceReference otherReference = (ServiceReference)other;
+		ServiceReference<?> otherReference = (ServiceReference<?>)other;
 
 		Long id = (Long)getProperty(Constants.SERVICE_ID);
 		Long otherId = (Long)otherReference.getProperty(Constants.SERVICE_ID);
@@ -88,6 +88,10 @@ public class MockServiceReference<S> implements ServiceReference<S> {
 	@Override
 	public Bundle getBundle() {
 		return null;
+	}
+	@Override
+	public Dictionary<String, Object> getProperties() {
+		return _properties;
 	}
 
 	@Override

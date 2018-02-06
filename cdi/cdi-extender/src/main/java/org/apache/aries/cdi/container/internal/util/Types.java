@@ -20,8 +20,8 @@ import java.lang.reflect.Type;
 
 import javax.enterprise.inject.spi.InjectionPoint;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.aries.cdi.container.internal.log.Logs;
+import org.osgi.service.log.Logger;
 
 public class Types {
 
@@ -123,6 +123,6 @@ public class Types {
 		return classes.toArray(new Class[0]);
 	}
 */
-	public static final Logger _log = LoggerFactory.getLogger(Types.class);
+	public static final Logger _log = Logs.getLogger(Types.class);
 
 }

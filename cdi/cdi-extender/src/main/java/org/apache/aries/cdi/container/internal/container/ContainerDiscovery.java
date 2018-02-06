@@ -16,22 +16,23 @@ package org.apache.aries.cdi.container.internal.container;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.enterprise.inject.spi.DefinitionException;
 import javax.enterprise.inject.spi.Extension;
 
 import org.apache.aries.cdi.container.internal.component.DiscoveryExtension;
-import org.apache.aries.cdi.container.internal.extension.ExtensionMetadata;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
-import org.apache.aries.cdi.container.internal.v2.component.ContainerComponent;
 import org.jboss.weld.bootstrap.WeldBootstrap;
 import org.jboss.weld.bootstrap.spi.BeanDeploymentArchive;
 import org.jboss.weld.bootstrap.spi.Deployment;
 import org.jboss.weld.bootstrap.spi.Metadata;
+import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
+import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO.Type;
 
 public class ContainerDiscovery {
 
-	public static void discover(ContainerState containerState) {
+	public ContainerDiscovery(ContainerState containerState) {
 		String id = containerState.id() + "-discovery";
 
 		BeansModel beansModel = containerState.beansModel();
@@ -40,10 +41,18 @@ public class ContainerDiscovery {
 			containerState.loader(), id, beansModel.getBeanClassNames(),
 			beansModel.getBeansXml());
 
-		ContainerComponent containerComponent = new ContainerComponent(id);
+		ComponentTemplateDTO cctDTO = new ComponentTemplateDTO();
+		cctDTO.activations = new CopyOnWriteArrayList<>();
+		cctDTO.beans = new CopyOnWriteArrayList<>();
+		cctDTO.configurations = new CopyOnWriteArrayList<>();
+		cctDTO.name = containerState.id();
+		cctDTO.references = new CopyOnWriteArrayList<>();
+		cctDTO.type = Type.CONTAINER;
+
+		containerState.containerDTO().template.components.add(cctDTO);
 
 		ExtensionMetadata extension = new ExtensionMetadata(
-			new DiscoveryExtension(beansModel, containerComponent), id);
+			new DiscoveryExtension(containerState, beansModel, cctDTO), id);
 
 		List<Metadata<Extension>> extensions = Collections.singletonList(extension);
 
@@ -52,16 +61,11 @@ public class ContainerDiscovery {
 
 		WeldBootstrap _bootstrap = new WeldBootstrap();
 
-		try {
-			_bootstrap.startExtensions(extensions);
-			_bootstrap.startContainer(id, new ContainerEnvironment(), deployment);
-			_bootstrap.startInitialization();
-			_bootstrap.deployBeans();
-			_bootstrap.shutdown();
-		}
-		catch (DefinitionException de) {
-			throw de;
-		}
+		_bootstrap.startExtensions(extensions);
+		_bootstrap.startContainer(id, new ContainerEnvironment(), deployment);
+		_bootstrap.startInitialization();
+		_bootstrap.deployBeans();
+		_bootstrap.shutdown();
 
 		validate(containerState);
 	}

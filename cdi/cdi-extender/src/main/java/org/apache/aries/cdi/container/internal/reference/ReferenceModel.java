@@ -17,7 +17,6 @@ package org.apache.aries.cdi.container.internal.reference;
 import static org.apache.aries.cdi.container.internal.util.Reflection.cast;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Member;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.WildcardType;
@@ -26,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.enterprise.inject.Instance;
 import javax.enterprise.inject.spi.Annotated;
@@ -37,55 +37,49 @@ import javax.enterprise.inject.spi.AnnotatedParameter;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.inject.Named;
 import javax.inject.Provider;
+import javax.inject.Qualifier;
 
 import org.apache.aries.cdi.container.internal.model.CollectionType;
-import org.apache.aries.cdi.container.internal.util.Conversions;
-import org.apache.aries.cdi.container.internal.util.Maps;
 import org.osgi.framework.Constants;
 import org.osgi.framework.FrameworkUtil;
-import org.osgi.framework.InvalidSyntaxException;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.annotations.Greedy;
+import org.osgi.service.cdi.annotations.Prototype;
 import org.osgi.service.cdi.annotations.Reference;
 import org.osgi.service.cdi.reference.ReferenceServiceObjects;
 import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO.Policy;
 import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO.PolicyOption;
-import org.osgi.util.converter.TypeReference;
 
 public class ReferenceModel {
 
 	public static class Builder {
 
 		public ReferenceModel build() {
-			return new ReferenceModel(_annotated, _member, _qualifiers, _type, _referenceClass);
+			return new ReferenceModel(_annotated, _type, _declaringClass);
 		}
 
 		public Builder injectionPoint(InjectionPoint injectionPoint) {
 			_annotated = injectionPoint.getAnnotated();
-			_member = injectionPoint.getMember();
-			_qualifiers = injectionPoint.getQualifiers();
 			_type = injectionPoint.getType();
 
 			if (_annotated instanceof AnnotatedParameter) {
 				AnnotatedParameter<?> parameter = (AnnotatedParameter<?>)_annotated;
 
-				_referenceClass = parameter.getDeclaringCallable().getDeclaringType().getJavaClass();
+				_declaringClass = parameter.getDeclaringCallable().getDeclaringType().getJavaClass();
 			}
-			if (_annotated instanceof AnnotatedField) {
+			else if (_annotated instanceof AnnotatedField) {
 				AnnotatedField<?> field = (AnnotatedField<?>)_annotated;
 
-				_referenceClass = field.getDeclaringType().getJavaClass();
+				_declaringClass = field.getDeclaringType().getJavaClass();
 			}
 
 			return this;
 		}
 
 		private Annotated _annotated;
-		private Member _member;
-		private Set<Annotation> _qualifiers;
-		private Class<?> _referenceClass;
+		private Class<?> _declaringClass;
 		private Type _type;
 
 	}
@@ -96,30 +90,33 @@ public class ReferenceModel {
 
 	private ReferenceModel(
 		Annotated annotated,
-		Member member,
-		Set<Annotation> qualifiers,
 		Type type,
-		Class<?> referenceClass) {
+		Class<?> declaringClass) {
 
 		_annotated = annotated;
-		_member = member;
-		_qualifiers = qualifiers;
 		_injectionPointType = type;
-		_referenceClass = referenceClass;
+		_declaringClass = declaringClass;
+
+		_reference = _annotated.getAnnotation(Reference.class);
+
+		_referenceType = getReferenceType();
+		_referenceTarget = getReferenceTarget();
+		_prototype = getQualifiers().stream().filter(
+			ann -> ann.annotationType().equals(Prototype.class)
+		).findFirst().isPresent();
 
 		calculateServiceType(_injectionPointType);
 
-		Reference reference = _annotated.getAnnotation(Reference.class);
-
-		if ((reference != null) && (reference.value() != null) && (reference.value() != Object.class)) {
-			if (!_serviceType.isAssignableFrom(reference.value())) {
+		_referenceType.ifPresent(c -> {
+			if ((_serviceType != null) && !_serviceType.isAssignableFrom(c)) {
 				throw new IllegalArgumentException(
-					"The service type specified in @Reference (" + reference.value() +
+					"The service type specified in @Reference (" + c +
 						") is not compatible with the type calculated from the injection point: " +
 							_serviceType);
 			}
-			_serviceType = reference.value();
-		}
+
+			_serviceType = c;
+		});
 
 		Type rawType = _injectionPointType;
 
@@ -136,6 +133,22 @@ public class ReferenceModel {
 		if (_annotated.isAnnotationPresent(Greedy.class)) {
 			_greedy = true;
 		}
+
+		_targetFilter = buildFilter();
+	}
+
+	private Optional<String> getReferenceTarget() {
+		if ((_reference != null) && (_reference.target().length() > 0)) {
+			return Optional.of(_reference.target());
+		}
+		return Optional.empty();
+	}
+
+	private Optional<Class<?>> getReferenceType() {
+		if ((_reference != null) && (_reference.value() != null) && (_reference.value() != Object.class)) {
+			return Optional.of(_reference.value());
+		}
+		return Optional.empty();
 	}
 
 	public Annotated getAnnotated() {
@@ -158,12 +171,10 @@ public class ReferenceModel {
 		return _name;
 	}
 
-	public Member getMember() {
-		return _member;
-	}
-
 	public Set<Annotation> getQualifiers() {
-		return _qualifiers;
+		return _annotated.getAnnotations().stream().filter(
+			ann -> ann.annotationType().isAnnotationPresent(Qualifier.class)
+		).collect(Collectors.toSet());
 	}
 
 	public Class<?> getServiceType() {
@@ -172,10 +183,6 @@ public class ReferenceModel {
 
 	public String getTarget() {
 		return _targetFilter;
-	}
-
-	public Set<Type> getTypes() {
-		return null; // TODO _types;
 	}
 
 	public boolean dynamic() {
@@ -193,178 +200,60 @@ public class ReferenceModel {
 	@Override
 	public String toString() {
 		if (_string == null) {
-			//_string = String.format("reference[name='%s', service='%s', scope='%s', target='%s']", _name, _service, _scope, _target);
-			_string = super.toString();
+			_string = toDTO().toString();
 		}
 		return _string;
 	}
 
-	public static String buildFilter(
-			Class<?> serviceType,
-			String target,
-			Scope scope,
-			Set<Annotation> qualifiers)
-		throws InvalidSyntaxException {
-
+	private String buildFilter() {
 		StringBuilder sb = new StringBuilder();
 
-		sb.append("(&(");
-		sb.append(Constants.OBJECTCLASS);
-		sb.append("=");
-		sb.append(serviceType.getName());
-		sb.append(")");
-
-		if (scope == Scope.PROTOTYPE) {
-			sb.append("(");
+		if (_prototype) {
+			sb.append("(%(");
 			sb.append(Constants.SERVICE_SCOPE);
 			sb.append("=");
 			sb.append(Constants.SCOPE_PROTOTYPE);
 			sb.append(")");
 		}
 
-		String targetFilter = target == null ? "" : target;
+		String targetFilter = _referenceTarget.orElse(_emptyFilter);
 
 		int targetFilterLength = targetFilter.length();
 
 		if (targetFilterLength > 0) {
-			FrameworkUtil.createFilter(targetFilter);
+			try {
+				FrameworkUtil.createFilter(targetFilter);
 
-			sb.append(targetFilter);
-		}
-
-		if (qualifiers != null) {
-			for (Annotation qualifier : qualifiers) {
-				Class<? extends Annotation> annotationType = qualifier.annotationType();
-
-				if (annotationType.equals(Reference.class)) {
-					continue;
-				}
-
-				Map<String, String> map = Conversions.convert(qualifier).sourceAs(qualifier.annotationType()).to(_mapType);
-
-				Maps.appendFilter(sb, map);
+				sb.append(targetFilter);
+			}
+			catch (Exception e) {
+				throw new IllegalArgumentException(
+					"Invalid target filter: " + targetFilter, e);
 			}
 		}
 
-		sb.append(")");
+//		for (Annotation qualifier : getQualifiers()) {
+//			Class<? extends Annotation> annotationType = qualifier.annotationType();
+//
+//			if (annotationType.equals(Reference.class) ||
+//				annotationType.equals(Prototype.class)) {
+//
+//				// TODO filter out blacklisted qualifiers
+//
+//				continue;
+//			}
+//
+//			Map<String, String> map = Conversions.convert(qualifier).sourceAs(qualifier.annotationType()).to(_mapType);
+//
+//			Maps.appendFilter(sb, map);
+//		}
+
+		if (_prototype) {
+			sb.append(")");
+		}
 
 		return sb.toString();
 	}
-
-//	private static Class<?> calculateBeanClass(Type type) {
-//		if (type instanceof ParameterizedType) {
-//			ParameterizedType pType = (ParameterizedType)type;
-//
-//			type = pType.getRawType();
-//		}
-//		else if (type instanceof WildcardType) {
-//			throw new IllegalArgumentException(
-//				"Cannot use a wildcard as the bean: " + type);
-//		}
-//
-//		return cast(type);
-//	}
-
-//	private static CollectionType calculateCollectionType(Type type) {
-//		if (type instanceof ParameterizedType) {
-//			ParameterizedType parameterizedType = cast(type);
-//
-//			Type rawType = parameterizedType.getRawType();
-//
-//			if ((List.class == cast(rawType)) ||
-//				Collection.class.isAssignableFrom(cast(rawType))) {
-//
-//				Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
-//
-//				return calculateCollectionType(actualTypeArguments[0]);
-//			}
-//			else if (Map.class == cast(rawType)) {
-//				Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
-//
-//				Type first = actualTypeArguments[0];
-//				Type second = actualTypeArguments[1];
-//
-//				if (!(first instanceof ParameterizedType) &&
-//					String.class.isAssignableFrom(cast(first))) {
-//
-//					if ((!(second instanceof ParameterizedType) && (second == Object.class)) ||
-//						(second instanceof WildcardType)) {
-//
-//						return CollectionType.PROPERTIES;
-//					}
-//				}
-//			}
-//			else if (Map.Entry.class == cast(rawType)) {
-//				return CollectionType.TUPLE;
-//			}
-//			else if (ServiceObjects.class == cast(rawType)) {
-//				return CollectionType.SERVICEOBJECTS;
-//			}
-//			else if (ServiceReference.class == cast(rawType)) {
-//				return CollectionType.REFERENCE;
-//			}
-//		}
-//		else if (Map.Entry.class == cast(type)) {
-//			return CollectionType.TUPLE;
-//		}
-//		else if (ServiceObjects.class == cast(type)) {
-//			return CollectionType.SERVICEOBJECTS;
-//		}
-//		else if (ServiceReference.class == cast(type)) {
-//			return CollectionType.REFERENCE;
-//		}
-//
-//		return CollectionType.SERVICE;
-//	}
-
-//	private static ReferenceCardinality calculateCardinality(
-//		ReferenceCardinality cardinality, Multiplicity multiplicity, Type type) {
-//
-//		if ((multiplicity == Multiplicity.UNARY) &&
-//			((cardinality == ReferenceCardinality.AT_LEAST_ONE) || (cardinality == ReferenceCardinality.MULTIPLE))) {
-//
-//			throw new IllegalArgumentException(
-//				format(
-//					"Unary injection point type %s cannot be defined by multiple cardinality %s",
-//					type, cardinality));
-//		}
-//		else if ((multiplicity == Multiplicity.MULTIPLE) &&
-//				((cardinality == ReferenceCardinality.OPTIONAL) || (cardinality == ReferenceCardinality.MANDATORY))) {
-//
-//			throw new IllegalArgumentException(
-//				format(
-//					"Multiple injection point type %s cannot be defined by unary cardinality %s",
-//					type, cardinality));
-//		}
-//
-//		if ((cardinality == null) || (cardinality == ReferenceCardinality.DEFAULT)) {
-//			switch(multiplicity) {
-//				case MULTIPLE:
-//					return ReferenceCardinality.MULTIPLE;
-//				case UNARY:
-//					return ReferenceCardinality.MANDATORY;
-//			}
-//		}
-//
-//		return cardinality;
-//	}
-
-//	private static Multiplicity calculateMultiplicity(Type type) {
-//		if (type instanceof ParameterizedType) {
-//			ParameterizedType parameterizedType = cast(type);
-//
-//			Type rawType = parameterizedType.getRawType();
-//
-//			if ((Instance.class == cast(rawType)) ||
-//				Collection.class.isAssignableFrom(cast(rawType)) ||
-//				ServiceEvent.class == cast(rawType)) {
-//
-//				return Multiplicity.MULTIPLE;
-//			}
-//		}
-//
-//		return Multiplicity.UNARY;
-//	}
 
 	private String calculateName(Class<?> service, Annotated annotated) {
 		Named named = annotated.getAnnotation(Named.class);
@@ -378,7 +267,7 @@ public class ReferenceModel {
 			return named.value();
 		}
 
-		String prefix = _referenceClass.getName() + ".";
+		String prefix = _declaringClass.getName() + ".";
 
 		if (annotated instanceof AnnotatedParameter) {
 			AnnotatedParameter<?> parameter = (AnnotatedParameter<?>)annotated;
@@ -407,24 +296,47 @@ public class ReferenceModel {
 				throw new IllegalArgumentException(
 					"The service type must not be generic: " + type);
 			}
-			else if (Map.class == cast(type)) {
+
+			Class<?> clazz = cast(type);
+
+			if (Map.class == clazz) {
 				throw new IllegalArgumentException(
-					"Map must specify a generic type arguments: " + type);
+					"Map must specify a generic type arguments: " + clazz);
 			}
-			else if (Map.Entry.class == cast(type)) {
+			else if (Map.Entry.class == clazz) {
 				throw new IllegalArgumentException(
-					"Map.Entry must specify a generic type arguments: " + type);
+					"Map.Entry must specify a generic type arguments: " + clazz);
 			}
-			else if (ReferenceServiceObjects.class == cast(type)) {
+			else if ((ReferenceServiceObjects.class == clazz) && !_referenceType.isPresent()) {
 				throw new IllegalArgumentException(
-					"ReferenceServiceObjects must specify a generic type argument: " + type);
+					"ReferenceServiceObjects must specify a generic type argument: " + clazz);
 			}
-			else if (ServiceReference.class == cast(type)) {
+			else if ((ServiceReference.class == clazz) && !_referenceType.isPresent()) {
 				throw new IllegalArgumentException(
 					"ServiceReference must specify a generic type argument: " + type);
 			}
+			else if ((Collection.class == clazz || Iterable.class == clazz || List.class == clazz) &&
+					!_referenceType.isPresent()) {
 
-			_serviceType = cast(type);
+				throw new IllegalArgumentException(
+					type + " must specify a generic type argument");
+			}
+			else if (ReferenceServiceObjects.class == clazz) {
+				_collectionType = CollectionType.SERVICEOBJECTS;
+				return;
+			}
+			else if (ServiceReference.class == clazz) {
+				_collectionType = CollectionType.REFERENCE;
+				return;
+			}
+			else if (Collection.class == clazz || Iterable.class == clazz || List.class == clazz) {
+				_collectionType = CollectionType.SERVICE;
+				_multiplicity = MaximumCardinality.MANY;
+				_optional = true;
+				return;
+			}
+
+			_serviceType = clazz;
 
 			return;
 		}
@@ -432,6 +344,10 @@ public class ReferenceModel {
 		ParameterizedType parameterizedType = cast(type);
 
 		Type rawType = parameterizedType.getRawType();
+
+		Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+
+		Type argument = actualTypeArguments[0];
 
 		if (Instance.class == cast(rawType)) {
 			throw new IllegalArgumentException(
@@ -441,7 +357,7 @@ public class ReferenceModel {
 		if ((!_dynamic) && (Provider.class == cast(rawType))) {
 			_dynamic = true;
 
-			calculateServiceType(parameterizedType.getActualTypeArguments()[0]);
+			calculateServiceType(argument);
 
 			return;
 		}
@@ -449,7 +365,11 @@ public class ReferenceModel {
 		if ((!_optional) && (Optional.class == cast(rawType))) {
 			_optional = true;
 
-			calculateServiceType(parameterizedType.getActualTypeArguments()[0]);
+			if ((argument instanceof WildcardType) && _referenceType.isPresent()) {
+				return;
+			}
+
+			calculateServiceType(argument);
 
 			return;
 		}
@@ -462,14 +382,14 @@ public class ReferenceModel {
 			_optional = true;
 			_multiplicity = MaximumCardinality.MANY;
 
-			calculateServiceType(parameterizedType.getActualTypeArguments()[0]);
+			if ((argument instanceof WildcardType) && _referenceType.isPresent()) {
+				return;
+			}
+
+			calculateServiceType(argument);
 
 			return;
 		}
-
-		Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
-
-		Type argument = actualTypeArguments[0];
 
 		if (Map.class == cast(rawType)) {
 			if (String.class != cast(argument)) {
@@ -488,14 +408,10 @@ public class ReferenceModel {
 
 			_collectionType = CollectionType.PROPERTIES;
 
-			Reference reference = _annotated.getAnnotation(Reference.class);
-
-			if ((reference == null) || (reference.value() == null)) {
+			if (!_referenceType.isPresent()) {
 				throw new IllegalArgumentException(
 					"Maps of properties must specify service type with @Reference.value(): " + argument);
 			}
-
-			_serviceType = reference.value();
 
 			return;
 		}
@@ -506,22 +422,30 @@ public class ReferenceModel {
 					"Tuples must have a key of type Map<String, (? | Object)>: " + argument);
 			}
 
-			argument = actualTypeArguments[1];
-
-			if (!(argument instanceof Class)) {
-				throw new IllegalArgumentException(
-					"The service type must not be generic: " + argument);
-			}
-
 			_collectionType = CollectionType.TUPLE;
 
-			_serviceType = cast(argument);
+			Type second = actualTypeArguments[1];
+
+			if ((second instanceof WildcardType) && _referenceType.isPresent()) {
+				return;
+			}
+
+			if (!(second instanceof Class)) {
+				throw new IllegalArgumentException(
+					"The service type must not be generic: " + second);
+			}
+
+			_serviceType = cast(second);
 
 			return;
 		}
 
 		if (ReferenceServiceObjects.class == cast(rawType)) {
 			_collectionType = CollectionType.SERVICEOBJECTS;
+
+			if ((argument instanceof WildcardType) && _referenceType.isPresent()) {
+				return;
+			}
 
 			calculateServiceType(argument);
 
@@ -530,6 +454,10 @@ public class ReferenceModel {
 
 		if (ServiceReference.class == cast(rawType)) {
 			_collectionType = CollectionType.REFERENCE;
+
+			if ((argument instanceof WildcardType) && _referenceType.isPresent()) {
+				return;
+			}
 
 			calculateServiceType(argument);
 
@@ -543,105 +471,6 @@ public class ReferenceModel {
 				"Illegal service type: " + argument);
 		}
 	}
-
-//	private static Class<?> calculateServiceClass(
-//		Class<?> service, ReferenceCardinality cardinality, CollectionType collectionType, Type injectionPointType, Annotated annotated) {
-//
-//		Class<?> calculatedServiceClass = calculateServiceClass(injectionPointType);
-//
-//		if ((service == null) || (service == Object.class)) {
-//			if (calculatedServiceClass == null) {
-//				throw new IllegalArgumentException(
-//					"Could not determine the service type from @Reference on annotated " +
-//						annotated);
-//			}
-//
-//			switch(collectionType) {
-//				case PROPERTIES:
-//					if (calculatedServiceClass == Map.class) {
-//						throw new IllegalArgumentException(
-//							"A @Reference cannot bind service properties to a Map<String, Object> without " +
-//								"specifying the @Reference.service property: " + annotated);
-//					}
-//					break;
-//				case REFERENCE:
-//					if (calculatedServiceClass == ServiceReference.class) {
-//						throw new IllegalArgumentException(
-//							"A @Reference cannot bind a ServiceReference without specifying either the " +
-//								"@Reference.service property or a generic type argument (e.g. ServiceReference<Foo>: " +
-//									annotated);
-//					}
-//					break;
-//				case SERVICEOBJECTS:
-//					if	(calculatedServiceClass == ServiceObjects.class) {
-//						throw new IllegalArgumentException(
-//							"A @Reference cannot bind a ServiceObjects without specifying either the " +
-//								"@Reference.service property or a generic type argument (e.g. ServiceObjects<Foo>: " +
-//									annotated);
-//					}
-//					break;
-//				case TUPLE:
-//					if (calculatedServiceClass == Map.Entry.class) {
-//						throw new IllegalArgumentException(
-//							"A @Reference cannot bind a Map.Entry without specifying either the " +
-//								"@Reference.service property or a generic type argument (e.g. Map.Entry<Map<String, Object>, Foo>: " +
-//									annotated);
-//					}
-//					break;
-//				default:
-//			}
-//
-//			return calculatedServiceClass;
-//		}
-//
-//		switch(collectionType) {
-//			case PROPERTIES:
-//				if (Map.class.isAssignableFrom(calculatedServiceClass)) {
-//					return service;
-//				}
-//				break;
-//			case REFERENCE:
-//				if ((calculatedServiceClass == null) ||
-//					ServiceReference.class.isAssignableFrom(calculatedServiceClass)) {
-//					return service;
-//				}
-//				break;
-//			case SERVICEOBJECTS:
-//				if ((calculatedServiceClass == null) ||
-//					ServiceObjects.class.isAssignableFrom(calculatedServiceClass)) {
-//					return service;
-//				}
-//				break;
-//			case TUPLE:
-//				if ((calculatedServiceClass != null) &&
-//					Map.Entry.class.isAssignableFrom(calculatedServiceClass)) {
-//
-//					if (!checkKey(calculatedServiceClass)) {
-//						throw new IllegalArgumentException(
-//							"Tuples must have a key of type Map<String, [? or Object]>: " + calculatedServiceClass);
-//					}
-//
-//					return service;
-//				}
-//				else if ((calculatedServiceClass == null) ||
-//					calculatedServiceClass.isAssignableFrom(service)) {
-//
-//					return service;
-//				}
-//				break;
-//			case SERVICE:
-//				if (((calculatedServiceClass == null) &&
-//						((cardinality == ReferenceCardinality.MULTIPLE) ||
-//						(cardinality == ReferenceCardinality.AT_LEAST_ONE))) ||
-//					((calculatedServiceClass != null) &&
-//						calculatedServiceClass.isAssignableFrom(service))) {
-//					return service;
-//				}
-//		}
-//
-//		throw new IllegalArgumentException(
-//			"@Reference.service " + service + " is not compatible with annotated " + annotated);
-//	}
 
 	// check the key type to make sure it complies with Map<String, ?> OR Map<String, Object>
 	private static boolean checkKey(Type mapEntryType) {
@@ -671,22 +500,6 @@ public class ReferenceModel {
 		return true;
 	}
 
-//	private static Type upwrapCDITypes(Type type) {
-//		if (type instanceof ParameterizedType) {
-//			ParameterizedType pType = (ParameterizedType)type;
-//
-//			Type rawType = pType.getRawType();
-//
-//			if (Instance.class == Reflection.cast(rawType) ||
-//				ServiceEvent.class == Reflection.cast(rawType)) {
-//
-//				type = pType.getActualTypeArguments()[0];
-//			}
-//		}
-//
-//		return type;
-//	}
-
 	public ReferenceTemplateDTO toDTO() {
 		ReferenceTemplateDTO dto = new ReferenceTemplateDTO();
 		dto.maximumCardinality = _multiplicity;
@@ -694,28 +507,28 @@ public class ReferenceModel {
 		dto.name = _name;
 		dto.policy = (_dynamic) ? Policy.DYNAMIC : Policy.STATIC;
 		dto.policyOption = (_greedy) ? PolicyOption.GREEDY: PolicyOption.RELUCTANT;
-		dto.targetFilter = _targetFilter;
 		dto.serviceType = _serviceType.getName();
+		dto.targetFilter = _targetFilter;
 		return dto;
 	}
 
 	private static final String _emptyFilter = "";
 
-	private static final TypeReference<Map<String, String>> _mapType = new TypeReference<Map<String, String>>(){};
-
 	private final Annotated _annotated;
 	private Class<?> _beanClass;
 	private CollectionType _collectionType = CollectionType.SERVICE;
+	private final Class<?> _declaringClass;
 	private boolean _dynamic = false;
 	private boolean _greedy = false;
 	private final Type _injectionPointType;
-	private final Member _member;
 	private MaximumCardinality _multiplicity = MaximumCardinality.ONE;
-	private String _name;
+	private final String _name;
 	private boolean _optional = false;
-	private final Set<Annotation> _qualifiers;
-	private Class<?> _referenceClass;
+	private final boolean _prototype;
+	private final Reference _reference;
+	private final Optional<Class<?>> _referenceType;
+	private final Optional<String> _referenceTarget;
 	private Class<?> _serviceType;
 	private String _string;
-	private String _targetFilter = _emptyFilter;
+	private final String _targetFilter;
 }

@@ -14,14 +14,12 @@
 
 package org.apache.aries.cdi.container.internal.component;
 
-import static org.apache.aries.cdi.container.test.TestUtil.sort;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.apache.aries.cdi.container.test.TestUtil.*;
+import static org.junit.Assert.*;
 
 import java.util.Collection;
 
 import org.apache.aries.cdi.container.internal.model.BeansModel;
-import org.apache.aries.cdi.container.internal.v2.component.Component;
 import org.apache.aries.cdi.container.test.MockCdiContainerAndComponents;
 import org.apache.aries.cdi.container.test.beans.Bar;
 import org.apache.aries.cdi.container.test.beans.Foo;
@@ -52,11 +50,7 @@ public class Discovery_Ctor_dynamic_greedy_Test2 {
 
 			OSGiBean bean = beans.iterator().next();
 
-			Component component = bean.getComponent();
-
-			assertNotNull(component);
-
-			ComponentTemplateDTO template = component.getTemplate();
+			ComponentTemplateDTO template = bean.geComponentTemplateDTO();
 
 			assertNotNull(template);
 			assertNotNull(template.references);
@@ -89,11 +83,7 @@ public class Discovery_Ctor_dynamic_greedy_Test2 {
 
 			OSGiBean bean = beans.iterator().next();
 
-			Component component = bean.getComponent();
-
-			assertNotNull(component);
-
-			ComponentTemplateDTO template = component.getTemplate();
+			ComponentTemplateDTO template = bean.geComponentTemplateDTO();
 
 			assertNotNull(template);
 			assertNotNull(template.references);
@@ -137,11 +127,7 @@ public class Discovery_Ctor_dynamic_greedy_Test2 {
 
 			OSGiBean bean = beans.iterator().next();
 
-			Component component = bean.getComponent();
-
-			assertNotNull(component);
-
-			ComponentTemplateDTO template = component.getTemplate();
+			ComponentTemplateDTO template = bean.geComponentTemplateDTO();
 
 			assertNotNull(template);
 			assertNotNull(template.references);
@@ -174,11 +160,7 @@ public class Discovery_Ctor_dynamic_greedy_Test2 {
 
 			OSGiBean bean = beans.iterator().next();
 
-			Component component = bean.getComponent();
-
-			assertNotNull(component);
-
-			ComponentTemplateDTO template = component.getTemplate();
+			ComponentTemplateDTO template = bean.geComponentTemplateDTO();
 
 			assertNotNull(template);
 			assertNotNull(template.references);
@@ -211,11 +193,7 @@ public class Discovery_Ctor_dynamic_greedy_Test2 {
 
 			OSGiBean bean = beans.iterator().next();
 
-			Component component = bean.getComponent();
-
-			assertNotNull(component);
-
-			ComponentTemplateDTO template = component.getTemplate();
+			ComponentTemplateDTO template = bean.geComponentTemplateDTO();
 
 			assertNotNull(template);
 			assertNotNull(template.references);
@@ -259,11 +237,7 @@ public class Discovery_Ctor_dynamic_greedy_Test2 {
 
 			OSGiBean bean = beans.iterator().next();
 
-			Component component = bean.getComponent();
-
-			assertNotNull(component);
-
-			ComponentTemplateDTO template = component.getTemplate();
+			ComponentTemplateDTO template = bean.geComponentTemplateDTO();
 
 			assertNotNull(template);
 			assertNotNull(template.references);
@@ -307,11 +281,7 @@ public class Discovery_Ctor_dynamic_greedy_Test2 {
 
 			OSGiBean bean = beans.iterator().next();
 
-			Component component = bean.getComponent();
-
-			assertNotNull(component);
-
-			ComponentTemplateDTO template = component.getTemplate();
+			ComponentTemplateDTO template = bean.geComponentTemplateDTO();
 
 			assertNotNull(template);
 			assertNotNull(template.references);

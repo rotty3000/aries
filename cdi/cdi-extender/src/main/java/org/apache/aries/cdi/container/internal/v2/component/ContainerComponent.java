@@ -12,10 +12,10 @@ import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO;
 public class ContainerComponent implements Component {
 
 	public ContainerComponent(String containerId) {
-		_snapshot = new ComponentDTO();
-		_snapshot.template = new ComponentTemplateDTO();
-		_snapshot.template.activations = new CopyOnWriteArrayList<>();
-		_snapshot.template.configurations = new CopyOnWriteArrayList<>();
+		_dto = new ComponentDTO();
+		_dto.template = new ComponentTemplateDTO();
+		_dto.template.activations = new CopyOnWriteArrayList<>();
+		_dto.template.configurations = new CopyOnWriteArrayList<>();
 
 		ConfigurationTemplateDTO factoryConfig = new ConfigurationTemplateDTO();
 		factoryConfig.componentConfiguration = true;
@@ -23,34 +23,34 @@ public class ContainerComponent implements Component {
 		factoryConfig.pid = containerId;
 		factoryConfig.policy = ConfigurationPolicy.OPTIONAL;
 
-		_snapshot.template.configurations.add(factoryConfig);
-		_snapshot.template.name = containerId;
-		_snapshot.template.references = new CopyOnWriteArrayList<>();
-		_snapshot.template.type = ComponentTemplateDTO.Type.CONTAINER;
+		_dto.template.configurations.add(factoryConfig);
+		_dto.template.name = containerId;
+		_dto.template.references = new CopyOnWriteArrayList<>();
+		_dto.template.type = ComponentTemplateDTO.Type.CONTAINER;
 	}
 
 	@Override
 	public void addConfiguration(ConfigurationTemplateDTO dto) {
 		if (dto == null) return;
-		_snapshot.template.configurations.add(dto);
+		_dto.template.configurations.add(dto);
 	}
 
 	@Override
 	public void addReference(ReferenceTemplateDTO dto) {
 		if (dto == null) return;
-		_snapshot.template.references.add(dto);
+		_dto.template.references.add(dto);
 	}
 
 	@Override
 	public ComponentDTO getSnapshot() {
-		return _snapshot; // TODO make safe copy using converter
+		return _dto; // TODO make safe copy using converter
 	}
 
 	@Override
 	public ComponentTemplateDTO getTemplate() {
-		return _snapshot.template; // TODO make safe copy using converter
+		return _dto.template; // TODO make safe copy using converter
 	}
 
-	private final ComponentDTO _snapshot;
+	private final ComponentDTO _dto;
 
 }

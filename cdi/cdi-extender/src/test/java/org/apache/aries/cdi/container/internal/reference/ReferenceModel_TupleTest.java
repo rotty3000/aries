@@ -22,13 +22,12 @@ import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
 
 import javax.enterprise.inject.Instance;
 import javax.enterprise.inject.spi.InjectionPoint;
+import javax.inject.Inject;
 
 import org.apache.aries.cdi.container.internal.model.CollectionType;
-import org.apache.aries.cdi.container.internal.util.Sets;
 import org.apache.aries.cdi.container.test.MockInjectionPoint;
 import org.apache.aries.cdi.container.test.beans.Foo;
 import org.junit.Test;
@@ -37,13 +36,277 @@ import org.osgi.util.converter.TypeReference;
 
 public class ReferenceModel_TupleTest {
 
+	@Test(expected = IllegalArgumentException.class)
+	public void withoutServiceType_raw() throws Exception {
+		class C {
+			@SuppressWarnings("rawtypes")
+			@Inject
+			@Reference
+			public Map.Entry m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void withoutServiceType_wildcard() throws Exception {
+		class C {
+			@Inject
+			@Reference
+			public Map.Entry<Map<String, ?>, ?> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void withoutServiceType_wildcard_b() throws Exception {
+		class C {
+			@Inject
+			@Reference
+			public Map.Entry<Map<String, Object>, ?> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+	}
+
 	@Test
-	public void withServiceType() throws Exception {
+	public void withoutServiceType_typed() throws Exception {
 		Type type = new TypeReference<
 			Map.Entry<Map<String, ?>, Integer>
 		>(){}.getType();
 
-		InjectionPoint injectionPoint = new MockInjectionPoint(type);
+		class C {
+			@Inject
+			@Reference
+			public Map.Entry<Map<String, ?>, Integer> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		ReferenceModel referenceModel = new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+
+		assertEquals(Map.Entry.class, referenceModel.getBeanClass());
+		assertEquals(Integer.class, referenceModel.getServiceType());
+		assertEquals(type, referenceModel.getInjectionPointType());
+		assertFalse(referenceModel.dynamic());
+		assertFalse(referenceModel.optional());
+		assertTrue(referenceModel.unary());
+		assertEquals(CollectionType.TUPLE, referenceModel.getCollectionType());
+	}
+
+	@Test
+	public void withoutServiceType_typed_b() throws Exception {
+		Type type = new TypeReference<
+			Map.Entry<Map<String, Object>, Integer>
+		>(){}.getType();
+
+		class C {
+			@Inject
+			@Reference
+			public Map.Entry<Map<String, Object>, Integer> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		ReferenceModel referenceModel = new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+
+		assertEquals(Map.Entry.class, referenceModel.getBeanClass());
+		assertEquals(Integer.class, referenceModel.getServiceType());
+		assertEquals(type, referenceModel.getInjectionPointType());
+		assertFalse(referenceModel.dynamic());
+		assertFalse(referenceModel.optional());
+		assertTrue(referenceModel.unary());
+		assertEquals(CollectionType.TUPLE, referenceModel.getCollectionType());
+	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void withoutServiceType_wrongKeyType_A() throws Exception {
+		class C {
+			@Inject
+			@Reference
+			public Map.Entry<?, Integer> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void withoutServiceType_wrongKeyType_B() throws Exception {
+		class C {
+			@Inject
+			@Reference
+			public Map.Entry<Collection<?>, Integer> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void withoutServiceType_wrongKeyType_C() throws Exception {
+		class C {
+			@SuppressWarnings("rawtypes")
+			@Inject
+			@Reference
+			public Map.Entry<Map, Integer> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void withoutServiceType_wrongKeyType_D() throws Exception {
+		class C {
+			@Inject
+			@Reference
+			public Map.Entry<Map<?, Foo>, Integer> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void withoutServiceType_wrongKeyType_E() throws Exception {
+		class C {
+			@Inject
+			@Reference
+			public Map.Entry<Map<String, Foo>, Integer> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void withoutServiceType_wrongKeyType_F() throws Exception {
+		class C {
+			@Inject
+			@Reference
+			public Map.Entry<Map<String, ? extends Foo>, Integer> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void withServiceType_raw() throws Exception {
+		class C {
+			@SuppressWarnings("rawtypes")
+			@Inject
+			@Reference(Integer.class)
+			public Map.Entry m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+	}
+
+	@Test
+	public void withServiceType_wildcard() throws Exception {
+		Type type = new TypeReference<
+			Map.Entry<Map<String, ?>, ?>
+		>(){}.getType();
+
+		class C {
+			@Inject
+			@Reference(Integer.class)
+			public Map.Entry<Map<String, ?>, ?> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		ReferenceModel referenceModel = new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+
+		assertEquals(Map.Entry.class, referenceModel.getBeanClass());
+		assertEquals(Integer.class, referenceModel.getServiceType());
+		assertEquals(type, referenceModel.getInjectionPointType());
+		assertFalse(referenceModel.dynamic());
+		assertFalse(referenceModel.optional());
+		assertTrue(referenceModel.unary());
+		assertEquals(CollectionType.TUPLE, referenceModel.getCollectionType());
+	}
+
+	@Test
+	public void withServiceType_wildcard_b() throws Exception {
+		Type type = new TypeReference<
+			Map.Entry<Map<String, Object>, ?>
+		>(){}.getType();
+
+		class C {
+			@Inject
+			@Reference(Integer.class)
+			public Map.Entry<Map<String, Object>, ?> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		ReferenceModel referenceModel = new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+
+		assertEquals(Map.Entry.class, referenceModel.getBeanClass());
+		assertEquals(Integer.class, referenceModel.getServiceType());
+		assertEquals(type, referenceModel.getInjectionPointType());
+		assertFalse(referenceModel.dynamic());
+		assertFalse(referenceModel.optional());
+		assertTrue(referenceModel.unary());
+		assertEquals(CollectionType.TUPLE, referenceModel.getCollectionType());
+	}
+
+	@Test
+	public void withServiceType_typed() throws Exception {
+		Type type = new TypeReference<
+			Map.Entry<Map<String, ?>, Integer>
+		>(){}.getType();
+
+		class C {
+			@Inject
+			@Reference(Integer.class)
+			public Map.Entry<Map<String, ?>, Integer> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		ReferenceModel referenceModel = new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+
+		assertEquals(Map.Entry.class, referenceModel.getBeanClass());
+		assertEquals(Integer.class, referenceModel.getServiceType());
+		assertEquals(type, referenceModel.getInjectionPointType());
+		assertFalse(referenceModel.dynamic());
+		assertFalse(referenceModel.optional());
+		assertTrue(referenceModel.unary());
+		assertEquals(CollectionType.TUPLE, referenceModel.getCollectionType());
+	}
+
+	@Test
+	public void withServiceType_typed_b() throws Exception {
+		Type type = new TypeReference<
+			Map.Entry<Map<String, Object>, Integer>
+		>(){}.getType();
+
+		class C {
+			@Inject
+			@Reference(Integer.class)
+			public Map.Entry<Map<String, Object>, Integer> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
 
 		ReferenceModel referenceModel = new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
 
@@ -58,112 +321,109 @@ public class ReferenceModel_TupleTest {
 
 	@Test(expected = IllegalArgumentException.class)
 	public void withServiceType_wrongKeyType_A() throws Exception {
-		Type type = new TypeReference<
-			Map.Entry<?, Integer>
-		>(){}.getType();
+		class C {
+			@Inject
+			@Reference(Integer.class)
+			public Map.Entry<?, Integer> m;
+		}
 
-		InjectionPoint injectionPoint = new MockInjectionPoint(type);
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
 
 		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
 	}
 
 	@Test(expected = IllegalArgumentException.class)
 	public void withServiceType_wrongKeyType_B() throws Exception {
-		Type type = new TypeReference<
-			Map.Entry<Collection<?>, Callable<?>>
-		>(){}.getType();
+		class C {
+			@Inject
+			@Reference(Integer.class)
+			public Map.Entry<Collection<?>, Integer> m;
+		}
 
-		InjectionPoint injectionPoint = new MockInjectionPoint(type);
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
 
 		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
 	}
 
 	@Test(expected = IllegalArgumentException.class)
 	public void withServiceType_wrongKeyType_C() throws Exception {
-		@SuppressWarnings("rawtypes")
-		Type type = new TypeReference<
-			Map.Entry<Map, Callable<?>>
-		>(){}.getType();
+		class C {
+			@SuppressWarnings("rawtypes")
+			@Inject
+			@Reference(Integer.class)
+			public Map.Entry<Map, Integer> m;
+		}
 
-		InjectionPoint injectionPoint = new MockInjectionPoint(type);
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
 
 		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
 	}
 
 	@Test(expected = IllegalArgumentException.class)
 	public void withServiceType_wrongKeyType_D() throws Exception {
-		Type type = new TypeReference<
-			Map.Entry<Map<?, Foo>, Callable<?>>
-		>(){}.getType();
+		class C {
+			@Inject
+			@Reference(Integer.class)
+			public Map.Entry<Map<?, Foo>, Integer> m;
+		}
 
-		InjectionPoint injectionPoint = new MockInjectionPoint(type);
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
 
 		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
 	}
 
 	@Test(expected = IllegalArgumentException.class)
 	public void withServiceType_wrongKeyType_E() throws Exception {
-		Type type = new TypeReference<
-			Map.Entry<Map<String, Foo>, Callable<?>>
-		>(){}.getType();
+		class C {
+			@Inject
+			@Reference(Integer.class)
+			public Map.Entry<Map<String, Foo>, Integer> m;
+		}
 
-		InjectionPoint injectionPoint = new MockInjectionPoint(type);
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
 
 		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
 	}
 
 	@Test(expected = IllegalArgumentException.class)
 	public void withServiceType_wrongKeyType_F() throws Exception {
-		Type type = new TypeReference<
-			Map.Entry<Map<String, ? extends Foo>, Callable<?>>
-		>(){}.getType();
+		class C {
+			@Inject
+			@Reference(Integer.class)
+			public Map.Entry<Map<String, ? extends Foo>, Integer> m;
+		}
 
-		InjectionPoint injectionPoint = new MockInjectionPoint(type);
-
-		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void withoutServiceDefined() throws Exception {
-		@SuppressWarnings("rawtypes")
-		Type type = new TypeReference<
-			Map.Entry
-		>(){}.getType();
-
-		InjectionPoint injectionPoint = new MockInjectionPoint(type);
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
 
 		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
 	}
 
 	@Test(expected = IllegalArgumentException.class)
-	public void withServiceDefinedButGenericTuple() throws Exception {
-		Type type = new TypeReference<
-			Map.Entry<Map<String, ?>, ?>
-		>(){}.getType();
+	public void withServiceType_wrongtype() throws Exception {
+		class C {
+			@Inject
+			@Reference(Integer.class)
+			public Map.Entry<Map<String, ?>, Foo> m;
+		}
 
-		InjectionPoint injectionPoint = new MockInjectionPoint(type, Sets.hashSet(Reference.Literal.of(Integer.class, "")));
-
-		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void withServiceDefinedButNotAssignable() throws Exception {
-		Type type = new TypeReference<
-			Map.Entry<Map<String, ?>, String>
-		>(){}.getType();
-
-		InjectionPoint injectionPoint = new MockInjectionPoint(type, Sets.hashSet(Reference.Literal.of(Integer.class, "")));
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
 
 		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
 	}
 
 	@Test
-	public void withServiceDefined() throws Exception {
+	public void withServiceType_supertype() throws Exception {
 		Type type = new TypeReference<
 			Map.Entry<Map<String, ?>, Number>
 		>(){}.getType();
 
-		InjectionPoint injectionPoint = new MockInjectionPoint(type, Sets.hashSet(Reference.Literal.of(Integer.class, "")));
+		class C {
+			@Inject
+			@Reference(Integer.class)
+			public Map.Entry<Map<String, ?>, Number> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
 
 		ReferenceModel referenceModel = new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
 
@@ -177,24 +437,57 @@ public class ReferenceModel_TupleTest {
 	}
 
 	@Test(expected = IllegalArgumentException.class)
-	public void collectionWithoutServiceDefined() throws Exception {
-		@SuppressWarnings("rawtypes")
-		Type type = new TypeReference<
-			Collection<Map.Entry>
-		>(){}.getType();
+	public void collectionWithoutServiceType_raw() throws Exception {
+		class C {
+			@SuppressWarnings("rawtypes")
+			@Inject
+			@Reference
+			public Collection<Map.Entry> m;
+		}
 
-		InjectionPoint injectionPoint = new MockInjectionPoint(type);
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
 
 		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
 	}
 
 	@Test
-	public void collectionWithServiceDefined() throws Exception {
+	public void collectionWithoutServiceType_typed() throws Exception {
+		Type type = new TypeReference<
+			Collection<Map.Entry<Map<String, Object>, Foo>>
+		>(){}.getType();
+
+		class C {
+			@Inject
+			@Reference
+			public Collection<Map.Entry<Map<String, Object>, Foo>> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		ReferenceModel referenceModel = new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+
+		assertEquals(Collection.class, referenceModel.getBeanClass());
+		assertEquals(Foo.class, referenceModel.getServiceType());
+		assertEquals(type, referenceModel.getInjectionPointType());
+		assertFalse(referenceModel.dynamic());
+		assertTrue(referenceModel.optional());
+		assertFalse(referenceModel.unary());
+		assertEquals(CollectionType.TUPLE, referenceModel.getCollectionType());
+	}
+
+	@Test
+	public void collectionWithServiceType_typed_b() throws Exception {
 		Type type = new TypeReference<
 			Collection<Map.Entry<Map<String, ?>, Number>>
 		>(){}.getType();
 
-		InjectionPoint injectionPoint = new MockInjectionPoint(type, Sets.hashSet(Reference.Literal.of(Integer.class, "")));
+		class C {
+			@Inject
+			@Reference(Integer.class)
+			public Collection<Map.Entry<Map<String, ?>, Number>> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
 
 		ReferenceModel referenceModel = new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
 
@@ -208,24 +501,70 @@ public class ReferenceModel_TupleTest {
 	}
 
 	@Test(expected = IllegalArgumentException.class)
-	public void listWithoutServiceDefined() throws Exception {
-		@SuppressWarnings("rawtypes")
-		Type type = new TypeReference<
-			List<Map.Entry>
-		>(){}.getType();
+	public void collectionWithServiceType_wrongtype() throws Exception {
+		class C {
+			@Inject
+			@Reference(Integer.class)
+			public Collection<Map.Entry<Map<String, Object>, Foo>> m;
+		}
 
-		InjectionPoint injectionPoint = new MockInjectionPoint(type);
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void listWithoutServiceType_raw() throws Exception {
+		class C {
+			@SuppressWarnings("rawtypes")
+			@Inject
+			@Reference
+			public List<Map.Entry> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
 
 		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
 	}
 
 	@Test
-	public void listWithServiceDefined() throws Exception {
+	public void listWithoutServiceType_typed() throws Exception {
+		Type type = new TypeReference<
+			List<Map.Entry<Map<String, Object>, Foo>>
+		>(){}.getType();
+
+		class C {
+			@Inject
+			@Reference
+			public List<Map.Entry<Map<String, Object>, Foo>> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		ReferenceModel referenceModel = new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+
+		assertEquals(List.class, referenceModel.getBeanClass());
+		assertEquals(Foo.class, referenceModel.getServiceType());
+		assertEquals(type, referenceModel.getInjectionPointType());
+		assertFalse(referenceModel.dynamic());
+		assertTrue(referenceModel.optional());
+		assertFalse(referenceModel.unary());
+		assertEquals(CollectionType.TUPLE, referenceModel.getCollectionType());
+	}
+
+	@Test
+	public void listWithServiceType_typed_b() throws Exception {
 		Type type = new TypeReference<
 			List<Map.Entry<Map<String, ?>, Number>>
 		>(){}.getType();
 
-		InjectionPoint injectionPoint = new MockInjectionPoint(type, Sets.hashSet(Reference.Literal.of(Integer.class, "")));
+		class C {
+			@Inject
+			@Reference(Integer.class)
+			public List<Map.Entry<Map<String, ?>, Number>> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
 
 		ReferenceModel referenceModel = new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
 
@@ -239,128 +578,42 @@ public class ReferenceModel_TupleTest {
 	}
 
 	@Test(expected = IllegalArgumentException.class)
-	public void instanceWithoutServiceDefined() throws Exception {
-		@SuppressWarnings("rawtypes")
-		Type type = new TypeReference<
-			Instance<Map.Entry>
-		>(){}.getType();
+	public void listWithServiceType_wrongtype() throws Exception {
+		class C {
+			@Inject
+			@Reference(Integer.class)
+			public List<Map.Entry<Map<String, ?>, Foo>> m;
+		}
 
-		InjectionPoint injectionPoint = new MockInjectionPoint(type);
-
-		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void instanceWithServiceDefined() throws Exception {
-		Type type = new TypeReference<
-			Instance<Map.Entry<Map<String, ?>, Number>>
-		>(){}.getType();
-
-		InjectionPoint injectionPoint = new MockInjectionPoint(type, Sets.hashSet(Reference.Literal.of(Integer.class, "")));
-
-		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
-	}
-
-	///////////////////////////////////////////////////////////////////////////////
-
-	@Test
-	public void typed_withoutServiceDefined() throws Exception {
-		Type type = new TypeReference<
-			Map.Entry<Map<String, Object>, Foo>
-		>(){}.getType();
-
-		InjectionPoint injectionPoint = new MockInjectionPoint(type);
-
-		ReferenceModel referenceModel = new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
-
-		assertEquals(Map.Entry.class, referenceModel.getBeanClass());
-		assertEquals(Foo.class, referenceModel.getServiceType());
-		assertEquals(type, referenceModel.getInjectionPointType());
-		assertFalse(referenceModel.dynamic());
-		assertFalse(referenceModel.optional());
-		assertTrue(referenceModel.unary());
-		assertEquals(CollectionType.TUPLE, referenceModel.getCollectionType());
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void typed_withServiceDefined() throws Exception {
-		Type type = new TypeReference<
-			Map.Entry<Map<String, Object>, Foo>
-		>(){}.getType();
-
-		InjectionPoint injectionPoint = new MockInjectionPoint(type, Sets.hashSet(Reference.Literal.of(Integer.class, "")));
-
-		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
-	}
-
-	@Test
-	public void typed_collectionWithoutServiceDefined() throws Exception {
-		Type type = new TypeReference<
-			Collection<Map.Entry<Map<String, Object>, Foo>>
-		>(){}.getType();
-
-		InjectionPoint injectionPoint = new MockInjectionPoint(type);
-
-		ReferenceModel referenceModel = new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
-
-		assertEquals(Collection.class, referenceModel.getBeanClass());
-		assertEquals(Foo.class, referenceModel.getServiceType());
-		assertEquals(type, referenceModel.getInjectionPointType());
-		assertFalse(referenceModel.dynamic());
-		assertTrue(referenceModel.optional());
-		assertFalse(referenceModel.unary());
-		assertEquals(CollectionType.TUPLE, referenceModel.getCollectionType());
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void typed_collectionWithServiceDefined() throws Exception {
-		Type type = new TypeReference<
-			Collection<Map.Entry<Map<String, Object>, Foo>>
-		>(){}.getType();
-
-		InjectionPoint injectionPoint = new MockInjectionPoint(type, Sets.hashSet(Reference.Literal.of(Integer.class, "")));
-
-		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
-	}
-
-	@Test
-	public void typed_listWithoutServiceDefined() throws Exception {
-		Type type = new TypeReference<
-			List<Map.Entry<Map<String, Object>, Foo>>
-		>(){}.getType();
-
-		InjectionPoint injectionPoint = new MockInjectionPoint(type);
-
-		ReferenceModel referenceModel = new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
-
-		assertEquals(List.class, referenceModel.getBeanClass());
-		assertEquals(Foo.class, referenceModel.getServiceType());
-		assertEquals(type, referenceModel.getInjectionPointType());
-		assertFalse(referenceModel.dynamic());
-		assertTrue(referenceModel.optional());
-		assertFalse(referenceModel.unary());
-		assertEquals(CollectionType.TUPLE, referenceModel.getCollectionType());
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void typed_listWithServiceDefined() throws Exception {
-		Type type = new TypeReference<
-			List<Map.Entry<Map<String, Object>, Foo>>
-		>(){}.getType();
-
-		InjectionPoint injectionPoint = new MockInjectionPoint(type, Sets.hashSet(Reference.Literal.of(Integer.class, "")));
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
 
 		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
 	}
 
 	@Test(expected = IllegalArgumentException.class)
-	public void typed_instanceWithServiceDefined() throws Exception {
-		Type type = new TypeReference<
-			Instance<Map.Entry<Map<String, Object>, Foo>>
-		>(){}.getType();
+	public void instanceWithoutServiceType() throws Exception {
+		class C {
+			@Inject
+			@Reference
+			public Instance<Map.Entry<Map<String, ?>, Number>> m;
+		}
 
-		InjectionPoint injectionPoint = new MockInjectionPoint(type, Sets.hashSet(Reference.Literal.of(Integer.class, "")));
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
 
 		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
 	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void instanceWithServiceType() throws Exception {
+		class C {
+			@Inject
+			@Reference(Integer.class)
+			public Instance<Map.Entry<Map<String, ?>, Number>> m;
+		}
+
+		InjectionPoint injectionPoint = new MockInjectionPoint(C.class.getField("m"));
+
+		new ReferenceModel.Builder().injectionPoint(injectionPoint).build();
+	}
+
 }

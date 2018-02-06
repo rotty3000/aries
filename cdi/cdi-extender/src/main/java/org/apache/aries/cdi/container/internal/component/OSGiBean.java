@@ -19,7 +19,8 @@ import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.apache.aries.cdi.container.internal.v2.component.Component;
+import org.apache.aries.cdi.container.internal.util.Syncro;
+import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO;
 
@@ -46,21 +47,25 @@ public class OSGiBean implements Comparable<OSGiBean> {
 		_beanClass = beanClass;
 	}
 
-	public void addConfiguration(ConfigurationTemplateDTO dto) {
-		if (_component == null) {
-			_configurations.add(dto);
-		}
-		else {
-			_component.addConfiguration(dto);
+	public synchronized void addConfiguration(ConfigurationTemplateDTO dto) {
+		try (Syncro syncro = _lock.open()) {
+			if (_ctDTO == null) {
+				_configurationsQueue.add(dto);
+			}
+			else {
+				_ctDTO.configurations.add(dto);
+			}
 		}
 	}
 
-	public void addReference(ReferenceTemplateDTO dto) {
-		if (_component == null) {
-			_references.add(dto);
-		}
-		else {
-			_component.addReference(dto);
+	public synchronized void addReference(ReferenceTemplateDTO dto) {
+		try (Syncro syncro = _lock.open()) {
+			if (_ctDTO == null) {
+				_referencesQueue.add(dto);
+			}
+			else {
+				_ctDTO.references.add(dto);
+			}
 		}
 	}
 
@@ -81,24 +86,28 @@ public class OSGiBean implements Comparable<OSGiBean> {
 		return _beanClass;
 	}
 
-	public Component getComponent() {
-		return _component;
+	public synchronized ComponentTemplateDTO geComponentTemplateDTO() {
+		try (Syncro syncro = _lock.open()) {
+			return _ctDTO;
+		}
 	}
 
-	public void setComponent(Component component) {
-		_component = component;
-		_configurations.removeIf(
-			dto -> {
-				_component.addConfiguration(dto);
-				return true;
-			}
-		);
-		_references.removeIf(
-			dto -> {
-				_component.addReference(dto);
-				return true;
-			}
-		);
+	public void setComponent(ComponentTemplateDTO componentDTO) {
+		try (Syncro syncro = _lock.open()) {
+			_ctDTO = componentDTO;
+			_configurationsQueue.removeIf(
+				dto -> {
+					_ctDTO.configurations.add(dto);
+					return true;
+				}
+			);
+			_referencesQueue.removeIf(
+				dto -> {
+					_ctDTO.references.add(dto);
+					return true;
+				}
+			);
+		}
 	}
 
 	@Override
@@ -109,10 +118,11 @@ public class OSGiBean implements Comparable<OSGiBean> {
 		return _string;
 	}
 
+	private final Syncro _lock = new Syncro(true);
 	private final Class<?> _beanClass;
-	private final List<ConfigurationTemplateDTO> _configurations = new CopyOnWriteArrayList<>();
-	private final List<ReferenceTemplateDTO> _references = new CopyOnWriteArrayList<>();
-	private volatile Component _component;
+	private final List<ConfigurationTemplateDTO> _configurationsQueue = new CopyOnWriteArrayList<>();
+	private final List<ReferenceTemplateDTO> _referencesQueue = new CopyOnWriteArrayList<>();
+	private volatile ComponentTemplateDTO _ctDTO;
 	private final AtomicBoolean _found = new AtomicBoolean();
 	private volatile String _string;
 }

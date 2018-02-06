@@ -16,9 +16,11 @@ package org.apache.aries.cdi.container.test.beans;
 
 import javax.enterprise.inject.Produces;
 
+import org.osgi.service.cdi.annotations.Reference;
+
 public class BarProducer {
 	@Produces
-	public Bar getBar() {
-		return new Bar() {};
+	public Bar getBar(@Reference Bar bar) {
+		return bar;
 	}
 }

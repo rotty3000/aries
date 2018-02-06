@@ -14,7 +14,7 @@
 
 package org.apache.aries.cdi.container.test;
 
-import static org.apache.aries.cdi.container.test.TestUtil.getContainerState;
+import static org.apache.aries.cdi.container.test.TestUtil.*;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -42,7 +42,7 @@ public class MockCdiContainerAndComponents implements AutoCloseable {
 
 		_containerState = getContainerState(_beansModel);
 
-		ContainerDiscovery.discover(_containerState);
+		new ContainerDiscovery(_containerState);
 
 		_nextPhase = new Phase_Configuration(_containerState, Collections.emptyList());
 

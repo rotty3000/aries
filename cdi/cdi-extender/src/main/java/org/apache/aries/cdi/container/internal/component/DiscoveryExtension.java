@@ -20,6 +20,7 @@ import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -42,23 +43,30 @@ import javax.enterprise.inject.spi.ProcessSessionBean;
 import javax.enterprise.inject.spi.ProcessSyntheticBean;
 
 import org.apache.aries.cdi.container.internal.configuration.ConfigurationModel;
+import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.log.Logs;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
 import org.apache.aries.cdi.container.internal.reference.ReferenceModel;
-import org.apache.aries.cdi.container.internal.v2.component.ContainerComponent;
 import org.osgi.service.cdi.annotations.ComponentScoped;
 import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.FactoryComponent;
 import org.osgi.service.cdi.annotations.Reference;
 import org.osgi.service.cdi.annotations.Service;
 import org.osgi.service.cdi.annotations.SingleComponent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
+import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO.Type;
+import org.osgi.service.log.Logger;
 
 public class DiscoveryExtension implements Extension {
 
-	public DiscoveryExtension(BeansModel beansModel, ContainerComponent containerComponent) {
+	public DiscoveryExtension(
+		ContainerState containerState,
+		BeansModel beansModel,
+		ComponentTemplateDTO cctDTO) {
+
+		_containerState = containerState;
 		_beansModel = beansModel;
-		_containerComponent = containerComponent;
+		_cctDTO = cctDTO;
 	}
 
 	void afterBeanDiscovery(@Observes AfterBeanDiscovery abd) {
@@ -84,12 +92,6 @@ public class DiscoveryExtension implements Extension {
 		}
 
 		osgiBean.found(true);
-
-//		if (checkIfBeanClassIsOSGiAnnotated(annotatedClass)) {
-//			if (_log.isDebugEnabled()) {
-//				_log.debug("CDIe - OSGi CDI annotations found. Clearing descriptor infos for {}", className);
-//			}
-//		}
 	}
 
 	void processInjectionPoint(@Observes ProcessInjectionPoint<?, ?> pip) {
@@ -142,7 +144,7 @@ public class DiscoveryExtension implements Extension {
 		}
 	}
 
-	void proc(@Observes ProcessBean<?> pb) {
+	void processBean(@Observes ProcessBean<?> pb) {
 		Annotated annotated = null;
 		Class<?> annotatedClass = null;
 
@@ -191,15 +193,41 @@ public class DiscoveryExtension implements Extension {
 		if (Optional.ofNullable(
 				annotated.getAnnotation(SingleComponent.class)).isPresent()) {
 
-			osgiBean.setComponent(new org.apache.aries.cdi.container.internal.v2.component.SingleComponent(className));
+			ComponentTemplateDTO ctDTO = new ComponentTemplateDTO();
+			ctDTO.activations = new CopyOnWriteArrayList<>();
+			ctDTO.beans = new CopyOnWriteArrayList<>();
+			ctDTO.configurations = new CopyOnWriteArrayList<>();
+			ctDTO.name = pb.getBean().getName();
+			ctDTO.references = new CopyOnWriteArrayList<>();
+			ctDTO.type = Type.SINGLE;
+
+			ctDTO.beans.add(className);
+
+			_containerState.containerDTO().template.components.add(ctDTO);
+
+			osgiBean.setComponent(ctDTO);
 		}
 		else if (Optional.ofNullable(
 				annotated.getAnnotation(FactoryComponent.class)).isPresent()) {
 
-			osgiBean.setComponent(new org.apache.aries.cdi.container.internal.v2.component.FactoryComponent(className));
+			ComponentTemplateDTO ctDTO = new ComponentTemplateDTO();
+			ctDTO.activations = new CopyOnWriteArrayList<>();
+			ctDTO.beans = new CopyOnWriteArrayList<>();
+			ctDTO.configurations = new CopyOnWriteArrayList<>();
+			ctDTO.name = pb.getBean().getName();
+			ctDTO.references = new CopyOnWriteArrayList<>();
+			ctDTO.type = Type.FACTORY;
+
+			ctDTO.beans.add(className);
+
+			_containerState.containerDTO().template.components.add(ctDTO);
+
+			osgiBean.setComponent(ctDTO);
 		}
 		else {
-			osgiBean.setComponent(_containerComponent);
+			_cctDTO.beans.add(className);
+
+			osgiBean.setComponent(_cctDTO);
 		}
 	}
 
@@ -507,9 +535,10 @@ public class DiscoveryExtension implements Extension {
 		return false;
 	}
 
-	private static final Logger _log = LoggerFactory.getLogger(DiscoveryExtension.class);
+	private static final Logger _log = Logs.getLogger(DiscoveryExtension.class);
 
 	private final BeansModel _beansModel;
-	private final ContainerComponent _containerComponent;
+	private final ComponentTemplateDTO _cctDTO;
+	private final ContainerState _containerState;
 
 }

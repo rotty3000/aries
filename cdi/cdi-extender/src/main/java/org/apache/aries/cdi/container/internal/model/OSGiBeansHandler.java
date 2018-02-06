@@ -30,8 +30,8 @@ import java.util.Map;
 import org.apache.aries.cdi.container.internal.component.OSGiBean;
 import org.apache.aries.cdi.container.internal.exception.BeanElementException;
 import org.apache.aries.cdi.container.internal.exception.BlacklistQualifierException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.aries.cdi.container.internal.log.Logs;
+import org.osgi.service.log.Logger;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -99,8 +99,7 @@ public class OSGiBeansHandler extends DefaultHandler {
 		return false;
 	}
 
-	private final static Logger _log = LoggerFactory.getLogger(
-		OSGiBeansHandler.class);
+	private final static Logger _log = Logs.getLogger(OSGiBeansHandler.class);
 
 	private final ClassLoader _classLoader;
 	private final Map<String, OSGiBean> _beans = new HashMap<>();

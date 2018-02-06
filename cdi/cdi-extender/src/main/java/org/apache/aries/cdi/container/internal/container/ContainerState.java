@@ -14,42 +14,43 @@
 
 package org.apache.aries.cdi.container.internal.container;
 
-import java.util.Dictionary;
+import static org.osgi.namespace.extender.ExtenderNamespace.*;
+import static org.osgi.service.cdi.CDIConstants.*;
+
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.enterprise.inject.Any;
-import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.ObserverMethod;
 import javax.enterprise.util.AnnotationLiteral;
 
-import org.apache.aries.cdi.container.internal.component.OSGiBean;
 import org.apache.aries.cdi.container.internal.configuration.ConfigurationCallback;
-import org.apache.aries.cdi.container.internal.extension.ExtensionDependency;
 import org.apache.aries.cdi.container.internal.loader.BundleClassLoader;
 import org.apache.aries.cdi.container.internal.loader.BundleResourcesLoader;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
-import org.apache.aries.cdi.container.internal.model.Context;
-import org.apache.aries.cdi.container.internal.model.Registrator;
-import org.apache.aries.cdi.container.internal.model.Tracker;
+import org.apache.aries.cdi.container.internal.model.BeansModelBuilder;
 import org.apache.aries.cdi.container.internal.reference.ReferenceCallback;
 import org.apache.aries.cdi.container.internal.service.ServiceDeclaration;
+import org.apache.aries.cdi.container.internal.v2.component.Component;
 import org.jboss.weld.resources.spi.ResourceLoader;
 import org.jboss.weld.serialization.spi.ProxyServices;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
-import org.osgi.framework.Filter;
-import org.osgi.framework.InvalidSyntaxException;
-import org.osgi.framework.ServiceObjects;
-import org.osgi.framework.ServiceReference;
+import org.osgi.framework.dto.BundleDTO;
+import org.osgi.framework.namespace.PackageNamespace;
+import org.osgi.framework.wiring.BundleCapability;
+import org.osgi.framework.wiring.BundleRequirement;
+import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.service.cdi.reference.ReferenceEvent;
-import org.osgi.service.cm.ManagedService;
-import org.osgi.util.tracker.ServiceTracker;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.osgi.service.cdi.runtime.dto.ContainerDTO;
+import org.osgi.service.cdi.runtime.dto.template.ContainerTemplateDTO;
+import org.osgi.service.cdi.runtime.dto.template.ExtensionTemplateDTO;
 
 public class ContainerState {
 
@@ -57,86 +58,63 @@ public class ContainerState {
 		private static final long serialVersionUID = 1L;
 	};
 
-	public ContainerState(
-		Bundle bundle, Bundle extenderBundle) {
-
-		_bundle = Optional.ofNullable(bundle);
+	public ContainerState(Bundle bundle, Bundle extenderBundle) {
+		_bundle = bundle;
 		_extenderBundle = extenderBundle;
 
-		_bundle.ifPresent(
-			b -> {
-				_classLoader = new BundleClassLoader(
-					BundleResourcesLoader.getBundles(bundle, extenderBundle));
+		BundleWiring bundleWiring = _bundle.adapt(BundleWiring.class);
+
+		List<BundleWire> wires = bundleWiring.getRequiredWires(EXTENDER_NAMESPACE);
+
+		Map<String, Object> cdiAttributes = Collections.emptyMap();
+
+		for (BundleWire wire : wires) {
+			BundleCapability capability = wire.getCapability();
+			Map<String, Object> attributes = capability.getAttributes();
+			String extender = (String)attributes.get(EXTENDER_NAMESPACE);
+
+			if (extender.equals(CDI_CAPABILITY_NAME)) {
+				BundleRequirement requirement = wire.getRequirement();
+				cdiAttributes = requirement.getAttributes();
+				break;
 			}
+		}
+
+		_id = Optional.ofNullable(
+			(String)cdiAttributes.get(CDI_CONTAINER_ID)
+		).orElse(
+			"osgi.cdi." + _bundle.getSymbolicName()
 		);
 
-		_context = new Context() {
+		@SuppressWarnings("unchecked")
+		List<String> extensions = Optional.ofNullable(
+			(List<String>)cdiAttributes.get(REQUIREMENT_EXTENSIONS_ATTRIBUTE)
+		).orElse(Collections.emptyList());
 
-			@Override
-			public <T> T getService(ServiceReference<T> reference) {
-				return bundleContext().getService(reference);
-			}
+		_containerDTO = new ContainerDTO();
+		_containerDTO.bundle = _bundle.adapt(BundleDTO.class);
+		_containerDTO.changeCount = 0;
+		_containerDTO.components = new CopyOnWriteArrayList<>();
+		_containerDTO.errors = new CopyOnWriteArrayList<>();
+		_containerDTO.extensions = new CopyOnWriteArrayList<>();
+		_containerDTO.template = new ContainerTemplateDTO();
+		_containerDTO.template.components = new CopyOnWriteArrayList<>();
+		_containerDTO.template.extensions = new CopyOnWriteArrayList<>();
+		_containerDTO.template.id = _id;
 
-			@Override
-			public <T> ServiceObjects<T> getServiceObjects(ServiceReference<T> reference) {
-				return bundleContext().getServiceObjects(reference);
-			}
+		for (String extensionFilter : extensions) {
+			ExtensionTemplateDTO extensionTemplateDTO = new ExtensionTemplateDTO();
 
-			@Override
-			public <T> boolean ungetService(ServiceReference<T> reference) {
-				return bundleContext().ungetService(reference);
-			}
+			extensionTemplateDTO.serviceFilter = extensionFilter;
 
-		};
+			_containerDTO.template.extensions.add(extensionTemplateDTO);
+		}
 
-		_msRegistrator = new Registrator<ManagedService>() {
+		_classLoader = new BundleClassLoader(getBundles(_bundle, _extenderBundle));
 
-			@Override
-			public void registerService(String[] classNames, ManagedService service, Dictionary<String, ?> properties) {
-				registrations.add(bundleContext().registerService(ManagedService.class, service, properties));
-			}
+		_beansModel = new BeansModelBuilder(_classLoader, bundleWiring, cdiAttributes).build();
 
-		};
-
-		_bmRegistrator = new Registrator<BeanManager>() {
-
-			@Override
-			public void registerService(String[] classNames, BeanManager service, Dictionary<String, ?> properties) {
-				registrations.add(bundleContext().registerService(BeanManager.class, service, properties));
-			}
-
-		};
-
-		_serviceRegistrator = new Registrator<Object>() {
-
-			@Override
-			public void registerService(String[] classNames, Object service, Dictionary<String, ?> properties) {
-				registrations.add(bundleContext().registerService(classNames, service, properties));
-			}
-
-		};
-
-		_tracker = new Tracker() {
-
-			@Override
-			public <T> void track(String targetFilter, ReferenceCallback callback) {
-				try {
-					Filter filter = bundleContext().createFilter(targetFilter);
-
-					trackers.add(new ServiceTracker<>(bundleContext(), filter, callback));
-				}
-				catch (InvalidSyntaxException ise) {
-					if (_log.isErrorEnabled()) {
-						_log.error("CDIe - Invalid filter syntax in {}", targetFilter, ise);
-					}
-				}
-			}
-
-		};
-	}
-
-	public Registrator<BeanManager> beanManagerRegistrator() {
-		return _bmRegistrator;
+		_bundleClassLoader = bundleWiring.getClassLoader();
 	}
 
 	public BeansModel beansModel() {
@@ -144,93 +122,91 @@ public class ContainerState {
 	}
 
 	public Bundle bundle() {
-		return _bundle.orElse(null);
+		return _bundle;
 	}
 
 	public ClassLoader bundleClassLoader() {
-		return _bundle.map(b -> b.adapt(BundleWiring.class).getClassLoader()).orElse(getClass().getClassLoader());
+		return _bundleClassLoader;
 	}
 
 	public BundleContext bundleContext() {
-		return _bundle.map(b -> b.getBundleContext()).orElse(null);
+		return _bundle.getBundleContext();
 	}
 
 	public ClassLoader classLoader() {
-		return _bundle.map(b -> _classLoader).orElse(getClass().getClassLoader());
+		return _classLoader;
 	}
 
-	public Map<OSGiBean, Map<String, ConfigurationCallback>> configurationCallbacks() {
+	public Map<Component, Map<String, ConfigurationCallback>> configurationCallbacks() {
 		return _configurationCallbacksMap;
 	}
 
-	public Context context() {
-		return _context;
+	public ContainerDTO containerDTO() {
+		return _containerDTO;
 	}
 
 	public Bundle extenderBundle() {
 		return _extenderBundle;
 	}
 
-	public List<ExtensionDependency> extensionDependencies() {
-		return _extensionDependencies;
-	}
-
 	public String id() {
-		return _bundle.map(b -> b.getSymbolicName() + ":" + b.getBundleId()).orElse("null");
+		return _id;
 	}
 
 	@SuppressWarnings("unchecked")
 	public <T extends ResourceLoader & ProxyServices> T loader() {
-		return (T)_bundle.map(b -> new BundleResourcesLoader(b, _extenderBundle)).orElse(null);
+		return (T)new BundleResourcesLoader(_bundle, _extenderBundle);
 	}
 
-	public Registrator<ManagedService> managedServiceRegistrator() {
-		return _msRegistrator;
-	}
-
-	public Map<OSGiBean, Map<String, ReferenceCallback>> referenceCallbacks() {
+	public Map<Component, Map<String, ReferenceCallback>> referenceCallbacks() {
 		return _referenceCallbacksMap;
 	}
 
-	public Map<OSGiBean, Map<String, ObserverMethod<ReferenceEvent<?>>>> referenceObservers() {
+	public Map<Component, Map<String, ObserverMethod<ReferenceEvent<?>>>> referenceObservers() {
 		return _referenceObserversMap;
 	}
 
-	public Map<OSGiBean, ServiceDeclaration> serviceComponents() {
+	public Map<Component, ServiceDeclaration> serviceComponents() {
 		return _serviceComponents;
 	}
 
-	public Registrator<Object> serviceRegistrator() {
-		return _serviceRegistrator;
+	private static Bundle[] getBundles(Bundle bundle, Bundle extenderBundle) {
+		List<Bundle> bundles = new ArrayList<>();
+
+		bundles.add(bundle);
+		bundles.add(extenderBundle);
+
+		BundleWiring extenderWiring = extenderBundle.adapt(BundleWiring.class);
+
+		List<BundleWire> requiredWires = extenderWiring.getRequiredWires(PackageNamespace.PACKAGE_NAMESPACE);
+
+		for (BundleWire bundleWire : requiredWires) {
+			BundleCapability capability = bundleWire.getCapability();
+			Map<String, Object> attributes = capability.getAttributes();
+			String packageName = (String)attributes.get(PackageNamespace.PACKAGE_NAMESPACE);
+			if (!packageName.startsWith("org.jboss.weld.")) {
+				continue;
+			}
+
+			Bundle wireBundle = bundleWire.getProvider().getBundle();
+			if (!bundles.contains(wireBundle)) {
+				bundles.add(wireBundle);
+			}
+		}
+
+		return bundles.toArray(new Bundle[0]);
 	}
 
-	public void setBeansModel(BeansModel beansModel) {
-		_beansModel = beansModel;
-	}
-
-	public void setExtensionDependencies(List<ExtensionDependency> extensionDependencies) {
-		_extensionDependencies = extensionDependencies;
-	}
-
-	public Tracker tracker() {
-		return _tracker;
-	}
-
-	private static final Logger _log = LoggerFactory.getLogger(ContainerState.class);
-
-	private BeansModel _beansModel;
-	private final Registrator<BeanManager> _bmRegistrator;
-	private final Optional<Bundle> _bundle;
-	private ClassLoader _classLoader;
-	private final Map<OSGiBean, Map<String, ConfigurationCallback>> _configurationCallbacksMap = new ConcurrentHashMap<>();
-	private final Context _context;
+	private final BeansModel _beansModel;
+	private final Bundle _bundle;
+	private final ClassLoader _bundleClassLoader;
+	private final ClassLoader _classLoader;
+	private final Map<Component, Map<String, ConfigurationCallback>> _configurationCallbacksMap = new ConcurrentHashMap<>();
+	private final ContainerDTO _containerDTO;
+	private final String _id;
 	private final Bundle _extenderBundle;
-	private List<ExtensionDependency> _extensionDependencies;
-	private final Registrator<ManagedService> _msRegistrator;
-	private final Map<OSGiBean, Map<String, ReferenceCallback>> _referenceCallbacksMap = new ConcurrentHashMap<>();
-	private final Map<OSGiBean, Map<String, ObserverMethod<ReferenceEvent<?>>>> _referenceObserversMap = new ConcurrentHashMap<>();
-	private final Map<OSGiBean, ServiceDeclaration> _serviceComponents = new ConcurrentHashMap<>();
-	private final Registrator<Object> _serviceRegistrator;
-	private final Tracker _tracker;
+	private final Map<Component, Map<String, ReferenceCallback>> _referenceCallbacksMap = new ConcurrentHashMap<>();
+	private final Map<Component, Map<String, ObserverMethod<ReferenceEvent<?>>>> _referenceObserversMap = new ConcurrentHashMap<>();
+	private final Map<Component, ServiceDeclaration> _serviceComponents = new ConcurrentHashMap<>();
 
 }

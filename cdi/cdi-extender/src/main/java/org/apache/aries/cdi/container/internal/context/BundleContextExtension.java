@@ -19,9 +19,9 @@ import javax.enterprise.inject.spi.AfterBeanDiscovery;
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.Extension;
 
+import org.apache.aries.cdi.container.internal.log.Logs;
 import org.osgi.framework.BundleContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.osgi.service.log.Logger;
 
 public class BundleContextExtension implements Extension {
 
@@ -41,7 +41,7 @@ public class BundleContextExtension implements Extension {
 		}
 	}
 
-	private static final Logger _log = LoggerFactory.getLogger(BundleContextExtension.class);
+	private static final Logger _log = Logs.getLogger(BundleContextExtension.class);
 
 	private final BundleContext _bundleContext;
 }

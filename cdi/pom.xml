@@ -35,7 +35,7 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<properties>
-		<bnd.version>3.5.0</bnd.version>
+		<bnd.version>4.0.0-SNAPSHOT</bnd.version>
 		<full.version>${project.version} (${timestamp} AD)</full.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<surefire.version>2.12</surefire.version>
@@ -185,6 +185,13 @@
 				<groupId>junit</groupId>
 				<artifactId>junit</artifactId>
 				<version>4.12</version>
+				<scope>test</scope>
+			</dependency>
+			<dependency>
+				<groupId>biz.aQute.bnd</groupId>
+				<artifactId>biz.aQute.bnd</artifactId>
+				<version>${bnd.version}</version>
+				<scope>test</scope>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
@@ -198,6 +205,11 @@
 		<repository>
 			<id>osgi-releases-and-snapshots</id>
 			<url>https://oss.sonatype.org/content/groups/osgi/</url>
+			<layout>default</layout>
+		</repository>
+		<repository>
+			<id>bnd-snapshots</id>
+			<url>https://bndtools.ci.cloudbees.com/job/bnd.master/lastSuccessfulBuild/artifact/dist/bundles/</url>
 			<layout>default</layout>
 		</repository>
 	</repositories>

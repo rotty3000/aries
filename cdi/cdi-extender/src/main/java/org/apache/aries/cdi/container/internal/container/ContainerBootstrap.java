@@ -22,7 +22,6 @@ import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.Extension;
 
 import org.apache.aries.cdi.container.internal.context.BundleContextExtension;
-import org.apache.aries.cdi.container.internal.extension.ExtensionMetadata;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
 import org.jboss.weld.bootstrap.WeldBootstrap;
 import org.jboss.weld.bootstrap.spi.BeanDeploymentArchive;
