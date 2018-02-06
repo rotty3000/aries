@@ -4,6 +4,7 @@ import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,7 +46,13 @@ public class CDIBundleTest {
 		when(bundle.getSymbolicName()).thenReturn(bundleDTO.symbolicName);
 		when(bundle.adapt(BundleWiring.class)).thenReturn(bundleWiring);
 		when(bundle.adapt(BundleDTO.class)).thenReturn(bundleDTO);
-		when(bundle.getResource("OSGI-INF/cdi/osgi-beans.xml")).thenReturn(getClass().getResource("osgi-beans.xml"));
+		when(bundle.getResource(any())).then(new Answer<URL>() {
+			@Override
+			public URL answer(InvocationOnMock invocation) throws ClassNotFoundException {
+				Object[] args = invocation.getArguments();
+				return getClass().getClassLoader().getResource((String)args[0]);
+			}
+		});
 		when(bundle.loadClass(any())).then(new Answer<Class<?>>() {
 			@Override
 			public Class<?> answer(InvocationOnMock invocation) throws ClassNotFoundException {
@@ -189,7 +196,12 @@ public class CDIBundleTest {
 
 	@Test
 	public void components_2_Test() throws Exception {
-		when(bundle.getResource("OSGI-INF/cdi/osgi-beans.xml")).thenReturn(getClass().getResource("osgi-beans2.xml"));
+		Map<String, Object> attributes = new HashMap<>();
+
+		attributes.put(CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE, Arrays.asList("OSGI-INF/cdi/osgi-beans2.xml"));
+
+		when(extenderRequirement.getAttributes()).thenReturn(attributes);
+
 		when(ccrBundle.loadClass(any())).then(new Answer<Class<?>>() {
 			@Override
 			public Class<?> answer(InvocationOnMock invocation) throws ClassNotFoundException {
