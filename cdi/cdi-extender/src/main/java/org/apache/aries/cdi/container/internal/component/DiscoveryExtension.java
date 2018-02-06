@@ -50,11 +50,16 @@ import org.apache.aries.cdi.container.internal.reference.ReferenceModel;
 import org.osgi.service.cdi.annotations.ComponentScoped;
 import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.FactoryComponent;
+import org.osgi.service.cdi.annotations.PID;
+import org.osgi.service.cdi.annotations.PID.Policy;
 import org.osgi.service.cdi.annotations.Reference;
 import org.osgi.service.cdi.annotations.Service;
 import org.osgi.service.cdi.annotations.SingleComponent;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO.Type;
+import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
+import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
+import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 import org.osgi.service.log.Logger;
 
 public class DiscoveryExtension implements Extension {
@@ -201,6 +206,40 @@ public class DiscoveryExtension implements Extension {
 			ctDTO.references = new CopyOnWriteArrayList<>();
 			ctDTO.type = Type.SINGLE;
 
+			annotated.getAnnotations(PID.class).stream().forEach(
+				PID -> {
+					ConfigurationTemplateDTO configDTO = new ConfigurationTemplateDTO();
+
+					configDTO.componentConfiguration = true;
+					configDTO.maximumCardinality = MaximumCardinality.ONE;
+
+					if (PID.value().equals("$") || PID.value().equals("")) {
+						configDTO.pid = ctDTO.name;
+					}
+					else {
+						configDTO.pid = PID.value();
+					}
+
+					configDTO.policy =
+						PID.policy() == Policy.REQUIRED ?
+							ConfigurationPolicy.REQUIRED :
+							ConfigurationPolicy.OPTIONAL;
+
+					ctDTO.configurations.add(configDTO);
+				}
+			);
+
+			if (ctDTO.configurations.isEmpty()) {
+				ConfigurationTemplateDTO configDTO = new ConfigurationTemplateDTO();
+
+				configDTO.componentConfiguration = true;
+				configDTO.maximumCardinality = MaximumCardinality.ONE;
+				configDTO.pid = ctDTO.name;
+				configDTO.policy = ConfigurationPolicy.OPTIONAL;
+
+				ctDTO.configurations.add(configDTO);
+			}
+
 			ctDTO.beans.add(className);
 
 			_containerState.containerDTO().template.components.add(ctDTO);
@@ -218,6 +257,44 @@ public class DiscoveryExtension implements Extension {
 			ctDTO.references = new CopyOnWriteArrayList<>();
 			ctDTO.type = Type.FACTORY;
 
+			annotated.getAnnotations(PID.class).stream().forEach(
+				PID -> {
+					ConfigurationTemplateDTO configDTO = new ConfigurationTemplateDTO();
+
+					configDTO.componentConfiguration = true;
+					configDTO.maximumCardinality = MaximumCardinality.ONE;
+
+					if (PID.value().equals("$") || PID.value().equals("")) {
+						configDTO.pid = ctDTO.name;
+					}
+					else {
+						configDTO.pid = PID.value();
+					}
+
+					configDTO.policy =
+						PID.policy() == Policy.REQUIRED ?
+							ConfigurationPolicy.REQUIRED :
+							ConfigurationPolicy.OPTIONAL;
+
+					ctDTO.configurations.add(configDTO);
+				}
+			);
+
+			ConfigurationTemplateDTO configDTO = new ConfigurationTemplateDTO();
+
+			configDTO.componentConfiguration = true;
+			configDTO.maximumCardinality = MaximumCardinality.MANY;
+			configDTO.pid = Optional.ofNullable(
+				annotated.getAnnotation(FactoryComponent.class)
+			).map(fc -> {
+				if (fc.value().equals("$") || fc.value().equals("")) {
+					return ctDTO.name;
+				}
+				return fc.value();
+			}).orElse(ctDTO.name);
+			configDTO.policy = ConfigurationPolicy.REQUIRED;
+
+			ctDTO.configurations.add(configDTO);
 			ctDTO.beans.add(className);
 
 			_containerState.containerDTO().template.components.add(ctDTO);
@@ -225,7 +302,9 @@ public class DiscoveryExtension implements Extension {
 			osgiBean.setComponent(ctDTO);
 		}
 		else {
-			_cctDTO.beans.add(className);
+			if (!_cctDTO.beans.contains(className)) {
+				_cctDTO.beans.add(className);
+			}
 
 			osgiBean.setComponent(_cctDTO);
 		}

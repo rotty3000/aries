@@ -89,11 +89,11 @@ public class TestUtil {
 		};
 	}
 
-	public static <T extends Comparable<T>> Collection<T> sort(Collection<T> set) {
+	public static <T extends Comparable<T>> List<T> sort(Collection<T> set) {
 		return sort(set, (c1, c2) -> c1.getClass().getName().compareTo(c2.getClass().getName()));
 	}
 
-	public static <T> Collection<T> sort(Collection<T> set, Comparator<T> comparator) {
+	public static <T> List<T> sort(Collection<T> set, Comparator<T> comparator) {
 		List<T> list = new ArrayList<>(set);
 
 		Collections.sort(list, comparator);

@@ -24,6 +24,7 @@ import javax.inject.Provider;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.PID;
+import org.osgi.service.cdi.annotations.PID.Policy;
 import org.osgi.service.cdi.annotations.Prototype;
 import org.osgi.service.cdi.annotations.Reference;
 
@@ -55,7 +56,7 @@ public class BarAnnotated {
 	Collection<Map<String, Object>> propertiesFoos;
 
 	@Inject
-	@PID("foo.config")
+	@PID(value = "foo.config", policy = Policy.REQUIRED)
 	@Configuration
 	Config config;
 

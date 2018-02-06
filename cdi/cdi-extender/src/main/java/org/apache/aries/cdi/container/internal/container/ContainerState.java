@@ -83,7 +83,7 @@ public class ContainerState {
 		_id = Optional.ofNullable(
 			(String)cdiAttributes.get(CDI_CONTAINER_ID)
 		).orElse(
-			"osgi.cdi." + _bundle.getSymbolicName()
+			_bundle.getSymbolicName()
 		);
 
 		@SuppressWarnings("unchecked")

@@ -118,6 +118,8 @@ public class ConfigurationModel {
 			dto.pid = _pid.value();
 			dto.policy = (_pid.policy().toString().equals(ConfigurationPolicy.REQUIRED.toString()))
 				? ConfigurationPolicy.REQUIRED : ConfigurationPolicy.OPTIONAL;
+
+			return dto;
 		}
 
 		return null;

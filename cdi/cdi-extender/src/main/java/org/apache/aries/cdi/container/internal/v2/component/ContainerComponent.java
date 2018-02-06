@@ -17,13 +17,13 @@ public class ContainerComponent implements Component {
 		_dto.template.activations = new CopyOnWriteArrayList<>();
 		_dto.template.configurations = new CopyOnWriteArrayList<>();
 
-		ConfigurationTemplateDTO factoryConfig = new ConfigurationTemplateDTO();
-		factoryConfig.componentConfiguration = true;
-		factoryConfig.maximumCardinality = MaximumCardinality.ONE;
-		factoryConfig.pid = containerId;
-		factoryConfig.policy = ConfigurationPolicy.OPTIONAL;
+		ConfigurationTemplateDTO configDTO = new ConfigurationTemplateDTO();
+		configDTO.componentConfiguration = true;
+		configDTO.maximumCardinality = MaximumCardinality.ONE;
+		configDTO.pid = containerId;
+		configDTO.policy = ConfigurationPolicy.OPTIONAL;
 
-		_dto.template.configurations.add(factoryConfig);
+		_dto.template.configurations.add(configDTO);
 		_dto.template.name = containerId;
 		_dto.template.references = new CopyOnWriteArrayList<>();
 		_dto.template.type = ComponentTemplateDTO.Type.CONTAINER;

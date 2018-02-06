@@ -14,10 +14,9 @@
 
 package org.apache.aries.cdi.container.internal.model;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
-import java.util.Collection;
+import java.util.List;
 
 import org.apache.aries.cdi.container.test.TestUtil;
 import org.junit.Test;
@@ -31,9 +30,9 @@ public class ModelTest extends TestUtil {
 		BeansModel beansModel = builder.build();
 		assertNotNull(beansModel);
 
-		Collection<String> beanClassNames = sort(beansModel.getBeanClassNames(), (c1, c2) -> c1.compareTo(c2));
+		List<String> beanClassNames = sort(beansModel.getBeanClassNames(), (c1, c2) -> c1.compareTo(c2));
 		assertEquals(1, beanClassNames.size());
-		assertEquals("org.apache.aries.cdi.container.test.beans.Bar", beanClassNames.iterator().next());
+		assertEquals("org.apache.aries.cdi.container.test.beans.Bar", beanClassNames.get(0));
 	}
 
 	@Test
@@ -42,8 +41,8 @@ public class ModelTest extends TestUtil {
 		BeansModel beansModel = builder.build();
 		assertNotNull(beansModel);
 
-		Collection<String> beanClassNames = sort(beansModel.getBeanClassNames(), (c1, c2) -> c1.compareTo(c2));
+		List<String> beanClassNames = sort(beansModel.getBeanClassNames(), (c1, c2) -> c1.compareTo(c2));
 		assertEquals(5, beanClassNames.size());
-		assertEquals("org.apache.aries.cdi.container.test.beans.Bar", beanClassNames.iterator().next());
+		assertEquals("org.apache.aries.cdi.container.test.beans.Bar", beanClassNames.get(0));
 	}
 }

@@ -29,6 +29,9 @@ import org.jboss.weld.bootstrap.spi.Deployment;
 import org.jboss.weld.bootstrap.spi.Metadata;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO.Type;
+import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
+import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
+import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 
 public class ContainerDiscovery {
 
@@ -41,18 +44,26 @@ public class ContainerDiscovery {
 			containerState.loader(), id, beansModel.getBeanClassNames(),
 			beansModel.getBeansXml());
 
-		ComponentTemplateDTO cctDTO = new ComponentTemplateDTO();
-		cctDTO.activations = new CopyOnWriteArrayList<>();
-		cctDTO.beans = new CopyOnWriteArrayList<>();
-		cctDTO.configurations = new CopyOnWriteArrayList<>();
-		cctDTO.name = containerState.id();
-		cctDTO.references = new CopyOnWriteArrayList<>();
-		cctDTO.type = Type.CONTAINER;
+		ComponentTemplateDTO componentTemplateDTO = new ComponentTemplateDTO();
+		componentTemplateDTO.activations = new CopyOnWriteArrayList<>();
+		componentTemplateDTO.beans = new CopyOnWriteArrayList<>();
+		componentTemplateDTO.configurations = new CopyOnWriteArrayList<>();
+		componentTemplateDTO.name = containerState.id();
+		componentTemplateDTO.references = new CopyOnWriteArrayList<>();
+		componentTemplateDTO.type = Type.CONTAINER;
 
-		containerState.containerDTO().template.components.add(cctDTO);
+		ConfigurationTemplateDTO configDTO = new ConfigurationTemplateDTO();
+		configDTO.componentConfiguration = true;
+		configDTO.maximumCardinality = MaximumCardinality.ONE;
+		configDTO.pid = "osgi.cdi." + containerState.id();
+		configDTO.policy = ConfigurationPolicy.OPTIONAL;
+
+		componentTemplateDTO.configurations.add(configDTO);
+
+		containerState.containerDTO().template.components.add(componentTemplateDTO);
 
 		ExtensionMetadata extension = new ExtensionMetadata(
-			new DiscoveryExtension(containerState, beansModel, cctDTO), id);
+			new DiscoveryExtension(containerState, beansModel, componentTemplateDTO), id);
 
 		List<Metadata<Extension>> extensions = Collections.singletonList(extension);
 
