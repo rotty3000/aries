@@ -14,29 +14,33 @@
 
 package org.apache.aries.cdi.container.internal.component;
 
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Objects;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 import javax.enterprise.event.Observes;
 import javax.enterprise.inject.spi.AfterBeanDiscovery;
 import javax.enterprise.inject.spi.Annotated;
 import javax.enterprise.inject.spi.AnnotatedField;
+import javax.enterprise.inject.spi.AnnotatedMethod;
 import javax.enterprise.inject.spi.AnnotatedParameter;
 import javax.enterprise.inject.spi.AnnotatedType;
 import javax.enterprise.inject.spi.BeanManager;
+import javax.enterprise.inject.spi.DefinitionException;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.InjectionPoint;
+import javax.enterprise.inject.spi.ObserverMethod;
 import javax.enterprise.inject.spi.ProcessAnnotatedType;
 import javax.enterprise.inject.spi.ProcessBean;
 import javax.enterprise.inject.spi.ProcessInjectionPoint;
 import javax.enterprise.inject.spi.ProcessManagedBean;
+import javax.enterprise.inject.spi.ProcessObserverMethod;
 import javax.enterprise.inject.spi.ProcessProducerField;
 import javax.enterprise.inject.spi.ProcessProducerMethod;
 import javax.enterprise.inject.spi.ProcessSessionBean;
@@ -44,45 +48,52 @@ import javax.enterprise.inject.spi.ProcessSyntheticBean;
 
 import org.apache.aries.cdi.container.internal.configuration.ConfigurationModel;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
-import org.apache.aries.cdi.container.internal.log.Logs;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
+import org.apache.aries.cdi.container.internal.model.ExtendedActivationTemplateDTO;
+import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationTemplateDTO;
 import org.apache.aries.cdi.container.internal.reference.ReferenceModel;
-import org.osgi.service.cdi.annotations.ComponentScoped;
+import org.apache.aries.cdi.container.internal.reference.ReferenceModel.Builder;
+import org.osgi.service.cdi.annotations.Bundle;
 import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.FactoryComponent;
 import org.osgi.service.cdi.annotations.PID;
 import org.osgi.service.cdi.annotations.PID.Policy;
+import org.osgi.service.cdi.annotations.Prototype;
 import org.osgi.service.cdi.annotations.Reference;
 import org.osgi.service.cdi.annotations.Service;
 import org.osgi.service.cdi.annotations.SingleComponent;
+import org.osgi.service.cdi.reference.ReferenceEvent;
+import org.osgi.service.cdi.runtime.dto.template.ActivationTemplateDTO.Scope;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
-import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO.Type;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
-import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
-import org.osgi.service.log.Logger;
 
 public class DiscoveryExtension implements Extension {
 
-	public DiscoveryExtension(
-		ContainerState containerState,
-		BeansModel beansModel,
-		ComponentTemplateDTO cctDTO) {
-
+	public DiscoveryExtension(ContainerState containerState) {
 		_containerState = containerState;
-		_beansModel = beansModel;
-		_cctDTO = cctDTO;
+		_beansModel = _containerState.beansModel();
+		_containerTemplate = _containerState.containerDTO().template.components.get(0);
 	}
 
 	void afterBeanDiscovery(@Observes AfterBeanDiscovery abd) {
+		_beansModel.getOSGiBeans().stream().forEach(
+			osgiBean -> {
+				if (!osgiBean.found()) {
+					abd.addDefinitionError(
+						new DefinitionException(
+							String.format(
+								"Did not find bean for <cdi:bean class=\"%s\">",
+								osgiBean.getBeanClass())));
+				}
+			}
+		);
+
 		_beansModel.getErrors().stream().forEach(err ->
 			abd.addDefinitionError(err)
 		);
 	}
 
-	/*
-	 * Process annotated classes to sync them up with the meta-model.
-	 */
 	<X> void processAnnotatedType(@Observes ProcessAnnotatedType<X> pat, BeanManager beanManager) {
 		final AnnotatedType<X> at = pat.getAnnotatedType();
 
@@ -97,56 +108,6 @@ public class DiscoveryExtension implements Extension {
 		}
 
 		osgiBean.found(true);
-	}
-
-	void processInjectionPoint(@Observes ProcessInjectionPoint<?, ?> pip) {
-		final InjectionPoint injectionPoint = pip.getInjectionPoint();
-
-		Annotated annotated = injectionPoint.getAnnotated();
-
-		Class<?> injectionPointClass = null;
-
-		if (annotated instanceof AnnotatedParameter) {
-			AnnotatedParameter<?> ap = (AnnotatedParameter<?>)annotated;
-
-			Parameter javaParameter = ap.getJavaParameter();
-
-			Executable declaringExecutable = javaParameter.getDeclaringExecutable();
-
-			injectionPointClass = declaringExecutable.getDeclaringClass(); //TODO verify
-		}
-		else {
-			AnnotatedField<?> af = (AnnotatedField<?>)annotated;
-
-			injectionPointClass = af.getDeclaringType().getJavaClass();
-		}
-
-		String injectionPointClassName = injectionPointClass.getName();
-
-		OSGiBean osgiBean = _beansModel.getOSGiBean(injectionPointClassName);
-
-		if (osgiBean == null) {
-			return;
-		}
-
-		Reference reference = annotated.getAnnotation(Reference.class);
-		Configuration configuration = annotated.getAnnotation(Configuration.class);
-
-		// Is it annotated with @Reference?
-
-		if (reference != null) {
-			processReference(pip, osgiBean, reference, configuration);
-
-			return;
-		}
-
-		// Is it annotated with @Configuration?
-
-		else if (configuration != null) {
-			processConfiguration(pip, osgiBean);
-
-			return;
-		}
 	}
 
 	void processBean(@Observes ProcessBean<?> pb) {
@@ -187,6 +148,8 @@ public class DiscoveryExtension implements Extension {
 			return;
 		}
 
+		final Class<?> annotatedClassFinal = annotatedClass;
+
 		String className = annotatedClass.getName();
 
 		OSGiBean osgiBean = _beansModel.getOSGiBean(className);
@@ -195,429 +158,417 @@ public class DiscoveryExtension implements Extension {
 			return;
 		}
 
+		osgiBean.found(true);
+
+		List<Class<?>> serviceTypes = collectServiceTypes(annotated);
+
 		if (Optional.ofNullable(
 				annotated.getAnnotation(SingleComponent.class)).isPresent()) {
 
-			ComponentTemplateDTO ctDTO = new ComponentTemplateDTO();
-			ctDTO.activations = new CopyOnWriteArrayList<>();
-			ctDTO.beans = new CopyOnWriteArrayList<>();
-			ctDTO.configurations = new CopyOnWriteArrayList<>();
-			ctDTO.name = pb.getBean().getName();
-			ctDTO.references = new CopyOnWriteArrayList<>();
-			ctDTO.type = Type.SINGLE;
+			ComponentTemplateDTO componentTemplate = new ComponentTemplateDTO();
+			componentTemplate.activations = new CopyOnWriteArrayList<>();
+
+			if (!serviceTypes.isEmpty()) {
+				ExtendedActivationTemplateDTO activationTemplate = new ExtendedActivationTemplateDTO();
+				activationTemplate.declaringClass = annotatedClass;
+				activationTemplate.scope = getScope(annotated);
+				activationTemplate.serviceClasses = serviceTypes.stream().map(
+					st -> st.getName()
+				).collect(Collectors.toList());
+
+				componentTemplate.activations.add(activationTemplate);
+			}
+
+			componentTemplate.beans = new CopyOnWriteArrayList<>();
+			componentTemplate.configurations = new CopyOnWriteArrayList<>();
+			componentTemplate.name = pb.getBean().getName();
+			componentTemplate.properties = null; // TODO
+			componentTemplate.references = new CopyOnWriteArrayList<>();
+			componentTemplate.type = ComponentTemplateDTO.Type.SINGLE;
 
 			annotated.getAnnotations(PID.class).stream().forEach(
 				PID -> {
-					ConfigurationTemplateDTO configDTO = new ConfigurationTemplateDTO();
+					ExtendedConfigurationTemplateDTO configurationTemplate = new ExtendedConfigurationTemplateDTO();
 
-					configDTO.componentConfiguration = true;
-					configDTO.maximumCardinality = MaximumCardinality.ONE;
+					configurationTemplate.componentConfiguration = true;
+					configurationTemplate.declaringClass = annotatedClassFinal;
+					configurationTemplate.maximumCardinality = MaximumCardinality.ONE;
 
 					if (PID.value().equals("$") || PID.value().equals("")) {
-						configDTO.pid = ctDTO.name;
+						configurationTemplate.pid = componentTemplate.name;
 					}
 					else {
-						configDTO.pid = PID.value();
+						configurationTemplate.pid = PID.value();
 					}
 
-					configDTO.policy =
+					configurationTemplate.policy =
 						PID.policy() == Policy.REQUIRED ?
 							ConfigurationPolicy.REQUIRED :
 							ConfigurationPolicy.OPTIONAL;
 
-					ctDTO.configurations.add(configDTO);
+					componentTemplate.configurations.add(configurationTemplate);
 				}
 			);
 
-			if (ctDTO.configurations.isEmpty()) {
-				ConfigurationTemplateDTO configDTO = new ConfigurationTemplateDTO();
+			if (componentTemplate.configurations.isEmpty()) {
+				ExtendedConfigurationTemplateDTO configurationTemplate = new ExtendedConfigurationTemplateDTO();
 
-				configDTO.componentConfiguration = true;
-				configDTO.maximumCardinality = MaximumCardinality.ONE;
-				configDTO.pid = ctDTO.name;
-				configDTO.policy = ConfigurationPolicy.OPTIONAL;
+				configurationTemplate.componentConfiguration = true;
+				configurationTemplate.declaringClass = annotatedClass;
+				configurationTemplate.maximumCardinality = MaximumCardinality.ONE;
+				configurationTemplate.pid = componentTemplate.name;
+				configurationTemplate.policy = ConfigurationPolicy.OPTIONAL;
 
-				ctDTO.configurations.add(configDTO);
+				componentTemplate.configurations.add(configurationTemplate);
 			}
 
-			ctDTO.beans.add(className);
+			componentTemplate.beans.add(className);
 
-			_containerState.containerDTO().template.components.add(ctDTO);
+			_containerState.containerDTO().template.components.add(componentTemplate);
 
-			osgiBean.setComponent(ctDTO);
+			osgiBean.setComponent(componentTemplate);
 		}
 		else if (Optional.ofNullable(
 				annotated.getAnnotation(FactoryComponent.class)).isPresent()) {
 
-			ComponentTemplateDTO ctDTO = new ComponentTemplateDTO();
-			ctDTO.activations = new CopyOnWriteArrayList<>();
-			ctDTO.beans = new CopyOnWriteArrayList<>();
-			ctDTO.configurations = new CopyOnWriteArrayList<>();
-			ctDTO.name = pb.getBean().getName();
-			ctDTO.references = new CopyOnWriteArrayList<>();
-			ctDTO.type = Type.FACTORY;
+			ComponentTemplateDTO componentTemplate = new ComponentTemplateDTO();
+			componentTemplate.activations = new CopyOnWriteArrayList<>();
+
+			if (!serviceTypes.isEmpty()) {
+				ExtendedActivationTemplateDTO activationTemplate = new ExtendedActivationTemplateDTO();
+				activationTemplate.declaringClass = annotatedClass;
+				activationTemplate.scope = getScope(annotated);
+				activationTemplate.serviceClasses = serviceTypes.stream().map(
+					st -> st.getName()
+				).collect(Collectors.toList());
+
+				componentTemplate.activations.add(activationTemplate);
+			}
+
+			componentTemplate.beans = new CopyOnWriteArrayList<>();
+			componentTemplate.configurations = new CopyOnWriteArrayList<>();
+			componentTemplate.name = pb.getBean().getName();
+			componentTemplate.properties = null; // TODO
+			componentTemplate.references = new CopyOnWriteArrayList<>();
+			componentTemplate.type = ComponentTemplateDTO.Type.FACTORY;
 
 			annotated.getAnnotations(PID.class).stream().forEach(
 				PID -> {
-					ConfigurationTemplateDTO configDTO = new ConfigurationTemplateDTO();
+					ExtendedConfigurationTemplateDTO configurationTemplate = new ExtendedConfigurationTemplateDTO();
 
-					configDTO.componentConfiguration = true;
-					configDTO.maximumCardinality = MaximumCardinality.ONE;
+					configurationTemplate.componentConfiguration = true;
+					configurationTemplate.declaringClass = annotatedClassFinal;
+					configurationTemplate.maximumCardinality = MaximumCardinality.ONE;
 
 					if (PID.value().equals("$") || PID.value().equals("")) {
-						configDTO.pid = ctDTO.name;
+						configurationTemplate.pid = componentTemplate.name;
 					}
 					else {
-						configDTO.pid = PID.value();
+						configurationTemplate.pid = PID.value();
 					}
 
-					configDTO.policy =
+					configurationTemplate.policy =
 						PID.policy() == Policy.REQUIRED ?
 							ConfigurationPolicy.REQUIRED :
 							ConfigurationPolicy.OPTIONAL;
 
-					ctDTO.configurations.add(configDTO);
+					componentTemplate.configurations.add(configurationTemplate);
 				}
 			);
 
-			ConfigurationTemplateDTO configDTO = new ConfigurationTemplateDTO();
+			ExtendedConfigurationTemplateDTO configurationTemplate = new ExtendedConfigurationTemplateDTO();
 
-			configDTO.componentConfiguration = true;
-			configDTO.maximumCardinality = MaximumCardinality.MANY;
-			configDTO.pid = Optional.ofNullable(
+			configurationTemplate.componentConfiguration = true;
+			configurationTemplate.declaringClass = annotatedClass;
+			configurationTemplate.maximumCardinality = MaximumCardinality.MANY;
+			configurationTemplate.pid = Optional.ofNullable(
 				annotated.getAnnotation(FactoryComponent.class)
 			).map(fc -> {
 				if (fc.value().equals("$") || fc.value().equals("")) {
-					return ctDTO.name;
+					return componentTemplate.name;
 				}
 				return fc.value();
-			}).orElse(ctDTO.name);
-			configDTO.policy = ConfigurationPolicy.REQUIRED;
+			}).orElse(componentTemplate.name);
+			configurationTemplate.policy = ConfigurationPolicy.REQUIRED;
 
-			ctDTO.configurations.add(configDTO);
-			ctDTO.beans.add(className);
+			componentTemplate.configurations.add(configurationTemplate);
+			componentTemplate.beans.add(className);
 
-			_containerState.containerDTO().template.components.add(ctDTO);
+			_containerState.containerDTO().template.components.add(componentTemplate);
 
-			osgiBean.setComponent(ctDTO);
+			osgiBean.setComponent(componentTemplate);
 		}
 		else {
-			if (!_cctDTO.beans.contains(className)) {
-				_cctDTO.beans.add(className);
+			if (!_containerTemplate.beans.contains(className)) {
+				_containerTemplate.beans.add(className);
 			}
 
-			osgiBean.setComponent(_cctDTO);
+			if (!serviceTypes.isEmpty()) {
+				ExtendedActivationTemplateDTO activationTemplate = new ExtendedActivationTemplateDTO();
+				activationTemplate.declaringClass = annotatedClass;
+				activationTemplate.scope = getScope(annotated);
+				activationTemplate.serviceClasses = serviceTypes.stream().map(
+					st -> st.getName()
+				).collect(Collectors.toList());
+
+				_containerTemplate.activations.add(activationTemplate);
+			}
+
+			osgiBean.setComponent(_containerTemplate);
 		}
 	}
 
-	/*
-	void processObserverMethod(@Observes ProcessObserverMethod<ReferenceEvent<?>, ?> pom) {
-		ObserverMethod<ServiceEvent<?>> observerMethod = pom.getObserverMethod();
+	private Scope getScope(Annotated annotated) {
+		Prototype prototype = annotated.getAnnotation(Prototype.class);
+		Bundle bundle = annotated.getAnnotation(Bundle.class);
 
-		if (_log.isDebugEnabled()) {
-			_log.debug("CDIe - Processing observer method {}", observerMethod);
+		if (prototype != null) {
+			if (bundle != null) {
+				throw new IllegalArgumentException(
+					String.format(
+						"@Prototype and @Bundle must not be used to gether: %s",
+						annotated));
+			}
+
+			return Scope.PROTOTYPE;
+		}
+
+		if (bundle != null) {
+			return Scope.BUNDLE;
+		}
+
+		return Scope.SINGLETON;
+	}
+
+	private List<Class<?>> collectServiceTypes(Annotated annotated) {
+		List<Class<?>> serviceTypes = new ArrayList<>();
+
+		List<java.lang.reflect.AnnotatedType> ats = new ArrayList<>();
+
+		if (annotated instanceof AnnotatedType) {
+			Class<?> annotatedClass = ((AnnotatedType<?>)annotated).getJavaClass();
+			Optional.ofNullable(annotatedClass.getAnnotatedSuperclass()).ifPresent(at -> ats.add(at));
+			ats.addAll(Arrays.asList(annotatedClass.getAnnotatedInterfaces()));
+
+			for (java.lang.reflect.AnnotatedType at : ats) {
+				Optional.ofNullable(at.getAnnotation(Service.class)).ifPresent(
+					service -> {
+						if (service.value().length > 0) {
+							throw new IllegalArgumentException(
+								String.format(
+									"@Service on type_use must not specify a value: %s",
+									annotatedClass));
+						}
+
+						Type type = at.getType();
+
+						if (!(type instanceof Class)) {
+							throw new IllegalArgumentException(
+								String.format(
+									"@Service on type_use must only be specified on non-generic types: %s",
+									annotatedClass));
+						}
+
+						serviceTypes.add((Class<?>)type);
+					}
+				);
+			}
+
+			Service service = annotated.getAnnotation(Service.class);
+
+			if (service == null) {
+				return serviceTypes;
+			}
+
+			if (!serviceTypes.isEmpty()) {
+				throw new IllegalArgumentException(
+						String.format(
+								"@Service must not be applied to type and type_use: %s",
+								annotated));
+			}
+
+			if (service.value().length > 0) {
+				serviceTypes.addAll(Arrays.asList(service.value()));
+			}
+			else if (annotatedClass.getInterfaces().length > 0) {
+				serviceTypes.addAll(Arrays.asList(annotatedClass.getInterfaces()));
+			}
+			else {
+				serviceTypes.add(annotatedClass);
+			}
+		}
+		else if (annotated instanceof AnnotatedMethod) {
+			Service service = annotated.getAnnotation(Service.class);
+
+			if (service == null) {
+				return serviceTypes;
+			}
+
+			Class<?> returnType = ((AnnotatedMethod<?>)annotated).getJavaMember().getReturnType();
+
+			if (service.value().length > 0) {
+				serviceTypes.addAll(Arrays.asList(service.value()));
+			}
+			else if (returnType.getInterfaces().length > 0) {
+				serviceTypes.addAll(Arrays.asList(returnType.getInterfaces()));
+			}
+			else {
+				serviceTypes.add(returnType);
+			}
+		}
+		else if (annotated instanceof AnnotatedField) {
+			Service service = annotated.getAnnotation(Service.class);
+
+			if (service == null) {
+				return serviceTypes;
+			}
+
+			Class<?> fieldType = ((AnnotatedField<?>)annotated).getJavaMember().getType();
+
+			if (service.value().length > 0) {
+				serviceTypes.addAll(Arrays.asList(service.value()));
+			}
+			else if (fieldType.getInterfaces().length > 0) {
+				serviceTypes.addAll(Arrays.asList(fieldType.getInterfaces()));
+			}
+			else {
+				serviceTypes.add(fieldType);
+			}
+		}
+
+		return serviceTypes;
+	}
+
+	void processInjectionPoint(@Observes ProcessInjectionPoint<?, ?> pip) {
+		final InjectionPoint injectionPoint = pip.getInjectionPoint();
+
+		Annotated annotated = injectionPoint.getAnnotated();
+
+		Class<?> injectionPointClass = null;
+
+		if (annotated instanceof AnnotatedParameter) {
+			AnnotatedParameter<?> ap = (AnnotatedParameter<?>)annotated;
+
+			Parameter javaParameter = ap.getJavaParameter();
+
+			Executable executable = javaParameter.getDeclaringExecutable();
+
+			injectionPointClass = executable.getDeclaringClass();
+		}
+		else {
+			AnnotatedField<?> af = (AnnotatedField<?>)annotated;
+
+			injectionPointClass = af.getDeclaringType().getJavaClass();
+		}
+
+		String className = injectionPointClass.getName();
+
+		OSGiBean osgiBean = _beansModel.getOSGiBean(className);
+
+		if (osgiBean == null) {
+			return;
+		}
+
+		Reference reference = annotated.getAnnotation(Reference.class);
+		Configuration configuration = annotated.getAnnotation(Configuration.class);
+
+		if (reference != null) {
+			if (configuration != null) {
+				pip.addDefinitionError(
+					new IllegalArgumentException(
+						String.format(
+							"Cannot use @Reference and @Configuration on the same injection point {}",
+							injectionPoint))
+				);
+
+				return;
+			}
+
+			Builder builder = null;
+
+			if (annotated instanceof AnnotatedParameter) {
+				builder = new ReferenceModel.Builder((AnnotatedParameter<?>)annotated);
+			}
+			else {
+				builder = new ReferenceModel.Builder((AnnotatedField<?>)annotated);
+			}
+
+			try {
+				ReferenceModel referenceModel = builder.type(injectionPoint.getType()).build();
+
+				osgiBean.addReference(referenceModel.toDTO());
+			}
+			catch (Exception e) {
+				pip.addDefinitionError(e);
+			}
+		}
+		else if (configuration != null) {
+			try {
+				ConfigurationModel configurationModel = new ConfigurationModel.Builder(
+					injectionPoint.getType()
+				).declaringClass(
+					injectionPointClass
+				).injectionPoint(
+					injectionPoint
+				).build();
+
+				osgiBean.addConfiguration(configurationModel.toDTO());
+			}
+			catch (Exception e) {
+				pip.addDefinitionError(e);
+			}
+		}
+	}
+
+	void processObserverMethod(@Observes ProcessObserverMethod<ReferenceEvent<?>, ?> pom) {
+		ObserverMethod<ReferenceEvent<?>> observerMethod = pom.getObserverMethod();
+
+		AnnotatedMethod<?> annotatedMethod = pom.getAnnotatedMethod();
+
+		Configuration configuration = annotatedMethod.getAnnotation(Configuration.class);
+
+		if (configuration != null) {
+			pom.addDefinitionError(
+				new IllegalArgumentException(
+					String.format(
+						"Cannot use @Configuration on ReferenceEvent observer method {}",
+						observerMethod))
+			);
+
+			return;
 		}
 
 		Class<?> beanClass = observerMethod.getBeanClass();
 
 		final String className = beanClass.getName();
 
-		ComponentModel componentModel = _beansModel.getComponentModel(className);
+		OSGiBean osgiBean = _beansModel.getOSGiBean(className);
 
-		if (componentModel == null) {
+		if (osgiBean == null) {
 			pom.addDefinitionError(
-				new IllegalArgumentException(
+				new DefinitionException(
 					String.format(
-						"The observer method {} is using the event type 'ServiceEvent' but is not defined as a bean",
-						observerMethod)));
+						"The observer method %s was not declared as <cdi:bean class=\"%s\">",
+						observerMethod, className))
+			);
 
 			return;
 		}
-
-		Reference reference = getQualifier(observerMethod, Reference.class);
-		Configuration configuration = getQualifier(observerMethod, Configuration.class);
-
-		if (reference != null) {
-			processReference(pom, componentModel, reference, configuration);
-
-			return;
-		}
-	}
-
-	@SuppressWarnings("unchecked")
-	private <T extends Annotation> T getQualifier(
-		ObserverMethod<ServiceEvent<?>> observerMethod, Class<T> clazz) {
-		Set<Annotation> qualifiers = observerMethod.getObservedQualifiers();
-		for (Annotation annotation : qualifiers) {
-			if (clazz.isAssignableFrom(annotation.annotationType())) {
-				return (T)annotation;
-			}
-		}
-		return null;
-	}
-*/
-	private void processConfiguration(
-		ProcessInjectionPoint<?, ?> pip,
-		OSGiBean osgiBean) {
-
-		InjectionPoint injectionPoint = pip.getInjectionPoint();
-
-		ConfigurationModel configurationModel = new ConfigurationModel.Builder(
-			injectionPoint.getType()
-		).injectionPoint(
-			injectionPoint
-		).build();
-
-		osgiBean.addConfiguration(configurationModel.toDTO());
-	}
-
-	private void processReference(
-		ProcessInjectionPoint<?, ?> pip,
-		OSGiBean osgiBean,
-		Reference reference,
-		Configuration configuration) {
-
-		InjectionPoint injectionPoint = pip.getInjectionPoint();
 
 		try {
-			if (configuration != null) {
-				throw new IllegalArgumentException(
-					String.format(
-						"Cannot use @Reference and @Configuration on the same injection point {}",
-						injectionPoint));
-			}
-
 			ReferenceModel referenceModel = new ReferenceModel.Builder(
-			).injectionPoint(
-				injectionPoint
-			).build();
+				pom.getAnnotatedMethod().getParameters().get(0)
+			).type(observerMethod.getObservedType()).build();
 
 			osgiBean.addReference(referenceModel.toDTO());
 		}
-		catch (IllegalArgumentException iae) {
-			_log.error("CDIe - Component definition error on {}", injectionPoint, iae);
-
-			pip.addDefinitionError(iae);
+		catch (Exception e) {
+			pom.addDefinitionError(e);
 		}
 	}
-
-	/*
-	private void processReference(
-		ProcessObserverMethod<ServiceEvent<?>, ?> pom,
-		ComponentModel componentModel,
-		Reference reference,
-		Configuration configuration) {
-
-		ObserverMethod<ServiceEvent<?>> observerMethod = pom.getObserverMethod();
-
-		try {
-			if (configuration != null) {
-				throw new IllegalArgumentException(
-					String.format(
-						"Cannot use @Reference and @Configuration on the same observer method {}",
-						observerMethod));
-			}
-
-			ReferenceModel referenceModel = new ReferenceModel.Builder(
-				observerMethod.getObservedQualifiers()
-			).annotated(
-				new ObserverMethodAnnotated(observerMethod)
-			).policy(
-				ReferencePolicy.DYNAMIC
-			).build();
-
-			if (componentModel.getReferences().remove(referenceModel)) {
-				if (_log.isDebugEnabled()) {
-					_log.debug("CDIe - OSGi CDI annotations found. Clearing descriptor reference for {}", observerMethod);
-				}
-			}
-
-			referenceModel.found(true);
-
-			componentModel.getReferences().add(referenceModel);
-		}
-		catch (IllegalArgumentException iae) {
-			_log.error("CDIe - Component definition error on {}", observerMethod, iae);
-
-			pom.addDefinitionError(iae);
-		}
-	}
-	 */
-
-	static boolean checkIfBeanClassIsOSGiAnnotated(Class<?> annotatedClass) {
-		// check for @SingleComponent
-
-		if (Optional.ofNullable(
-				annotatedClass.getAnnotation(SingleComponent.class)).isPresent()) {
-
-			return true;
-		}
-
-		// check for @FactoryComponent
-
-		if (Optional.ofNullable(
-				annotatedClass.getAnnotation(FactoryComponent.class)).isPresent()) {
-
-			return true;
-		}
-
-		// check for @ComponentScoped
-
-		if (Optional.ofNullable(
-				annotatedClass.getAnnotation(ComponentScoped.class)).isPresent()) {
-
-			return true;
-		}
-
-		// check for @ComponentScoped on (producer) fields
-
-		if (Arrays.stream(
-				annotatedClass.getDeclaredFields()
-			).filter(
-				field -> Arrays.stream(
-					field.getAnnotations()
-				).filter(
-					annotation -> ComponentScoped.class.equals(annotation.annotationType())
-				).findFirst().isPresent()
-			).findAny().isPresent()) {
-
-			return true;
-		}
-
-		// check for @ComponentScoped on (producer) methods
-
-		if (Arrays.stream(
-				annotatedClass.getDeclaredMethods()
-			).filter(
-				method -> Arrays.stream(
-					method.getAnnotations()
-				).filter(
-					annotation -> ComponentScoped.class.equals(annotation.annotationType())
-				).findFirst().isPresent()
-			).findAny().isPresent()) {
-
-			return true;
-		}
-
-		// check for @Service
-
-		if (Optional.ofNullable(
-				annotatedClass.getAnnotation(Service.class)).isPresent()) {
-
-			return true;
-		}
-
-		// check for @Service on implements
-
-		if (Arrays.stream(
-				annotatedClass.getAnnotatedInterfaces()
-			).filter(
-				annotatedType -> Objects.nonNull(annotatedType.getAnnotation(Service.class))
-			).findAny().isPresent()) {
-
-			return true;
-		}
-
-		// check for @Service on extends
-
-		if (Stream.of(
-				annotatedClass.getAnnotatedSuperclass()
-			).filter(
-				annotatedType -> Objects.nonNull(annotatedType.getAnnotation(Service.class))
-			).findAny().isPresent()) {
-
-			return true;
-		}
-
-		// check for @Service on (producer) fields
-
-		if (Arrays.stream(
-				annotatedClass.getDeclaredFields()
-			).filter(
-				field -> Arrays.stream(
-					field.getAnnotations()
-				).filter(
-					annotation -> Service.class.equals(annotation.annotationType())
-				).findFirst().isPresent()
-			).findAny().isPresent()) {
-
-			return true;
-		}
-
-		// check for @Service on (producer) methods
-
-		if (Arrays.stream(
-				annotatedClass.getDeclaredMethods()
-			).filter(
-				method -> Arrays.stream(
-					method.getAnnotations()
-				).filter(
-					annotation -> Service.class.equals(annotation.annotationType())
-				).findFirst().isPresent()
-			).findAny().isPresent()) {
-
-			return true;
-		}
-
-		Predicate<Annotation> hasAnnotations = annotation ->
-			Configuration.class.isInstance(annotation) || Reference.class.isInstance(annotation);
-
-		// check for @Configuration/@Reference on constructors
-
-		if (Arrays.stream(
-				annotatedClass.getDeclaredConstructors()
-			).filter(
-				ctor -> Arrays.stream(
-					ctor.getParameterAnnotations()
-				).flatMap(
-					array -> Arrays.stream(array)
-				).filter(
-					hasAnnotations
-				).findFirst().isPresent()
-			).findAny().isPresent()) {
-
-			return true;
-		}
-
-		// check for @Configuration/@Reference on fields
-
-		if (Arrays.stream(
-				annotatedClass.getDeclaredFields()
-			).filter(
-				field -> Arrays.stream(
-					field.getAnnotations()
-				).filter(
-					hasAnnotations
-				).findFirst().isPresent()
-			).findAny().isPresent()) {
-
-			return true;
-		}
-
-		// check for @Configuration/@Reference on methods
-
-		if (Arrays.stream(
-				annotatedClass.getDeclaredMethods()
-			).filter(
-				method -> Arrays.stream(
-					method.getParameterAnnotations()
-				).flatMap(
-					array -> Arrays.stream(array)
-				).filter(
-					hasAnnotations
-				).findFirst().isPresent()
-			).findAny().isPresent()) {
-
-			return true;
-		}
-
-		return false;
-	}
-
-	private static final Logger _log = Logs.getLogger(DiscoveryExtension.class);
 
 	private final BeansModel _beansModel;
-	private final ComponentTemplateDTO _cctDTO;
+	private final ComponentTemplateDTO _containerTemplate;
 	private final ContainerState _containerState;
 
 }

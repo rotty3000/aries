@@ -14,7 +14,10 @@
 
 package org.apache.aries.cdi.container.internal.configuration;
 
+import static org.apache.aries.cdi.container.internal.util.Reflection.*;
+
 import java.lang.annotation.Annotation;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.LinkedHashSet;
 import java.util.Objects;
@@ -22,6 +25,7 @@ import java.util.Set;
 
 import javax.enterprise.inject.spi.InjectionPoint;
 
+import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationTemplateDTO;
 import org.osgi.service.cdi.annotations.PID;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
@@ -31,13 +35,19 @@ public class ConfigurationModel {
 
 	public static class Builder {
 
-		public Builder(Type type) {
-			Objects.requireNonNull(type);
-			_type = type;
+		public Builder(Type injectionPointType) {
+			_injectionPointType = injectionPointType;
 		}
 
 		public ConfigurationModel build() {
-			return new ConfigurationModel(_type, _pid, _qualifiers);
+			Objects.requireNonNull(_delcaringClass);
+			Objects.requireNonNull(_injectionPointType);
+			return new ConfigurationModel(_injectionPointType, _delcaringClass, _pid, _qualifiers);
+		}
+
+		public Builder declaringClass(Class<?> delcaringClass) {
+			_delcaringClass = delcaringClass;
+			return this;
 		}
 
 		public Builder injectionPoint(InjectionPoint injectionPoint) {
@@ -46,50 +56,37 @@ public class ConfigurationModel {
 			return this;
 		}
 
+		private Class<?> _delcaringClass;
 		private PID _pid;
 		private Set<Annotation> _qualifiers;
-		private Type _type;
+		private Type _injectionPointType;
 
 	}
 
-	private ConfigurationModel(Type type, PID pid, Set<Annotation> qualifiers) {
-		_type = type;
+	private ConfigurationModel(
+		Type injectionPointType,
+		Class<?> delcaringClass,
+		PID pid,
+		Set<Annotation> qualifiers) {
+
+		_injectionPointType = injectionPointType;
 		_pid = pid;
 		_qualifiers = new LinkedHashSet<>();
+		_declaringClass = delcaringClass;
+
 		if (qualifiers != null) {
 			_qualifiers.addAll(qualifiers);
 		}
-	}
 
-	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((_qualifiers == null) ? 0 : _qualifiers.hashCode());
-		result = prime * result + ((_type == null) ? 0 : _type.hashCode());
-		return result;
-	}
+		Type rawType = injectionPointType;
 
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		ConfigurationModel other = (ConfigurationModel) obj;
-		if (_qualifiers == null) {
-			if (other._qualifiers != null)
-				return false;
-		} else if (!_qualifiers.equals(other._qualifiers))
-			return false;
-		if (_type == null) {
-			if (other._type != null)
-				return false;
-		} else if (!_type.equals(other._type))
-			return false;
-		return true;
+		if (_injectionPointType instanceof ParameterizedType) {
+			ParameterizedType pt = (ParameterizedType)_injectionPointType;
+
+			rawType = pt.getRawType();
+		}
+
+		_beanClass = cast(rawType);
 	}
 
 	public PID getPid() {
@@ -101,40 +98,43 @@ public class ConfigurationModel {
 	}
 
 	public Type getType() {
-		return _type;
-	}
-
-	public void setQualifiers(Set<Annotation> qualifiers) {
-		_qualifiers.clear();
-		_qualifiers.addAll(qualifiers);
+		return _injectionPointType;
 	}
 
 	public ConfigurationTemplateDTO toDTO() {
+		ExtendedConfigurationTemplateDTO dto = new ExtendedConfigurationTemplateDTO();
+
+		dto.beanClass = _beanClass;
+		dto.declaringClass = _declaringClass;
+		dto.injectionPointType = _injectionPointType;
+		dto.maximumCardinality = MaximumCardinality.ONE;
+
 		if (_pid != null) {
-			ConfigurationTemplateDTO dto = new ConfigurationTemplateDTO();
-
 			dto.componentConfiguration = false;
-			dto.maximumCardinality = MaximumCardinality.ONE;
 			dto.pid = _pid.value();
-			dto.policy = (_pid.policy().toString().equals(ConfigurationPolicy.REQUIRED.toString()))
-				? ConfigurationPolicy.REQUIRED : ConfigurationPolicy.OPTIONAL;
-
-			return dto;
+		}
+		else {
+			dto.componentConfiguration = true;
 		}
 
-		return null;
+		dto.policy = (_pid.policy().toString().equals(ConfigurationPolicy.REQUIRED.toString()))
+			? ConfigurationPolicy.REQUIRED : ConfigurationPolicy.OPTIONAL;
+
+		return dto;
 	}
 
 	@Override
 	public String toString() {
 		if (_string == null) {
-			_string = String.format("configuration[type='%s', pid='%s', policy='%s']", _type, _pid.value(), _pid.policy());
+			_string = String.format("configuration[type='%s', pid='%s', policy='%s']", _injectionPointType, _pid.value(), _pid.policy());
 		}
 		return _string;
 	}
 
+	private final Class<?> _beanClass;
+	private final Class<?> _declaringClass;
 	private final PID _pid;
 	private final Set<Annotation> _qualifiers;
 	private volatile String _string;
-	private final Type _type;
+	private final Type _injectionPointType;
 }

@@ -30,21 +30,27 @@ public class InitPhase implements Phase {
 	@Override
 	public void close() {
 		try (Syncro syncro = _lock.open()) {
-			if (_nextPhase == null) {
-				return;
+			if (_log.isDebugEnabled()) {
+				_log.debug("CDIe - Begin init CLOSE on {}", _containerState);
 			}
 
-			_nextPhase.close();
+			if (_nextPhase != null) {
+				_nextPhase.close();
+			}
+
+			if (_log.isDebugEnabled()) {
+				_log.debug("CDIe - Ended init CLOSE on {}", _containerState);
+			}
 		}
 	}
 
 	@Override
 	public void open() {
-		if (_log.isDebugEnabled()) {
-			_log.debug("CDIe - Begin init phase on {}", _containerState);
-		}
-
 		try (Syncro syncro = _lock.open()) {
+			if (_log.isDebugEnabled()) {
+				_log.debug("CDIe - Begin init OPEN on {}", _containerState);
+			}
+
 			if (_log.isDebugEnabled()) {
 				_log.debug("CDIe - Begin discovery on {}", _containerState);
 			}
@@ -55,15 +61,12 @@ public class InitPhase implements Phase {
 				_log.debug("CDIe - Ended discovery on {}", _containerState);
 			}
 
-			if (_nextPhase == null) {
-				return;
+			if (_nextPhase != null) {
+				_nextPhase.open();
 			}
 
-			_nextPhase.open();
-		}
-		finally {
 			if (_log.isDebugEnabled()) {
-				_log.debug("CDIe - Ended init phase on {}", _containerState);
+				_log.debug("CDIe - Ended init OPEN on {}", _containerState);
 			}
 		}
 	}

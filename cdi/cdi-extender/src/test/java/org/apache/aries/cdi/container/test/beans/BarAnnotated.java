@@ -23,6 +23,7 @@ import javax.inject.Provider;
 
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.annotations.Configuration;
+import org.osgi.service.cdi.annotations.Greedy;
 import org.osgi.service.cdi.annotations.PID;
 import org.osgi.service.cdi.annotations.PID.Policy;
 import org.osgi.service.cdi.annotations.Prototype;
@@ -31,6 +32,7 @@ import org.osgi.service.cdi.annotations.Reference;
 public class BarAnnotated {
 
 	@Inject
+	@Greedy
 	@Reference
 	Foo foo;
 
@@ -44,7 +46,7 @@ public class BarAnnotated {
 
 	@Inject
 	@Reference
-	Collection<Map.Entry<Map<String, Object>, Foo>> tupleFoos;
+	Collection<Map.Entry<Map<String, Object>, Integer>> tupleIntegers;
 
 	@Inject
 	@Prototype

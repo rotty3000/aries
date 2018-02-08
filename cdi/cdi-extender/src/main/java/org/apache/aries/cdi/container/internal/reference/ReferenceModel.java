@@ -14,7 +14,7 @@
 
 package org.apache.aries.cdi.container.internal.reference;
 
-import static org.apache.aries.cdi.container.internal.util.Reflection.cast;
+import static org.apache.aries.cdi.container.internal.util.Reflection.*;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.ParameterizedType;
@@ -23,6 +23,7 @@ import java.lang.reflect.WildcardType;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -40,15 +41,16 @@ import javax.inject.Provider;
 import javax.inject.Qualifier;
 
 import org.apache.aries.cdi.container.internal.model.CollectionType;
+import org.apache.aries.cdi.container.internal.model.ExtendedReferenceTemplateDTO;
 import org.osgi.framework.Constants;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.annotations.Greedy;
 import org.osgi.service.cdi.annotations.Prototype;
 import org.osgi.service.cdi.annotations.Reference;
+import org.osgi.service.cdi.reference.ReferenceEvent;
 import org.osgi.service.cdi.reference.ReferenceServiceObjects;
 import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
-import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO.Policy;
 import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO.PolicyOption;
 
@@ -56,8 +58,28 @@ public class ReferenceModel {
 
 	public static class Builder {
 
+		public Builder() {}
+
+		public Builder(AnnotatedField<?> annotated) {
+			_annotated = annotated;
+			_declaringClass = annotated.getDeclaringType().getJavaClass();
+		}
+
+		public Builder(AnnotatedMethod<?> annotated) {
+			_annotated = annotated;
+			_declaringClass = annotated.getDeclaringType().getJavaClass();
+		}
+
+		public Builder(AnnotatedParameter<?> annotated) {
+			_annotated = annotated;
+			_declaringClass = annotated.getDeclaringCallable().getDeclaringType().getJavaClass();
+		}
+
 		public ReferenceModel build() {
-			return new ReferenceModel(_annotated, _type, _declaringClass);
+			Objects.requireNonNull(_annotated);
+			Objects.requireNonNull(_declaringClass);
+			Objects.requireNonNull(_type);
+			return new ReferenceModel(_type, _declaringClass, _annotated);
 		}
 
 		public Builder injectionPoint(InjectionPoint injectionPoint) {
@@ -78,6 +100,11 @@ public class ReferenceModel {
 			return this;
 		}
 
+		public Builder type(Type type) {
+			_type = type;
+			return this;
+		}
+
 		private Annotated _annotated;
 		private Class<?> _declaringClass;
 		private Type _type;
@@ -89,12 +116,12 @@ public class ReferenceModel {
 	}
 
 	private ReferenceModel(
-		Annotated annotated,
-		Type type,
-		Class<?> declaringClass) {
+		Type injectionPointType,
+		Class<?> declaringClass,
+		Annotated annotated) {
 
 		_annotated = annotated;
-		_injectionPointType = type;
+		_injectionPointType = injectionPointType;
 		_declaringClass = declaringClass;
 
 		_reference = _annotated.getAnnotation(Reference.class);
@@ -193,8 +220,20 @@ public class ReferenceModel {
 		return _optional;
 	}
 
-	public boolean unary() {
-		return _multiplicity == MaximumCardinality.ONE;
+	public ExtendedReferenceTemplateDTO toDTO() {
+		ExtendedReferenceTemplateDTO dto = new ExtendedReferenceTemplateDTO();
+		dto.beanClass = _beanClass;
+		dto.collectionType = _collectionType;
+		dto.declaringClass = _declaringClass;
+		dto.injectionPointType = _injectionPointType;
+		dto.maximumCardinality = _multiplicity;
+		dto.minimumCardinality = (_multiplicity == MaximumCardinality.ONE) ? (_optional?0:1) : (0);
+		dto.name = _name;
+		dto.policy = (_dynamic) ? Policy.DYNAMIC : Policy.STATIC;
+		dto.policyOption = (_greedy) ? PolicyOption.GREEDY: PolicyOption.RELUCTANT;
+		dto.serviceType = _serviceType.getName();
+		dto.targetFilter = _targetFilter;
+		return dto;
 	}
 
 	@Override
@@ -205,18 +244,13 @@ public class ReferenceModel {
 		return _string;
 	}
 
+	public boolean unary() {
+		return _multiplicity == MaximumCardinality.ONE;
+	}
+
 	private String buildFilter() {
-		StringBuilder sb = new StringBuilder();
-
-		if (_prototype) {
-			sb.append("(%(");
-			sb.append(Constants.SERVICE_SCOPE);
-			sb.append("=");
-			sb.append(Constants.SCOPE_PROTOTYPE);
-			sb.append(")");
-		}
-
 		String targetFilter = _referenceTarget.orElse(_emptyFilter);
+		boolean filterValid = false;
 
 		int targetFilterLength = targetFilter.length();
 
@@ -224,12 +258,30 @@ public class ReferenceModel {
 			try {
 				FrameworkUtil.createFilter(targetFilter);
 
-				sb.append(targetFilter);
+				filterValid = true;
 			}
 			catch (Exception e) {
 				throw new IllegalArgumentException(
 					"Invalid target filter: " + targetFilter, e);
 			}
+		}
+
+		StringBuilder sb = new StringBuilder();
+
+		if (_prototype && filterValid) {
+			sb.append("(&");
+		}
+
+		if (_prototype) {
+			sb.append("(");
+			sb.append(Constants.SERVICE_SCOPE);
+			sb.append("=");
+			sb.append(Constants.SCOPE_PROTOTYPE);
+			sb.append(")");
+		}
+
+		if (filterValid) {
+			sb.append(targetFilter);
 		}
 
 //		for (Annotation qualifier : getQualifiers()) {
@@ -248,7 +300,7 @@ public class ReferenceModel {
 //			Maps.appendFilter(sb, map);
 //		}
 
-		if (_prototype) {
+		if (_prototype && filterValid) {
 			sb.append(")");
 		}
 
@@ -282,6 +334,11 @@ public class ReferenceModel {
 
 				return prefix + method.getJavaMember().getName() + parameter.getPosition();
 			}
+		}
+		else if (annotated instanceof AnnotatedMethod) {
+			AnnotatedMethod<?> method = (AnnotatedMethod<?>)annotated;
+
+			return prefix + method.getJavaMember().getName();
 		}
 		else {
 			AnnotatedField<?> annotatedField = (AnnotatedField<?>)annotated;
@@ -352,6 +409,25 @@ public class ReferenceModel {
 		if (Instance.class == cast(rawType)) {
 			throw new IllegalArgumentException(
 				"Instance<T> is not supported with @Reference: " + type);
+		}
+
+		if (ReferenceEvent.class == cast(rawType)) {
+			_collectionType = CollectionType.OBSERVER;
+			_dynamic = true;
+			_multiplicity = MaximumCardinality.MANY;
+			_optional = true;
+			_greedy = true;
+
+			if (argument instanceof WildcardType ||
+				argument instanceof ParameterizedType) {
+
+				throw new IllegalArgumentException(
+					"Type argument <S> of ReferenceEvent must not be generic: " + argument);
+			}
+
+			_serviceType = cast(argument);
+
+			return;
 		}
 
 		if ((!_dynamic) && (Provider.class == cast(rawType))) {
@@ -498,18 +574,6 @@ public class ReferenceModel {
 		}
 
 		return true;
-	}
-
-	public ReferenceTemplateDTO toDTO() {
-		ReferenceTemplateDTO dto = new ReferenceTemplateDTO();
-		dto.maximumCardinality = _multiplicity;
-		dto.minimumCardinality = (_multiplicity == MaximumCardinality.ONE) ? (_optional?0:1) : (0);
-		dto.name = _name;
-		dto.policy = (_dynamic) ? Policy.DYNAMIC : Policy.STATIC;
-		dto.policyOption = (_greedy) ? PolicyOption.GREEDY: PolicyOption.RELUCTANT;
-		dto.serviceType = _serviceType.getName();
-		dto.targetFilter = _targetFilter;
-		return dto;
 	}
 
 	private static final String _emptyFilter = "";

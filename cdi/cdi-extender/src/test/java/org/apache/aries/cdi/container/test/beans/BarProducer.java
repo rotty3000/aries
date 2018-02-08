@@ -14,13 +14,24 @@
 
 package org.apache.aries.cdi.container.test.beans;
 
+import java.math.BigDecimal;
+
 import javax.enterprise.inject.Produces;
 
+import org.osgi.service.cdi.annotations.Bundle;
 import org.osgi.service.cdi.annotations.Reference;
+import org.osgi.service.cdi.annotations.Service;
 
 public class BarProducer {
 	@Produces
+	@Service
 	public Bar getBar(@Reference Bar bar) {
 		return bar;
 	}
+
+	@Produces
+	@Service(Integer.class)
+	@Bundle
+	Number fum = new BigDecimal(25);
+
 }

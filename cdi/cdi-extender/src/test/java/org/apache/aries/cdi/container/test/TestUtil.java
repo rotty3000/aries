@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.aries.cdi.container.internal.ChangeCount;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.model.AbstractModelBuilder;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
@@ -145,7 +146,7 @@ public class TestUtil {
 		when(ccrBundle.adapt(BundleWiring.class)).thenReturn(ccrBundleWiring);
 		when(ccrBundleWiring.getRequiredWires(PackageNamespace.PACKAGE_NAMESPACE)).thenReturn(new ArrayList<>());
 
-		return new ContainerState(bundle, ccrBundle) {
+		return new ContainerState(bundle, ccrBundle, new ChangeCount()) {
 
 			@Override
 			public BeansModel beansModel() {

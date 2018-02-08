@@ -21,6 +21,9 @@ import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Observable;
+import java.util.Observer;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.enterprise.inject.spi.CDI;
 
@@ -35,6 +38,7 @@ import org.apache.felix.utils.extender.Extension;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.Constants;
+import org.osgi.framework.ServiceFactory;
 import org.osgi.framework.ServiceRegistration;
 import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
@@ -49,6 +53,9 @@ public class Activator extends AbstractExtender {
 
 	public Activator() {
 		setSynchronous(true);
+
+		_ccr = new CCR();
+		_command = new CDICommand(_ccr);
 	}
 
 	@Override
@@ -71,12 +78,12 @@ public class Activator extends AbstractExtender {
 
 	private void registerCCR() {
 		Dictionary<String, Object> properties = new Hashtable<>();
-		properties.put(Constants.SERVICE_CHANGECOUNT, 0);
+		properties.put(Constants.SERVICE_CHANGECOUNT, _ccrChangeCount.get());
 		properties.put(Constants.SERVICE_DESCRIPTION, "CDI Component Runtime");
 		properties.put(Constants.SERVICE_VENDOR, "Apache Aries");
 
-		_ccr = new CCR();
-		_ccrRegistration = _bundleContext.registerService(CDIComponentRuntime.class, _ccr, properties);
+		_ccrRegistration = _bundleContext.registerService(
+			CDIComponentRuntime.class, new ChangeObserverFactory(), properties);
 	}
 
 	private void registerCDICommand() {
@@ -84,7 +91,6 @@ public class Activator extends AbstractExtender {
 		properties.put("osgi.command.scope", "cdi");
 		properties.put("osgi.command.function", new String[] {"list", "info"});
 
-		_command = new CDICommand(_ccr);
 		_commandRegistration = _bundleContext.registerService(Object.class, _command, properties);
 	}
 
@@ -110,7 +116,7 @@ public class Activator extends AbstractExtender {
 			return null;
 		}
 
-		ContainerState containerState = new ContainerState(bundle, _bundleContext.getBundle());
+		ContainerState containerState = new ContainerState(bundle, _bundleContext.getBundle(), _ccrChangeCount);
 
 		return new CDIBundle(_ccr, containerState, new InitPhase(containerState, new ExtensionPhase(containerState)));
 	}
@@ -160,9 +166,49 @@ public class Activator extends AbstractExtender {
 	private static final Logger _log = Logs.getLogger(Activator.class);
 
 	private BundleContext _bundleContext;
-	private CCR _ccr;
+	private final CCR _ccr;
+	private final ChangeCount _ccrChangeCount = new ChangeCount();
 	private ServiceRegistration<CDIComponentRuntime> _ccrRegistration;
-	private CDICommand _command;
+	private final CDICommand _command;
 	private ServiceRegistration<?> _commandRegistration;
+
+	private class ChangeObserverFactory implements Observer, ServiceFactory<CDIComponentRuntime> {
+
+		@Override
+		public CDIComponentRuntime getService(
+			Bundle bundle,
+			ServiceRegistration<CDIComponentRuntime> registration) {
+
+			_registrations.add(registration);
+
+			return _ccr;
+		}
+
+		@Override
+		public void ungetService(
+			Bundle bundle, ServiceRegistration<CDIComponentRuntime> registration,
+			CDIComponentRuntime service) {
+
+			_registrations.remove(registration);
+		}
+
+		@Override
+		public void update(Observable o, Object arg) {
+			if (!(o instanceof ChangeCount)) {
+				return;
+			}
+
+			ChangeCount changeCount = (ChangeCount)o;
+
+			for (ServiceRegistration<CDIComponentRuntime> registration : _registrations) {
+				Dictionary<String, Object> properties = registration.getReference().getProperties();
+				properties.put(Constants.SERVICE_CHANGECOUNT, changeCount.get());
+				registration.setProperties(properties);
+			}
+		}
+
+		private final List<ServiceRegistration<CDIComponentRuntime>> _registrations = new CopyOnWriteArrayList<>();
+
+	}
 
 }

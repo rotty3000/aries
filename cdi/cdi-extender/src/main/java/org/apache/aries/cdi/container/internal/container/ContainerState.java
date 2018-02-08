@@ -29,6 +29,7 @@ import javax.enterprise.inject.Any;
 import javax.enterprise.inject.spi.ObserverMethod;
 import javax.enterprise.util.AnnotationLiteral;
 
+import org.apache.aries.cdi.container.internal.ChangeCount;
 import org.apache.aries.cdi.container.internal.configuration.ConfigurationCallback;
 import org.apache.aries.cdi.container.internal.loader.BundleClassLoader;
 import org.apache.aries.cdi.container.internal.loader.BundleResourcesLoader;
@@ -36,11 +37,14 @@ import org.apache.aries.cdi.container.internal.model.BeansModel;
 import org.apache.aries.cdi.container.internal.model.BeansModelBuilder;
 import org.apache.aries.cdi.container.internal.reference.ReferenceCallback;
 import org.apache.aries.cdi.container.internal.service.ServiceDeclaration;
+import org.apache.aries.cdi.container.internal.util.Throw;
 import org.apache.aries.cdi.container.internal.v2.component.Component;
 import org.jboss.weld.resources.spi.ResourceLoader;
 import org.jboss.weld.serialization.spi.ProxyServices;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.FrameworkUtil;
+import org.osgi.framework.InvalidSyntaxException;
 import org.osgi.framework.dto.BundleDTO;
 import org.osgi.framework.namespace.PackageNamespace;
 import org.osgi.framework.wiring.BundleCapability;
@@ -49,8 +53,13 @@ import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.service.cdi.reference.ReferenceEvent;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
+import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
+import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO.Type;
+import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
+import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ContainerTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ExtensionTemplateDTO;
+import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 
 public class ContainerState {
 
@@ -58,9 +67,13 @@ public class ContainerState {
 		private static final long serialVersionUID = 1L;
 	};
 
-	public ContainerState(Bundle bundle, Bundle extenderBundle) {
+	@SuppressWarnings("unchecked")
+	public ContainerState(Bundle bundle, Bundle extenderBundle, ChangeCount ccrChangeCount) {
 		_bundle = bundle;
 		_extenderBundle = extenderBundle;
+
+		_changeCount = new ChangeCount();
+		_changeCount.addObserver(ccrChangeCount);
 
 		BundleWiring bundleWiring = _bundle.adapt(BundleWiring.class);
 
@@ -80,39 +93,69 @@ public class ContainerState {
 			}
 		}
 
-		_id = Optional.ofNullable(
-			(String)cdiAttributes.get(CDI_CONTAINER_ID)
-		).orElse(
-			_bundle.getSymbolicName()
-		);
-
-		@SuppressWarnings("unchecked")
-		List<String> extensions = Optional.ofNullable(
-			(List<String>)cdiAttributes.get(REQUIREMENT_EXTENSIONS_ATTRIBUTE)
-		).orElse(Collections.emptyList());
-
 		_containerDTO = new ContainerDTO();
 		_containerDTO.bundle = _bundle.adapt(BundleDTO.class);
-		_containerDTO.changeCount = 0;
+		_containerDTO.changeCount = _changeCount.getAndIncrement();
 		_containerDTO.components = new CopyOnWriteArrayList<>();
 		_containerDTO.errors = new CopyOnWriteArrayList<>();
 		_containerDTO.extensions = new CopyOnWriteArrayList<>();
 		_containerDTO.template = new ContainerTemplateDTO();
 		_containerDTO.template.components = new CopyOnWriteArrayList<>();
 		_containerDTO.template.extensions = new CopyOnWriteArrayList<>();
-		_containerDTO.template.id = _id;
+		_containerDTO.template.id = Optional.ofNullable(
+			(String)cdiAttributes.get(CDI_CONTAINER_ID)
+		).orElse(
+			_bundle.getSymbolicName()
+		);
 
-		for (String extensionFilter : extensions) {
-			ExtensionTemplateDTO extensionTemplateDTO = new ExtensionTemplateDTO();
+		Optional.ofNullable(
+			(List<String>)cdiAttributes.get(REQUIREMENT_EXTENSIONS_ATTRIBUTE)
+		).ifPresent(
+			list -> list.stream().forEach(
+				extensionFilter -> {
+					try {
+						FrameworkUtil.createFilter(extensionFilter);
 
-			extensionTemplateDTO.serviceFilter = extensionFilter;
+						ExtensionTemplateDTO extensionTemplateDTO = new ExtensionTemplateDTO();
 
-			_containerDTO.template.extensions.add(extensionTemplateDTO);
-		}
+						extensionTemplateDTO.serviceFilter = extensionFilter;
 
-		_classLoader = new BundleClassLoader(getBundles(_bundle, _extenderBundle));
+						_containerDTO.template.extensions.add(extensionTemplateDTO);
+					}
+					catch (InvalidSyntaxException ise) {
+						_containerDTO.errors.add(Throw.toString(ise));
 
-		_beansModel = new BeansModelBuilder(_classLoader, bundleWiring, cdiAttributes).build();
+						// TODO log this error also
+					}
+				}
+			)
+		);
+
+		ComponentTemplateDTO componentTemplate = new ComponentTemplateDTO();
+		componentTemplate.activations = new CopyOnWriteArrayList<>();
+		componentTemplate.beans = new CopyOnWriteArrayList<>();
+		componentTemplate.configurations = new CopyOnWriteArrayList<>();
+		componentTemplate.name = _containerDTO.template.id;
+		componentTemplate.properties = Collections.emptyMap(); // TODO
+		componentTemplate.references = new CopyOnWriteArrayList<>();
+		componentTemplate.type = Type.CONTAINER;
+
+		ConfigurationTemplateDTO configurationTemplate = new ConfigurationTemplateDTO();
+		configurationTemplate.componentConfiguration = true;
+		configurationTemplate.maximumCardinality = MaximumCardinality.ONE;
+		configurationTemplate.pid = Optional.ofNullable(
+			(String)cdiAttributes.get(CDI_CONTAINER_ID)
+		).orElse(
+			"osgi.cdi." + _bundle.getSymbolicName()
+		);
+		configurationTemplate.policy = ConfigurationPolicy.OPTIONAL;
+
+		componentTemplate.configurations.add(configurationTemplate);
+		_containerDTO.template.components.add(componentTemplate);
+
+		_aggregateClassLoader = new BundleClassLoader(getBundles(_bundle, _extenderBundle));
+
+		_beansModel = new BeansModelBuilder(_aggregateClassLoader, bundleWiring, cdiAttributes).build();
 
 		_bundleClassLoader = bundleWiring.getClassLoader();
 	}
@@ -134,7 +177,7 @@ public class ContainerState {
 	}
 
 	public ClassLoader classLoader() {
-		return _classLoader;
+		return _aggregateClassLoader;
 	}
 
 	public Map<Component, Map<String, ConfigurationCallback>> configurationCallbacks() {
@@ -150,7 +193,7 @@ public class ContainerState {
 	}
 
 	public String id() {
-		return _id;
+		return _containerDTO.template.id;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -197,13 +240,13 @@ public class ContainerState {
 		return bundles.toArray(new Bundle[0]);
 	}
 
+	private final ClassLoader _aggregateClassLoader;
 	private final BeansModel _beansModel;
 	private final Bundle _bundle;
 	private final ClassLoader _bundleClassLoader;
-	private final ClassLoader _classLoader;
+	private final ChangeCount _changeCount;
 	private final Map<Component, Map<String, ConfigurationCallback>> _configurationCallbacksMap = new ConcurrentHashMap<>();
 	private final ContainerDTO _containerDTO;
-	private final String _id;
 	private final Bundle _extenderBundle;
 	private final Map<Component, Map<String, ReferenceCallback>> _referenceCallbacksMap = new ConcurrentHashMap<>();
 	private final Map<Component, Map<String, ObserverMethod<ReferenceEvent<?>>>> _referenceObserversMap = new ConcurrentHashMap<>();

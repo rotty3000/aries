@@ -14,12 +14,7 @@
 
 package org.apache.aries.cdi.container.internal.model;
 
-import static org.apache.aries.cdi.container.internal.model.Constants.BEAN_ELEMENT;
-import static org.apache.aries.cdi.container.internal.model.Constants.CDI10_URI;
-import static org.apache.aries.cdi.container.internal.model.Constants.CDI_URIS;
-import static org.apache.aries.cdi.container.internal.model.Constants.CLASS_ATTRIBUTE;
-import static org.apache.aries.cdi.container.internal.model.Constants.NAME_ATTRIBUTE;
-import static org.apache.aries.cdi.container.internal.model.Constants.QUALIFIER_ELEMENT;
+import static org.apache.aries.cdi.container.internal.model.Constants.*;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -30,8 +25,6 @@ import java.util.Map;
 import org.apache.aries.cdi.container.internal.component.OSGiBean;
 import org.apache.aries.cdi.container.internal.exception.BeanElementException;
 import org.apache.aries.cdi.container.internal.exception.BlacklistQualifierException;
-import org.apache.aries.cdi.container.internal.log.Logs;
-import org.osgi.service.log.Logger;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -60,7 +53,7 @@ public class OSGiBeansHandler extends DefaultHandler {
 			catch (ReflectiveOperationException roe) {
 				_errors.add(
 					new BeanElementException(
-						"Error loading bean class from element: " + className,
+						String.format("Error loading class for <cdi:bean class=\"%s\">", className),
 						roe));
 			}
 		}
@@ -73,7 +66,7 @@ public class OSGiBeansHandler extends DefaultHandler {
 			catch (ReflectiveOperationException roe) {
 				_errors.add(
 					new BlacklistQualifierException(
-						"Error loading blacklisted qualifier from element: " + className,
+						String.format("Error loading class for <cdi:qualifier name=\"%s\">", className),
 						roe));
 			}
 		}
@@ -81,7 +74,7 @@ public class OSGiBeansHandler extends DefaultHandler {
 
 	@Override
 	public void endElement(String uri, String localName, String qName) throws SAXException {
-		if (matches(BEAN_ELEMENT, uri, localName)) {
+		if (matches(BEAN_ELEMENT, uri, localName) && (_beanModel != null)) {
 			OSGiBean osgiBean = _beanModel.build();
 			_beans.put(osgiBean.getBeanClass().getName(), osgiBean);
 			_beanModel = null;
@@ -98,8 +91,6 @@ public class OSGiBeansHandler extends DefaultHandler {
 		}
 		return false;
 	}
-
-	private final static Logger _log = Logs.getLogger(OSGiBeansHandler.class);
 
 	private final ClassLoader _classLoader;
 	private final Map<String, OSGiBean> _beans = new HashMap<>();

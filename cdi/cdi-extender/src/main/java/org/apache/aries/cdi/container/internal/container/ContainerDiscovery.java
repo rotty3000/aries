@@ -16,9 +16,7 @@ package org.apache.aries.cdi.container.internal.container;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
-import javax.enterprise.inject.spi.DefinitionException;
 import javax.enterprise.inject.spi.Extension;
 
 import org.apache.aries.cdi.container.internal.component.DiscoveryExtension;
@@ -27,11 +25,6 @@ import org.jboss.weld.bootstrap.WeldBootstrap;
 import org.jboss.weld.bootstrap.spi.BeanDeploymentArchive;
 import org.jboss.weld.bootstrap.spi.Deployment;
 import org.jboss.weld.bootstrap.spi.Metadata;
-import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
-import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO.Type;
-import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
-import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
-import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 
 public class ContainerDiscovery {
 
@@ -44,26 +37,8 @@ public class ContainerDiscovery {
 			containerState.loader(), id, beansModel.getBeanClassNames(),
 			beansModel.getBeansXml());
 
-		ComponentTemplateDTO componentTemplateDTO = new ComponentTemplateDTO();
-		componentTemplateDTO.activations = new CopyOnWriteArrayList<>();
-		componentTemplateDTO.beans = new CopyOnWriteArrayList<>();
-		componentTemplateDTO.configurations = new CopyOnWriteArrayList<>();
-		componentTemplateDTO.name = containerState.id();
-		componentTemplateDTO.references = new CopyOnWriteArrayList<>();
-		componentTemplateDTO.type = Type.CONTAINER;
-
-		ConfigurationTemplateDTO configDTO = new ConfigurationTemplateDTO();
-		configDTO.componentConfiguration = true;
-		configDTO.maximumCardinality = MaximumCardinality.ONE;
-		configDTO.pid = "osgi.cdi." + containerState.id();
-		configDTO.policy = ConfigurationPolicy.OPTIONAL;
-
-		componentTemplateDTO.configurations.add(configDTO);
-
-		containerState.containerDTO().template.components.add(componentTemplateDTO);
-
 		ExtensionMetadata extension = new ExtensionMetadata(
-			new DiscoveryExtension(containerState, beansModel, componentTemplateDTO), id);
+			new DiscoveryExtension(containerState), id);
 
 		List<Metadata<Extension>> extensions = Collections.singletonList(extension);
 
@@ -77,21 +52,6 @@ public class ContainerDiscovery {
 		_bootstrap.startInitialization();
 		_bootstrap.deployBeans();
 		_bootstrap.shutdown();
-
-		validate(containerState);
-	}
-
-	private static void validate(ContainerState containerState) {
-		containerState.beansModel().getOSGiBeans().stream().forEach(
-			osgiBean -> {
-				if (!osgiBean.found()) {
-					throw new DefinitionException(
-						String.format(
-							"Did not find bean for <component> description %s",
-							osgiBean));
-				}
-			}
-		);
 	}
 
 }
