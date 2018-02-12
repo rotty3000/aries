@@ -16,9 +16,7 @@ package org.apache.aries.cdi.container.internal.component;
 
 import java.lang.reflect.Executable;
 import java.lang.reflect.Parameter;
-import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -53,6 +51,8 @@ import org.apache.aries.cdi.container.internal.model.ExtendedActivationTemplateD
 import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationTemplateDTO;
 import org.apache.aries.cdi.container.internal.reference.ReferenceModel;
 import org.apache.aries.cdi.container.internal.reference.ReferenceModel.Builder;
+import org.apache.aries.cdi.container.internal.util.Maps;
+import org.apache.aries.cdi.container.internal.util.Types;
 import org.osgi.service.cdi.annotations.Bundle;
 import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.FactoryComponent;
@@ -60,7 +60,6 @@ import org.osgi.service.cdi.annotations.PID;
 import org.osgi.service.cdi.annotations.PID.Policy;
 import org.osgi.service.cdi.annotations.Prototype;
 import org.osgi.service.cdi.annotations.Reference;
-import org.osgi.service.cdi.annotations.Service;
 import org.osgi.service.cdi.annotations.SingleComponent;
 import org.osgi.service.cdi.reference.ReferenceEvent;
 import org.osgi.service.cdi.runtime.dto.template.ActivationTemplateDTO.Scope;
@@ -160,161 +159,180 @@ public class DiscoveryExtension implements Extension {
 
 		osgiBean.found(true);
 
-		List<Class<?>> serviceTypes = collectServiceTypes(annotated);
+		try {
+			List<Class<?>> serviceTypes = Types.collectServiceTypes(annotated);
 
-		if (Optional.ofNullable(
-				annotated.getAnnotation(SingleComponent.class)).isPresent()) {
+			if ((annotated instanceof AnnotatedType) &&
+				Optional.ofNullable(
+					annotated.getAnnotation(SingleComponent.class)).isPresent()) {
 
-			ComponentTemplateDTO componentTemplate = new ComponentTemplateDTO();
-			componentTemplate.activations = new CopyOnWriteArrayList<>();
+				ComponentTemplateDTO componentTemplate = new ComponentTemplateDTO();
+				componentTemplate.activations = new CopyOnWriteArrayList<>();
 
-			if (!serviceTypes.isEmpty()) {
-				ExtendedActivationTemplateDTO activationTemplate = new ExtendedActivationTemplateDTO();
-				activationTemplate.declaringClass = annotatedClass;
-				activationTemplate.scope = getScope(annotated);
-				activationTemplate.serviceClasses = serviceTypes.stream().map(
-					st -> st.getName()
-				).collect(Collectors.toList());
+				if (!serviceTypes.isEmpty()) {
+					ExtendedActivationTemplateDTO activationTemplate = new ExtendedActivationTemplateDTO();
+					activationTemplate.declaringClass = annotatedClass;
+					activationTemplate.properties = Collections.emptyMap();
+					activationTemplate.scope = getScope(annotated);
+					activationTemplate.serviceClasses = serviceTypes.stream().map(
+						st -> st.getName()
+					).collect(Collectors.toList());
 
-				componentTemplate.activations.add(activationTemplate);
-			}
+					componentTemplate.activations.add(activationTemplate);
+				}
 
-			componentTemplate.beans = new CopyOnWriteArrayList<>();
-			componentTemplate.configurations = new CopyOnWriteArrayList<>();
-			componentTemplate.name = pb.getBean().getName();
-			componentTemplate.properties = null; // TODO
-			componentTemplate.references = new CopyOnWriteArrayList<>();
-			componentTemplate.type = ComponentTemplateDTO.Type.SINGLE;
+				componentTemplate.beans = new CopyOnWriteArrayList<>();
+				componentTemplate.configurations = new CopyOnWriteArrayList<>();
+				componentTemplate.name = pb.getBean().getName();
+				componentTemplate.properties = Maps.componentProperties(annotated);
+				componentTemplate.references = new CopyOnWriteArrayList<>();
+				componentTemplate.type = ComponentTemplateDTO.Type.SINGLE;
 
-			annotated.getAnnotations(PID.class).stream().forEach(
-				PID -> {
+				annotated.getAnnotations(PID.class).stream().forEach(
+					PID -> {
+						ExtendedConfigurationTemplateDTO configurationTemplate = new ExtendedConfigurationTemplateDTO();
+
+						configurationTemplate.componentConfiguration = true;
+						configurationTemplate.declaringClass = annotatedClassFinal;
+						configurationTemplate.maximumCardinality = MaximumCardinality.ONE;
+						configurationTemplate.pid = Optional.of(PID.value()).map(
+							s -> {
+								if (s.equals("$") || s.equals("")) {
+									return componentTemplate.name;
+								}
+								return s;
+							}
+						).orElse(componentTemplate.name);
+
+						if (PID.value().equals("$") || PID.value().equals("")) {
+							configurationTemplate.pid = componentTemplate.name;
+						}
+						else {
+							configurationTemplate.pid = PID.value();
+						}
+
+						configurationTemplate.policy =
+							PID.policy() == Policy.REQUIRED ?
+								ConfigurationPolicy.REQUIRED :
+								ConfigurationPolicy.OPTIONAL;
+
+						componentTemplate.configurations.add(configurationTemplate);
+					}
+				);
+
+				if (componentTemplate.configurations.isEmpty()) {
 					ExtendedConfigurationTemplateDTO configurationTemplate = new ExtendedConfigurationTemplateDTO();
 
 					configurationTemplate.componentConfiguration = true;
-					configurationTemplate.declaringClass = annotatedClassFinal;
+					configurationTemplate.declaringClass = annotatedClass;
 					configurationTemplate.maximumCardinality = MaximumCardinality.ONE;
-
-					if (PID.value().equals("$") || PID.value().equals("")) {
-						configurationTemplate.pid = componentTemplate.name;
-					}
-					else {
-						configurationTemplate.pid = PID.value();
-					}
-
-					configurationTemplate.policy =
-						PID.policy() == Policy.REQUIRED ?
-							ConfigurationPolicy.REQUIRED :
-							ConfigurationPolicy.OPTIONAL;
+					configurationTemplate.pid = componentTemplate.name;
+					configurationTemplate.policy = ConfigurationPolicy.OPTIONAL;
 
 					componentTemplate.configurations.add(configurationTemplate);
 				}
-			);
 
-			if (componentTemplate.configurations.isEmpty()) {
+				componentTemplate.beans.add(className);
+
+				_containerState.containerDTO().template.components.add(componentTemplate);
+
+				osgiBean.setComponent(componentTemplate);
+			}
+			else if ((annotated instanceof AnnotatedType) &&
+					Optional.ofNullable(
+					annotated.getAnnotation(FactoryComponent.class)).isPresent()) {
+
+				ComponentTemplateDTO componentTemplate = new ComponentTemplateDTO();
+				componentTemplate.activations = new CopyOnWriteArrayList<>();
+
+				if (!serviceTypes.isEmpty()) {
+					ExtendedActivationTemplateDTO activationTemplate = new ExtendedActivationTemplateDTO();
+					activationTemplate.declaringClass = annotatedClass;
+					activationTemplate.properties = Collections.emptyMap();
+					activationTemplate.scope = getScope(annotated);
+					activationTemplate.serviceClasses = serviceTypes.stream().map(
+						st -> st.getName()
+					).collect(Collectors.toList());
+
+					componentTemplate.activations.add(activationTemplate);
+				}
+
+				componentTemplate.beans = new CopyOnWriteArrayList<>();
+				componentTemplate.configurations = new CopyOnWriteArrayList<>();
+				componentTemplate.name = pb.getBean().getName();
+				componentTemplate.properties = Maps.componentProperties(annotated);
+				componentTemplate.references = new CopyOnWriteArrayList<>();
+				componentTemplate.type = ComponentTemplateDTO.Type.FACTORY;
+
+				annotated.getAnnotations(PID.class).stream().forEach(
+					PID -> {
+						ExtendedConfigurationTemplateDTO configurationTemplate = new ExtendedConfigurationTemplateDTO();
+
+						configurationTemplate.componentConfiguration = true;
+						configurationTemplate.declaringClass = annotatedClassFinal;
+						configurationTemplate.maximumCardinality = MaximumCardinality.ONE;
+						configurationTemplate.pid = Optional.of(PID.value()).map(
+							s -> {
+								if (s.equals("$") || s.equals("")) {
+									return componentTemplate.name;
+								}
+								return s;
+							}
+						).orElse(componentTemplate.name);
+
+						configurationTemplate.policy =
+							PID.policy() == Policy.REQUIRED ?
+								ConfigurationPolicy.REQUIRED :
+								ConfigurationPolicy.OPTIONAL;
+
+						componentTemplate.configurations.add(configurationTemplate);
+					}
+				);
+
 				ExtendedConfigurationTemplateDTO configurationTemplate = new ExtendedConfigurationTemplateDTO();
 
 				configurationTemplate.componentConfiguration = true;
 				configurationTemplate.declaringClass = annotatedClass;
-				configurationTemplate.maximumCardinality = MaximumCardinality.ONE;
-				configurationTemplate.pid = componentTemplate.name;
-				configurationTemplate.policy = ConfigurationPolicy.OPTIONAL;
+				configurationTemplate.maximumCardinality = MaximumCardinality.MANY;
+				configurationTemplate.pid = Optional.ofNullable(
+					annotated.getAnnotation(FactoryComponent.class)
+				).map(fc -> {
+					if (fc.value().equals("$") || fc.value().equals("")) {
+						return componentTemplate.name;
+					}
+					return fc.value();
+				}).orElse(componentTemplate.name);
+				configurationTemplate.policy = ConfigurationPolicy.REQUIRED;
 
 				componentTemplate.configurations.add(configurationTemplate);
+				componentTemplate.beans.add(className);
+
+				_containerState.containerDTO().template.components.add(componentTemplate);
+
+				osgiBean.setComponent(componentTemplate);
 			}
-
-			componentTemplate.beans.add(className);
-
-			_containerState.containerDTO().template.components.add(componentTemplate);
-
-			osgiBean.setComponent(componentTemplate);
-		}
-		else if (Optional.ofNullable(
-				annotated.getAnnotation(FactoryComponent.class)).isPresent()) {
-
-			ComponentTemplateDTO componentTemplate = new ComponentTemplateDTO();
-			componentTemplate.activations = new CopyOnWriteArrayList<>();
-
-			if (!serviceTypes.isEmpty()) {
-				ExtendedActivationTemplateDTO activationTemplate = new ExtendedActivationTemplateDTO();
-				activationTemplate.declaringClass = annotatedClass;
-				activationTemplate.scope = getScope(annotated);
-				activationTemplate.serviceClasses = serviceTypes.stream().map(
-					st -> st.getName()
-				).collect(Collectors.toList());
-
-				componentTemplate.activations.add(activationTemplate);
-			}
-
-			componentTemplate.beans = new CopyOnWriteArrayList<>();
-			componentTemplate.configurations = new CopyOnWriteArrayList<>();
-			componentTemplate.name = pb.getBean().getName();
-			componentTemplate.properties = null; // TODO
-			componentTemplate.references = new CopyOnWriteArrayList<>();
-			componentTemplate.type = ComponentTemplateDTO.Type.FACTORY;
-
-			annotated.getAnnotations(PID.class).stream().forEach(
-				PID -> {
-					ExtendedConfigurationTemplateDTO configurationTemplate = new ExtendedConfigurationTemplateDTO();
-
-					configurationTemplate.componentConfiguration = true;
-					configurationTemplate.declaringClass = annotatedClassFinal;
-					configurationTemplate.maximumCardinality = MaximumCardinality.ONE;
-
-					if (PID.value().equals("$") || PID.value().equals("")) {
-						configurationTemplate.pid = componentTemplate.name;
-					}
-					else {
-						configurationTemplate.pid = PID.value();
-					}
-
-					configurationTemplate.policy =
-						PID.policy() == Policy.REQUIRED ?
-							ConfigurationPolicy.REQUIRED :
-							ConfigurationPolicy.OPTIONAL;
-
-					componentTemplate.configurations.add(configurationTemplate);
+			else {
+				if (!_containerTemplate.beans.contains(className)) {
+					_containerTemplate.beans.add(className);
 				}
-			);
 
-			ExtendedConfigurationTemplateDTO configurationTemplate = new ExtendedConfigurationTemplateDTO();
+				if (!serviceTypes.isEmpty()) {
+					ExtendedActivationTemplateDTO activationTemplate = new ExtendedActivationTemplateDTO();
+					activationTemplate.declaringClass = annotatedClass;
+					activationTemplate.properties = Maps.componentProperties(annotated);
+					activationTemplate.scope = getScope(annotated);
+					activationTemplate.serviceClasses = serviceTypes.stream().map(
+						st -> st.getName()
+					).collect(Collectors.toList());
 
-			configurationTemplate.componentConfiguration = true;
-			configurationTemplate.declaringClass = annotatedClass;
-			configurationTemplate.maximumCardinality = MaximumCardinality.MANY;
-			configurationTemplate.pid = Optional.ofNullable(
-				annotated.getAnnotation(FactoryComponent.class)
-			).map(fc -> {
-				if (fc.value().equals("$") || fc.value().equals("")) {
-					return componentTemplate.name;
+					_containerTemplate.activations.add(activationTemplate);
 				}
-				return fc.value();
-			}).orElse(componentTemplate.name);
-			configurationTemplate.policy = ConfigurationPolicy.REQUIRED;
 
-			componentTemplate.configurations.add(configurationTemplate);
-			componentTemplate.beans.add(className);
-
-			_containerState.containerDTO().template.components.add(componentTemplate);
-
-			osgiBean.setComponent(componentTemplate);
+				osgiBean.setComponent(_containerTemplate);
+			}
 		}
-		else {
-			if (!_containerTemplate.beans.contains(className)) {
-				_containerTemplate.beans.add(className);
-			}
-
-			if (!serviceTypes.isEmpty()) {
-				ExtendedActivationTemplateDTO activationTemplate = new ExtendedActivationTemplateDTO();
-				activationTemplate.declaringClass = annotatedClass;
-				activationTemplate.scope = getScope(annotated);
-				activationTemplate.serviceClasses = serviceTypes.stream().map(
-					st -> st.getName()
-				).collect(Collectors.toList());
-
-				_containerTemplate.activations.add(activationTemplate);
-			}
-
-			osgiBean.setComponent(_containerTemplate);
+		catch (Exception e) {
+			pb.addDefinitionError(e);
 		}
 	}
 
@@ -338,105 +356,6 @@ public class DiscoveryExtension implements Extension {
 		}
 
 		return Scope.SINGLETON;
-	}
-
-	private List<Class<?>> collectServiceTypes(Annotated annotated) {
-		List<Class<?>> serviceTypes = new ArrayList<>();
-
-		List<java.lang.reflect.AnnotatedType> ats = new ArrayList<>();
-
-		if (annotated instanceof AnnotatedType) {
-			Class<?> annotatedClass = ((AnnotatedType<?>)annotated).getJavaClass();
-			Optional.ofNullable(annotatedClass.getAnnotatedSuperclass()).ifPresent(at -> ats.add(at));
-			ats.addAll(Arrays.asList(annotatedClass.getAnnotatedInterfaces()));
-
-			for (java.lang.reflect.AnnotatedType at : ats) {
-				Optional.ofNullable(at.getAnnotation(Service.class)).ifPresent(
-					service -> {
-						if (service.value().length > 0) {
-							throw new IllegalArgumentException(
-								String.format(
-									"@Service on type_use must not specify a value: %s",
-									annotatedClass));
-						}
-
-						Type type = at.getType();
-
-						if (!(type instanceof Class)) {
-							throw new IllegalArgumentException(
-								String.format(
-									"@Service on type_use must only be specified on non-generic types: %s",
-									annotatedClass));
-						}
-
-						serviceTypes.add((Class<?>)type);
-					}
-				);
-			}
-
-			Service service = annotated.getAnnotation(Service.class);
-
-			if (service == null) {
-				return serviceTypes;
-			}
-
-			if (!serviceTypes.isEmpty()) {
-				throw new IllegalArgumentException(
-						String.format(
-								"@Service must not be applied to type and type_use: %s",
-								annotated));
-			}
-
-			if (service.value().length > 0) {
-				serviceTypes.addAll(Arrays.asList(service.value()));
-			}
-			else if (annotatedClass.getInterfaces().length > 0) {
-				serviceTypes.addAll(Arrays.asList(annotatedClass.getInterfaces()));
-			}
-			else {
-				serviceTypes.add(annotatedClass);
-			}
-		}
-		else if (annotated instanceof AnnotatedMethod) {
-			Service service = annotated.getAnnotation(Service.class);
-
-			if (service == null) {
-				return serviceTypes;
-			}
-
-			Class<?> returnType = ((AnnotatedMethod<?>)annotated).getJavaMember().getReturnType();
-
-			if (service.value().length > 0) {
-				serviceTypes.addAll(Arrays.asList(service.value()));
-			}
-			else if (returnType.getInterfaces().length > 0) {
-				serviceTypes.addAll(Arrays.asList(returnType.getInterfaces()));
-			}
-			else {
-				serviceTypes.add(returnType);
-			}
-		}
-		else if (annotated instanceof AnnotatedField) {
-			Service service = annotated.getAnnotation(Service.class);
-
-			if (service == null) {
-				return serviceTypes;
-			}
-
-			Class<?> fieldType = ((AnnotatedField<?>)annotated).getJavaMember().getType();
-
-			if (service.value().length > 0) {
-				serviceTypes.addAll(Arrays.asList(service.value()));
-			}
-			else if (fieldType.getInterfaces().length > 0) {
-				serviceTypes.addAll(Arrays.asList(fieldType.getInterfaces()));
-			}
-			else {
-				serviceTypes.add(fieldType);
-			}
-		}
-
-		return serviceTypes;
 	}
 
 	void processInjectionPoint(@Observes ProcessInjectionPoint<?, ?> pip) {

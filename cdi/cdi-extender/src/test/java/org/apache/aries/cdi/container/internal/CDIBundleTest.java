@@ -14,6 +14,7 @@ import java.util.Map;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.phase.InitPhase;
+import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.test.TestUtil;
 import org.apache.aries.cdi.container.test.beans.Bar;
 import org.junit.Before;
@@ -224,26 +225,35 @@ public class CDIBundleTest {
 			containerDTO.template.components, (a, b) -> a.name.compareTo(b.name));
 		assertEquals(2, components.size());
 
-		assertEquals(0, components.get(0).activations.size());
-		assertEquals(1, components.get(0).beans.size());
-		assertEquals(2, components.get(0).configurations.size());
-		assertEquals("foo", components.get(0).name);
-		assertEquals(6, components.get(0).references.size());
-		assertEquals(ComponentTemplateDTO.Type.CONTAINER, components.get(0).type);
-
-		assertEquals(1, components.get(1).activations.size());
-
 		{
-			ActivationTemplateDTO at = components.get(1).activations.get(0);
-			assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
-			assertEquals(Arrays.asList("org.apache.aries.cdi.container.test.beans.Foo"), at.serviceClasses);
+			ComponentTemplateDTO ct = components.get(0);
+			assertEquals(0, ct.activations.size());
+			assertEquals(1, ct.beans.size());
+			assertEquals(2, ct.configurations.size());
+			assertEquals("foo", ct.name);
+			assertEquals(Maps.of(), ct.properties);
+			assertEquals(6, ct.references.size());
+			assertEquals(ComponentTemplateDTO.Type.CONTAINER, ct.type);
 		}
 
-		assertEquals(1, components.get(1).beans.size());
-		assertEquals(1, components.get(1).configurations.size());
-		assertEquals("foo.annotated", components.get(1).name);
-		assertEquals(0, components.get(1).references.size());
-		assertEquals(ComponentTemplateDTO.Type.SINGLE, containerDTO.template.components.get(1).type);
+		{
+			ComponentTemplateDTO ct = components.get(1);
+			assertEquals(1, ct.activations.size());
+
+			{
+				ActivationTemplateDTO at = ct.activations.get(0);
+				assertEquals(Maps.of(), at.properties);
+				assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
+				assertEquals(Arrays.asList("org.apache.aries.cdi.container.test.beans.Foo"), at.serviceClasses);
+			}
+
+			assertEquals(1, ct.beans.size());
+			assertEquals(1, ct.configurations.size());
+			assertEquals("foo.annotated", ct.name);
+			assertEquals(Maps.of("service.ranking", 12), ct.properties);
+			assertEquals(0, ct.references.size());
+			assertEquals(ComponentTemplateDTO.Type.SINGLE, ct.type);
+		}
 
 		cdiBundle.destroy();
 
@@ -282,40 +292,54 @@ public class CDIBundleTest {
 			containerDTO.template.components, (a, b) -> a.name.compareTo(b.name));
 		assertEquals(3, components.size());
 
-		assertEquals(1, components.get(0).activations.size());
-
 		{
-			ActivationTemplateDTO at = components.get(0).activations.get(0);
-			assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
-			assertEquals(Arrays.asList("org.apache.aries.cdi.container.test.beans.Bar"), at.serviceClasses);
+			ComponentTemplateDTO ct = components.get(0);
+			assertEquals(1, ct.activations.size());
+
+			{
+				ActivationTemplateDTO at = ct.activations.get(0);
+				assertEquals(Maps.of(), at.properties);
+				assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
+				assertEquals(Arrays.asList("org.apache.aries.cdi.container.test.beans.Bar"), at.serviceClasses);
+			}
+
+			assertEquals(1, ct.beans.size());
+			assertEquals(1, ct.configurations.size());
+			assertEquals("barService", ct.name);
+			assertEquals(Maps.of(), ct.properties);
+			assertEquals(0, ct.references.size());
+			assertEquals(ComponentTemplateDTO.Type.FACTORY, ct.type);
 		}
 
-		assertEquals(1, components.get(0).beans.size());
-		assertEquals(1, components.get(0).configurations.size());
-		assertEquals("barService", components.get(0).name);
-		assertEquals(0, components.get(0).references.size());
-		assertEquals(ComponentTemplateDTO.Type.FACTORY, components.get(0).type);
-
-		assertEquals(2, components.get(1).activations.size());
-		assertEquals(3, components.get(1).beans.size());
-		assertEquals(2, components.get(1).configurations.size());
-		assertEquals("foo", components.get(1).name);
-		assertEquals(8, components.get(1).references.size());
-		assertEquals(ComponentTemplateDTO.Type.CONTAINER, components.get(1).type);
-
-		assertEquals(1, components.get(2).activations.size());
-
 		{
-			ActivationTemplateDTO at = components.get(2).activations.get(0);
-			assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
-			assertEquals(Arrays.asList("org.apache.aries.cdi.container.test.beans.Foo"), at.serviceClasses);
+			ComponentTemplateDTO ct = components.get(1);
+			assertEquals(2, ct.activations.size());
+			assertEquals(3, ct.beans.size());
+			assertEquals(2, ct.configurations.size());
+			assertEquals("foo", ct.name);
+			assertEquals(Maps.of(), ct.properties);
+			assertEquals(8, ct.references.size());
+			assertEquals(ComponentTemplateDTO.Type.CONTAINER, ct.type);
 		}
 
-		assertEquals(1, components.get(2).beans.size());
-		assertEquals(1, components.get(2).configurations.size());
-		assertEquals("foo.annotated", components.get(2).name);
-		assertEquals(0, components.get(2).references.size());
-		assertEquals(ComponentTemplateDTO.Type.SINGLE, components.get(2).type);
+		{
+			ComponentTemplateDTO ct = components.get(2);
+			assertEquals(1, ct.activations.size());
+
+			{
+				ActivationTemplateDTO at = ct.activations.get(0);
+				assertEquals(Maps.of(), at.properties);
+				assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
+				assertEquals(Arrays.asList("org.apache.aries.cdi.container.test.beans.Foo"), at.serviceClasses);
+			}
+
+			assertEquals(1, ct.beans.size());
+			assertEquals(1, ct.configurations.size());
+			assertEquals("foo.annotated", ct.name);
+			assertEquals(Maps.of("service.ranking", 12), ct.properties);
+			assertEquals(0, ct.references.size());
+			assertEquals(ComponentTemplateDTO.Type.SINGLE, ct.type);
+		}
 
 		cdiBundle.destroy();
 
@@ -355,24 +379,26 @@ public class CDIBundleTest {
 		assertEquals(3, components.size());
 
 		{ // component "barService"
-			ComponentTemplateDTO componentTemplateDTO = components.get(0);
-			assertEquals(1, componentTemplateDTO.activations.size());
+			ComponentTemplateDTO ct = components.get(0);
+			assertEquals(1, ct.activations.size());
 
 			{
-				ActivationTemplateDTO at = componentTemplateDTO.activations.get(0);
+				ActivationTemplateDTO at = ct.activations.get(0);
+				assertEquals(Maps.of(), at.properties);
 				assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
 				assertEquals(Arrays.asList("org.apache.aries.cdi.container.test.beans.Bar"), at.serviceClasses);
 			}
 
-			assertEquals(1, componentTemplateDTO.beans.size());
-			assertEquals("org.apache.aries.cdi.container.test.beans.BarService", componentTemplateDTO.beans.get(0));
-			assertEquals(1, componentTemplateDTO.configurations.size());
-			assertEquals("barService", componentTemplateDTO.name);
-			assertEquals(0, componentTemplateDTO.references.size());
-			assertEquals(ComponentTemplateDTO.Type.FACTORY, componentTemplateDTO.type);
+			assertEquals(1, ct.beans.size());
+			assertEquals("org.apache.aries.cdi.container.test.beans.BarService", ct.beans.get(0));
+			assertEquals(1, ct.configurations.size());
+			assertEquals("barService", ct.name);
+			assertEquals(Maps.of(), ct.properties);
+			assertEquals(0, ct.references.size());
+			assertEquals(ComponentTemplateDTO.Type.FACTORY, ct.type);
 
 			{ // configuration "barService"
-				ConfigurationTemplateDTO configurationTemplateDTO = componentTemplateDTO.configurations.get(0);
+				ConfigurationTemplateDTO configurationTemplateDTO = ct.configurations.get(0);
 				assertEquals(true, configurationTemplateDTO.componentConfiguration);
 				assertEquals(MaximumCardinality.MANY, configurationTemplateDTO.maximumCardinality);
 				assertEquals("barService", configurationTemplateDTO.pid);
@@ -381,36 +407,39 @@ public class CDIBundleTest {
 		}
 
 		{ // component "foo"
-			ComponentTemplateDTO componentTemplateDTO = components.get(1);
+			ComponentTemplateDTO ct = components.get(1);
 
-			assertEquals(2, componentTemplateDTO.activations.size());
+			assertEquals(2, ct.activations.size());
 
 			{
-				ActivationTemplateDTO at = componentTemplateDTO.activations.get(0);
+				ActivationTemplateDTO at = ct.activations.get(0);
+				assertEquals(Maps.of("service.ranking", 100), at.properties);
 				assertEquals(ActivationTemplateDTO.Scope.BUNDLE, at.scope);
 				assertEquals(Arrays.asList(Integer.class.getName()), at.serviceClasses);
 			}
 
 			{
-				ActivationTemplateDTO at = componentTemplateDTO.activations.get(1);
+				ActivationTemplateDTO at = ct.activations.get(1);
+				assertEquals(Maps.of(), at.properties);
 				assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
 				assertEquals(Arrays.asList(Bar.class.getName()), at.serviceClasses);
 			}
 
-			assertEquals(3, componentTemplateDTO.beans.size());
+			assertEquals(3, ct.beans.size());
 
-			List<String> beans = TestUtil.sort(componentTemplateDTO.beans, (a, b) -> a.compareTo(b));
+			List<String> beans = TestUtil.sort(ct.beans, (a, b) -> a.compareTo(b));
 			assertEquals("org.apache.aries.cdi.container.test.beans.BarAnnotated", beans.get(0));
 			assertEquals("org.apache.aries.cdi.container.test.beans.BarProducer", beans.get(1));
 			assertEquals("org.apache.aries.cdi.container.test.beans.ObserverFoo", beans.get(2));
 
-			assertEquals(2, componentTemplateDTO.configurations.size());
-			assertEquals("foo", componentTemplateDTO.name);
-			assertEquals(8, componentTemplateDTO.references.size());
-			assertEquals(ComponentTemplateDTO.Type.CONTAINER, componentTemplateDTO.type);
+			assertEquals(2, ct.configurations.size());
+			assertEquals("foo", ct.name);
+			assertEquals(Maps.of(), ct.properties);
+			assertEquals(8, ct.references.size());
+			assertEquals(ComponentTemplateDTO.Type.CONTAINER, ct.type);
 
 			{ // configuration "osgi.cdi.foo"
-				ConfigurationTemplateDTO configurationTemplateDTO = componentTemplateDTO.configurations.get(0);
+				ConfigurationTemplateDTO configurationTemplateDTO = ct.configurations.get(0);
 				assertEquals(true, configurationTemplateDTO.componentConfiguration);
 				assertEquals(MaximumCardinality.ONE, configurationTemplateDTO.maximumCardinality);
 				assertEquals("osgi.cdi.foo", configurationTemplateDTO.pid);
@@ -418,14 +447,14 @@ public class CDIBundleTest {
 			}
 
 			{ // "foo.config
-				ConfigurationTemplateDTO configurationTemplateDTO = componentTemplateDTO.configurations.get(1);
+				ConfigurationTemplateDTO configurationTemplateDTO = ct.configurations.get(1);
 				assertEquals(false, configurationTemplateDTO.componentConfiguration);
 				assertEquals(MaximumCardinality.ONE, configurationTemplateDTO.maximumCardinality);
 				assertEquals("foo.config", configurationTemplateDTO.pid);
 				assertEquals(ConfigurationPolicy.REQUIRED, configurationTemplateDTO.policy);
 			}
 
-			List<ReferenceTemplateDTO> references = TestUtil.sort(componentTemplateDTO.references, (a, b) -> a.name.compareTo(b.name));
+			List<ReferenceTemplateDTO> references = TestUtil.sort(ct.references, (a, b) -> a.name.compareTo(b.name));
 
 			{
 				ReferenceTemplateDTO ref = references.get(0);
@@ -517,17 +546,18 @@ public class CDIBundleTest {
 		}
 
 		{ // component "foo.annotated"
-			ComponentTemplateDTO componentTemplateDTO = components.get(2);
-			assertEquals(1, componentTemplateDTO.activations.size());
-			assertEquals(1, componentTemplateDTO.beans.size());
-			assertEquals("org.apache.aries.cdi.container.test.beans.FooAnnotated", componentTemplateDTO.beans.get(0));
-			assertEquals(1, componentTemplateDTO.configurations.size());
-			assertEquals("foo.annotated", componentTemplateDTO.name);
-			assertEquals(0, componentTemplateDTO.references.size());
-			assertEquals(ComponentTemplateDTO.Type.SINGLE, componentTemplateDTO.type);
+			ComponentTemplateDTO ct = components.get(2);
+			assertEquals(1, ct.activations.size());
+			assertEquals(1, ct.beans.size());
+			assertEquals("org.apache.aries.cdi.container.test.beans.FooAnnotated", ct.beans.get(0));
+			assertEquals(1, ct.configurations.size());
+			assertEquals("foo.annotated", ct.name);
+			assertEquals(Maps.of("service.ranking", 12), ct.properties);
+			assertEquals(0, ct.references.size());
+			assertEquals(ComponentTemplateDTO.Type.SINGLE, ct.type);
 
 			{ // configuration "foo.annotated"
-				ConfigurationTemplateDTO configurationTemplateDTO = componentTemplateDTO.configurations.get(0);
+				ConfigurationTemplateDTO configurationTemplateDTO = ct.configurations.get(0);
 				assertEquals(true, configurationTemplateDTO.componentConfiguration);
 				assertEquals(MaximumCardinality.ONE, configurationTemplateDTO.maximumCardinality);
 				assertEquals("foo.annotated", configurationTemplateDTO.pid);

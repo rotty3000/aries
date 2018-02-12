@@ -14,12 +14,26 @@
 
 package org.apache.aries.cdi.container.internal.util;
 
-import java.lang.reflect.Array;
+import java.lang.annotation.Annotation;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+import javax.enterprise.inject.spi.Annotated;
+import javax.enterprise.inject.spi.AnnotatedConstructor;
+import javax.enterprise.inject.spi.AnnotatedField;
+import javax.enterprise.inject.spi.AnnotatedMethod;
+import javax.enterprise.inject.spi.AnnotatedParameter;
+import javax.enterprise.inject.spi.AnnotatedType;
+
+import org.osgi.service.cdi.annotations.ComponentPropertyType;
+import org.osgi.util.converter.TypeReference;
 
 public class Maps {
 
@@ -39,78 +53,61 @@ public class Maps {
 			sb.append(entry.getValue());
 			sb.append(")");
 		}
-
 	}
 
-	public static Map<String, Object> map(String[] properties) {
-		Map<String,Object> map = new HashMap<>();
+	public static Map<String, ?> of(Object... args) {
+		Map<String, Object> map = new HashMap<>();
 
-		for (String property : properties) {
-			map(map, property);
+		if ((args.length % 2) != 0) throw new IllegalArgumentException("requires even number of args");
+
+		for (int i = 0; i < args.length; i+=2) {
+			map.put(String.valueOf(args[i]), args[i+1]);
 		}
 
 		return map;
 	}
 
-	static void map(Map<String, Object> map, String property) {
-		int eq = property.indexOf('=');
-
-		String key = property.substring(0, eq);
-		String type = "String";
-		String value = property.substring(eq + 1, property.length());
-
-		int colon = key.indexOf(':');
-
-		if (colon != -1) {
-			property = key;
-			key = property.substring(0, colon);
-			type = property.substring(colon + 1, property.length());
+	public static Map<String, ?> componentProperties(Annotated annotated) {
+		if (annotated instanceof AnnotatedType) {
+			return merge(Arrays.asList(((AnnotatedType<?>)annotated).getJavaClass().getAnnotations()));
 		}
-
-		map(map, key, type, value);
+		else if (annotated instanceof AnnotatedParameter) {
+			return merge(Arrays.asList(((AnnotatedParameter<?>)annotated).getJavaParameter().getAnnotations()));
+		}
+		else if (annotated instanceof AnnotatedField) {
+			return merge(Arrays.asList(((AnnotatedField<?>)annotated).getJavaMember().getAnnotations()));
+		}
+		else if (annotated instanceof AnnotatedConstructor) {
+			return merge(Arrays.asList(((AnnotatedConstructor<?>)annotated).getJavaMember().getAnnotations()));
+		}
+		else if (annotated instanceof AnnotatedMethod) {
+			return merge(Arrays.asList(((AnnotatedMethod<?>)annotated).getJavaMember().getAnnotations()));
+		}
+		return merge(new ArrayList<>(annotated.getAnnotations()));
 	}
 
-	@SuppressWarnings("unchecked")
-	static void map(Map<String, Object> map, String key, String type, String value) {
-		PropertyType propertyType = PropertyType.find(type);
+	public static Map<String, ?> merge(List<Annotation> annotations) {
+		return annotations.stream().filter(
+			ann -> Objects.nonNull(ann.annotationType().getAnnotation(ComponentPropertyType.class))
+		).map(
+			ann -> Conversions.convert(ann).sourceAs(ann.annotationType()).to(new TypeReference<Map<String, Object>>() {})
+		).map(Map::entrySet).flatMap(Collection::stream).collect(
+			Collectors.toMap(
+				Map.Entry::getKey,
+				Map.Entry::getValue,
+				Maps::merge
+			)
+		);
+	}
 
-		Object object = map.get(key);
-
-		if (object == null) {
-			Object valueObject = Conversions.convert(value).to(propertyType.getType());
-
-			map.put(key, valueObject);
-
-			return;
-		}
-
-		Object valueObject = Conversions.convert(value).to(propertyType.componentType());
-
-		if (propertyType.isRaw()) {
-			if (!object.getClass().isArray()) {
-				Object array = Array.newInstance(propertyType.componentType(), 2);
-				Array.set(array, 0, object);
-				Array.set(array, 1, valueObject);
-				map.put(key, array);
-			}
-			else {
-				int length = Array.getLength(object);
-				Object array = Array.newInstance(propertyType.componentType(), length + 1);
-				System.arraycopy(object, 0, array, 0, length);
-				Array.set(array, length, valueObject);
-				map.put(key, array);
-			}
-		}
-		else if (propertyType.isList()) {
-			@SuppressWarnings("rawtypes")
-			List list = Collections.checkedList((List)object, propertyType.componentType());
-			list.add(valueObject);
-		}
-		else if (propertyType.isSet()) {
-			@SuppressWarnings("rawtypes")
-			Set set = Collections.checkedSet((Set)object, propertyType.componentType());
-			set.add(valueObject);
-		}
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public static List<?> merge(Object a, Object b) {
+		List<?> aList = Conversions.convert(a).to(new TypeReference<List<?>>() {});
+		List<?> bList = Conversions.convert(b).to(new TypeReference<List<?>>() {});
+		List checkedList = Collections.checkedList(new ArrayList(), aList.get(0).getClass());
+		checkedList.addAll(aList);
+		checkedList.addAll(bList);
+		return checkedList;
 	}
 
 }

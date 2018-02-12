@@ -23,17 +23,20 @@ import java.lang.annotation.Target;
 import javax.inject.Named;
 import javax.inject.Qualifier;
 
+import org.osgi.service.cdi.annotations.ComponentPropertyType;
 import org.osgi.service.cdi.annotations.Service;
 import org.osgi.service.cdi.annotations.SingleComponent;
-
-@Qualifier @Retention(RUNTIME) @Target(TYPE)
-@interface ServiceRanking {
-	int value();
-}
 
 @SingleComponent
 @Named("foo.annotated")
 @Service(Foo.class)
-@ServiceRanking(12)
+@FooAnnotated.ServiceRanking(12)
 public class FooAnnotated implements Foo, Cloneable {
+
+	@Qualifier @Retention(RUNTIME) @Target(TYPE)
+	@ComponentPropertyType
+	public static @interface ServiceRanking {
+		int value();
+	}
+
 }
