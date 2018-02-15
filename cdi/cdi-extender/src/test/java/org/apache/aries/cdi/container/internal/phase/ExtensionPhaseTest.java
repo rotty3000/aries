@@ -108,15 +108,16 @@ public class ExtensionPhaseTest extends BaseCDIBundleTest {
 
 				sl.serviceChanged(new ServiceEvent(ServiceEvent.REGISTERED, refB));
 
+				assertEquals(3, containerState.containerDTO().changeCount);
 				assertEquals(1, containerState.containerDTO().extensions.size());
 				assertEquals(2, containerState.containerDTO().extensions.get(0).service.id);
 
 				sl.serviceChanged(new ServiceEvent(ServiceEvent.UNREGISTERING, refB));
 
+				assertEquals(4, containerState.containerDTO().changeCount);
 				assertEquals(1, containerState.containerDTO().extensions.size());
 				assertEquals(1, containerState.containerDTO().extensions.get(0).service.id);
 
-				sl.serviceChanged(new ServiceEvent(ServiceEvent.UNREGISTERING, refB));
 				sl.serviceChanged(new ServiceEvent(ServiceEvent.UNREGISTERING, refA));
 
 				assertEquals(0, containerState.containerDTO().extensions.size());

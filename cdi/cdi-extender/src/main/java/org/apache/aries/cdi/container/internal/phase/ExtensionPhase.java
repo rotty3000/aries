@@ -177,10 +177,10 @@ public class ExtensionPhase extends Phase {
 			extensionDTO.serviceReference = reference;
 			extensionDTO.template = template;
 
-			containerState.containerDTO().extensions.add(extensionDTO);
+			snapshots().add(extensionDTO);
 			containerState.incrementChangeCount();
 
-			if (containerState.containerDTO().extensions.size() == containerState.containerDTO().template.extensions.size()) {
+			if (snapshots().size() == templates().size()) {
 				next.ifPresent(
 					next -> submit(next::close).then(
 						s -> {
@@ -191,7 +191,7 @@ public class ExtensionPhase extends Phase {
 									return s2;
 								},
 								f -> {
-									_log.error(l -> l.error("CDIe - Error extension open TRACKING {} on {}", reference, bundle()));
+									_log.error(l -> l.error("CDIe - Error in extension open TRACKING {} on {}", reference, bundle()));
 
 									error(f.getFailure());
 								}
@@ -228,63 +228,58 @@ public class ExtensionPhase extends Phase {
 		}
 
 		@Override
-		public void removedService(ServiceReference<Extension> reference, ExtendedExtensionDTO extentionDTO) {
+		public void removedService(ServiceReference<Extension> reference, final ExtendedExtensionDTO extensionDTO) {
 			_references.remove(reference);
+			containerState.bundleContext().ungetService(reference);
 
-			if (containerState.containerDTO().extensions.remove(extentionDTO)) {
-				containerState.incrementChangeCount();
-
-				try {
-					containerState.bundleContext().ungetService(reference);
-				}
-				catch (IllegalStateException ise) {
-					if (_log.isWarnEnabled()) {
-						_log.warn("CDIe - UngetService resulted in error", ise);
-					}
-				}
-
-				if (!_references.isEmpty()) {
-					ExtendedExtensionDTO extensionDTO = new ExtendedExtensionDTO();
-
-					extensionDTO.extension = containerState.bundleContext().getService(_references.first());
-					extensionDTO.service = refDTO(reference);
-					extensionDTO.serviceReference = _references.first();
-					extensionDTO.template = extentionDTO.template;
-
-					containerState.containerDTO().extensions.add(extensionDTO);
-					containerState.incrementChangeCount();
-
-					next.ifPresent(
-						next -> containerState.promiseFactory().submit(() -> next.close()).then(
-							s -> {
-								return containerState.promiseFactory().submit(() -> next.open());
-							},
-							f -> {
-								_log.error(l -> l.error("CDIe - Error in EXTENSION on {}", containerState.bundle(), f.getFailure()));
-
-								containerState.containerDTO().errors.add(Throw.toString(f.getFailure()));
-							}
-						)
-					);
-				}
+			if (!snapshots().removeIf(snap -> ((ExtendedExtensionDTO)snap).serviceReference.equals(reference))) {
+				return;
 			}
 
-			if (containerState.containerDTO().extensions.size() < containerState.containerDTO().template.extensions.size()) {
-				next.ifPresent(
-					next -> containerState.promiseFactory().submit(() -> next.close()).then(
-						s -> {
-							_log.debug(l -> l.debug("CDIe - Ended close EXTENSION on {}", containerState.bundle()));
+			_references.stream().filter(
+				ref -> ((ExtendedExtensionTemplateDTO)extensionDTO.template).filter.match(ref)
+			).findFirst().ifPresent(
+				ref -> {
+					ExtendedExtensionDTO replacement = new ExtendedExtensionDTO();
 
-							return s;
-						},
-						f -> {
-							_log.error(l -> l.error("CDIe - Error in close EXTENSION on {}", containerState.bundle(), f.getFailure()));
+					replacement.extension = containerState.bundleContext().getService(ref);
+					replacement.service = refDTO(ref);
+					replacement.serviceReference = ref;
+					replacement.template = extensionDTO.template;
 
-							containerState.containerDTO().errors.add(Throw.toString(f.getFailure()));
+					snapshots().add(replacement);
+				}
+			);
+
+			containerState.incrementChangeCount();
+
+			next.ifPresent(
+				next -> submit(next::close).then(
+					s -> {
+						if (snapshots().size() == templates().size()) {
+							return submit(next::open).then(
+								s2 -> {
+									_log.debug(l -> l.debug("CDIe - Extension open TRACKING {} on {}", reference, bundle()));
+
+									return s2;
+								},
+								f -> {
+									_log.error(l -> l.error("CDIe - Error in extension open TRACKING {} on {}", reference, bundle()));
+
+									error(f.getFailure());
+								}
+							);
 						}
-					)
-				);
-			}
+
+						return s;
+					},
+					f -> {
+						_log.error(l -> l.error("CDIe - Error extension close TRACKING {} on {}", reference, bundle()));
+
+						error(f.getFailure());
+					}
+				)
+			);
 		}
 
 	}
