@@ -43,7 +43,7 @@ public class OSGiBeansHandler extends DefaultHandler {
 	@Override
 	public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
 		if (matches(BEAN_ELEMENT, uri, localName)) {
-			String className = Model.getValue(CDI10_URI, CLASS_ATTRIBUTE, attributes);
+			String className = getValue(CDI10_URI, CLASS_ATTRIBUTE, attributes);
 
 			try {
 				Class<?> clazz = _classLoader.loadClass(className);
@@ -58,7 +58,7 @@ public class OSGiBeansHandler extends DefaultHandler {
 			}
 		}
 		if (matches(QUALIFIER_ELEMENT, uri, localName)) {
-			String className = Model.getValue(CDI10_URI, NAME_ATTRIBUTE, attributes);
+			String className = getValue(CDI10_URI, NAME_ATTRIBUTE, attributes);
 
 			try {
 				_qualifier = _classLoader.loadClass(className);
@@ -90,6 +90,51 @@ public class OSGiBeansHandler extends DefaultHandler {
 			return true;
 		}
 		return false;
+	}
+	public static boolean getBoolean(String uri, String localName, Attributes attributes, boolean defaultValue) {
+		String value = getValue(uri, localName, attributes);
+
+		if (value == null) {
+			return defaultValue;
+		}
+
+		return Boolean.parseBoolean(value);
+	}
+
+	public static String getValue(String uri, String localName, Attributes attributes) {
+		return getValue(uri, localName, attributes, "");
+	}
+
+	public static String getValue(String uri, String localName, Attributes attributes, String defaultValue) {
+		String value = attributes.getValue(uri, localName);
+
+		if (value == null) {
+			value = attributes.getValue("", localName);
+		}
+
+		if (value != null) {
+			value = value.trim();
+		}
+
+		if (value == null) {
+			return defaultValue;
+		}
+
+		return value;
+	}
+
+	public static String[] getValues(String uri, String localName, Attributes attributes) {
+		return getValues(uri, localName, attributes, new String[0]);
+	}
+
+	public static String[] getValues(String uri, String localName, Attributes attributes, String[] defaultValue) {
+		String value = getValue(uri, localName, attributes, "");
+
+		if (value.length() == 0) {
+			return defaultValue;
+		}
+
+		return value.split("\\s+");
 	}
 
 	private final ClassLoader _classLoader;

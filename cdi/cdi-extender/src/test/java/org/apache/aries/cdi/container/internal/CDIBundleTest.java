@@ -4,10 +4,7 @@ import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import java.net.URL;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,24 +12,13 @@ import java.util.Map;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.phase.InitPhase;
 import org.apache.aries.cdi.container.internal.util.Maps;
+import org.apache.aries.cdi.container.test.BaseCDIBundleTest;
 import org.apache.aries.cdi.container.test.TestUtil;
 import org.apache.aries.cdi.container.test.beans.Bar;
-import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.invocation.InvocationOnMock;
-import org.mockito.junit.MockitoJUnitRunner;
 import org.mockito.stubbing.Answer;
 import org.osgi.framework.Bundle;
-import org.osgi.framework.BundleContext;
-import org.osgi.framework.dto.BundleDTO;
-import org.osgi.framework.namespace.PackageNamespace;
-import org.osgi.framework.wiring.BundleCapability;
-import org.osgi.framework.wiring.BundleRequirement;
-import org.osgi.framework.wiring.BundleWire;
-import org.osgi.framework.wiring.BundleWiring;
-import org.osgi.namespace.extender.ExtenderNamespace;
 import org.osgi.service.cdi.CDIConstants;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.service.cdi.runtime.dto.template.ActivationTemplateDTO;
@@ -42,53 +28,11 @@ import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO;
 
-@RunWith(MockitoJUnitRunner.class)
-public class CDIBundleTest {
-
-	@Before
-	public void before() throws Exception {
-		ccrChangeCount = new ChangeCount();
-		BundleDTO bundleDTO = new BundleDTO();
-		bundleDTO.id = 1;
-		bundleDTO.lastModified = 24l;
-		bundleDTO.state = Bundle.ACTIVE;
-		bundleDTO.symbolicName = "foo";
-		bundleDTO.version = "1.0.0";
-		when(bundle.getSymbolicName()).thenReturn(bundleDTO.symbolicName);
-		when(bundle.adapt(BundleWiring.class)).thenReturn(bundleWiring);
-		when(bundle.adapt(BundleDTO.class)).thenReturn(bundleDTO);
-		when(bundle.getResource(any())).then(new Answer<URL>() {
-			@Override
-			public URL answer(InvocationOnMock invocation) throws ClassNotFoundException {
-				Object[] args = invocation.getArguments();
-				return getClass().getClassLoader().getResource((String)args[0]);
-			}
-		});
-		when(bundle.loadClass(any())).then(new Answer<Class<?>>() {
-			@Override
-			public Class<?> answer(InvocationOnMock invocation) throws ClassNotFoundException {
-				Object[] args = invocation.getArguments();
-				return getClass().getClassLoader().loadClass((String)args[0]);
-			}
-		});
-		when(bundleWiring.getBundle()).thenReturn(bundle);
-		//when(bundleWiring.getRequiredWires(PackageNamespace.PACKAGE_NAMESPACE)).thenReturn(new ArrayList<>());
-		when(bundleWiring.getRequiredWires(ExtenderNamespace.EXTENDER_NAMESPACE)).thenReturn(Collections.singletonList(extenderWire));
-		when(bundleWiring.listResources("OSGI-INF/cdi", "*.xml", BundleWiring.LISTRESOURCES_LOCAL)).thenReturn(Collections.singletonList("OSGI-INF/cdi/osgi-beans.xml"));
-
-		when(extenderWire.getCapability()).thenReturn(extenderCapability);
-		when(extenderCapability.getAttributes()).thenReturn(Collections.singletonMap(ExtenderNamespace.EXTENDER_NAMESPACE, CDIConstants.CDI_CAPABILITY_NAME));
-		when(extenderWire.getRequirement()).thenReturn(extenderRequirement);
-		when(extenderRequirement.getAttributes()).thenReturn(new HashMap<>());
-
-		when(ccrBundle.adapt(BundleWiring.class)).thenReturn(ccrBundleWiring);
-		when(ccrBundleWiring.getRequiredWires(PackageNamespace.PACKAGE_NAMESPACE)).thenReturn(new ArrayList<>());
-		//when(ccrBundleWiring.getBundle()).thenReturn(ccrBundle);
-	}
+public class CDIBundleTest extends BaseCDIBundleTest {
 
 	@Test
 	public void initial() throws Exception {
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory);
 
 		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, null);
 
@@ -116,8 +60,6 @@ public class CDIBundleTest {
 		assertEquals("foo", containerDTO.template.id);
 
 		cdiBundle.destroy();
-
-		assertNull(ccr.getContainerDTO(bundle));
 	}
 
 	@Test
@@ -128,7 +70,7 @@ public class CDIBundleTest {
 
 		when(extenderRequirement.getAttributes()).thenReturn(attributes);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory);
 
 		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, null);
 
@@ -158,8 +100,6 @@ public class CDIBundleTest {
 		assertEquals("foo", containerDTO.template.id);
 
 		cdiBundle.destroy();
-
-		assertNull(ccr.getContainerDTO(bundle));
 	}
 
 	@Test
@@ -170,7 +110,7 @@ public class CDIBundleTest {
 
 		when(extenderRequirement.getAttributes()).thenReturn(attributes);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory);
 
 		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, null);
 
@@ -195,8 +135,6 @@ public class CDIBundleTest {
 		assertEquals("(foo=name)", containerDTO.template.extensions.get(0).serviceFilter);
 
 		cdiBundle.destroy();
-
-		assertNull(ccr.getContainerDTO(bundle));
 	}
 
 	@Test
@@ -209,7 +147,7 @@ public class CDIBundleTest {
 			}
 		});
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory);
 
 		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, new InitPhase(containerState, null));
 
@@ -256,8 +194,6 @@ public class CDIBundleTest {
 		}
 
 		cdiBundle.destroy();
-
-		assertNull(ccr.getContainerDTO(bundle));
 	}
 
 	@Test
@@ -276,7 +212,7 @@ public class CDIBundleTest {
 			}
 		});
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory);
 
 		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, new InitPhase(containerState, null));
 
@@ -342,8 +278,6 @@ public class CDIBundleTest {
 		}
 
 		cdiBundle.destroy();
-
-		assertNull(ccr.getContainerDTO(bundle));
 	}
 
 	@Test
@@ -362,7 +296,7 @@ public class CDIBundleTest {
 			}
 		});
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory);
 
 		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, new InitPhase(containerState, null));
 
@@ -566,8 +500,6 @@ public class CDIBundleTest {
 		}
 
 		cdiBundle.destroy();
-
-		assertNull(ccr.getContainerDTO(bundle));
 	}
 
 	@Test
@@ -586,7 +518,7 @@ public class CDIBundleTest {
 			}
 		});
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory);
 
 		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, new InitPhase(containerState, null));
 
@@ -608,32 +540,9 @@ public class CDIBundleTest {
 		assertFalse(containerDTO.errors.isEmpty());
 		assertEquals(1, containerDTO.errors.size());
 		String[] linesOfError = containerDTO.errors.get(0).split("\r\n|\r|\n", 4);
-		assertEquals("org.jboss.weld.exceptions.DefinitionException: Exception List with 1 exceptions:", linesOfError[0]);
-		assertTrue(linesOfError[1], linesOfError[2].contains("Error loading class for <cdi:bean class=\"org.apache.aries.cdi.container.test.beans.Missing\">"));
+		assertTrue(linesOfError[0], linesOfError[0].contains("Error loading class for <cdi:bean class=\"org.apache.aries.cdi.container.test.beans.Missing\">"));
 
 		cdiBundle.destroy();
-
-		assertNull(ccr.getContainerDTO(bundle));
 	}
-
-	@Mock
-	Bundle bundle;
-	@Mock
-	BundleContext bundleContext;
-	@Mock
-	BundleWiring bundleWiring;
-	@Mock
-	Bundle ccrBundle;
-	@Mock
-	BundleWiring ccrBundleWiring;
-	ChangeCount ccrChangeCount;
-	@Mock
-	BundleCapability extenderCapability;
-	@Mock
-	BundleRequirement extenderRequirement;
-	@Mock
-	BundleWire extenderWire;
-
-	CCR ccr = new CCR();
 
 }

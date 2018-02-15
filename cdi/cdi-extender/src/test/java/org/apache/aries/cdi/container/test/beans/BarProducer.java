@@ -14,18 +14,12 @@
 
 package org.apache.aries.cdi.container.test.beans;
 
-import static java.lang.annotation.ElementType.*;
-import static java.lang.annotation.RetentionPolicy.*;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
 import java.math.BigDecimal;
 
 import javax.enterprise.inject.Produces;
-import javax.inject.Qualifier;
 
+import org.apache.aries.cdi.extra.propertytypes.ServiceRanking;
 import org.osgi.service.cdi.annotations.Bundle;
-import org.osgi.service.cdi.annotations.ComponentPropertyType;
 import org.osgi.service.cdi.annotations.Reference;
 import org.osgi.service.cdi.annotations.Service;
 
@@ -39,13 +33,7 @@ public class BarProducer {
 	@Produces
 	@Service(Integer.class)
 	@Bundle
-	@BarProducer.ServiceRanking(100)
+	@ServiceRanking(100)
 	Number fum = new BigDecimal(25);
-
-	@Qualifier @Retention(RUNTIME) @Target(FIELD)
-	@ComponentPropertyType
-	public static @interface ServiceRanking {
-		int value();
-	}
 
 }

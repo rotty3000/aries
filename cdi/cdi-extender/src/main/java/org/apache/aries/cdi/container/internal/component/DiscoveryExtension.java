@@ -87,10 +87,6 @@ public class DiscoveryExtension implements Extension {
 				}
 			}
 		);
-
-		_beansModel.getErrors().stream().forEach(err ->
-			abd.addDefinitionError(err)
-		);
 	}
 
 	<X> void processAnnotatedType(@Observes ProcessAnnotatedType<X> pat, BeanManager beanManager) {

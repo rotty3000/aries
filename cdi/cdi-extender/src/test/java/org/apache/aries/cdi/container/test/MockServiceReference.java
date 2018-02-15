@@ -3,15 +3,18 @@ package org.apache.aries.cdi.container.test;
 import java.util.Collections;
 import java.util.Dictionary;
 import java.util.Hashtable;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.aries.cdi.container.internal.util.Maps;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.Constants;
 import org.osgi.framework.ServiceReference;
+import org.osgi.framework.dto.ServiceReferenceDTO;
 
 public class MockServiceReference<S> implements ServiceReference<S> {
 
-	public MockServiceReference(S service) {
+	public MockServiceReference(Bundle bundle, S service) {
+		_bundle = bundle;
 		_service = service;
 		_properties.put(Constants.SERVICE_ID, _serviceIds.incrementAndGet());
 	}
@@ -87,7 +90,7 @@ public class MockServiceReference<S> implements ServiceReference<S> {
 
 	@Override
 	public Bundle getBundle() {
-		return null;
+		return _bundle;
 	}
 	@Override
 	public Dictionary<String, Object> getProperties() {
@@ -125,10 +128,20 @@ public class MockServiceReference<S> implements ServiceReference<S> {
 		_properties.put(key, value);
 	}
 
-	public static final AtomicInteger _serviceIds = new AtomicInteger();
+	public ServiceReferenceDTO toDTO() {
+		ServiceReferenceDTO dto = new ServiceReferenceDTO();
+		dto.bundle = _bundle.getBundleId();
+		dto.id = (Long)getProperty(Constants.SERVICE_ID);
+		dto.properties = Maps.of(_properties);
+
+		return dto;
+	}
+
+	public static final AtomicLong _serviceIds = new AtomicLong();
 
 	private static final Integer _ZERO = new Integer(0);
 
+	private final Bundle _bundle;
 	private final Dictionary<String, Object> _properties = new Hashtable<>();
 	private final S _service;
 

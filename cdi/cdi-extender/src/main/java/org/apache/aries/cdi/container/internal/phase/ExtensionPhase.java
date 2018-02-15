@@ -14,176 +14,279 @@
 
 package org.apache.aries.cdi.container.internal.phase;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.SortedSet;
+import java.util.concurrent.ConcurrentSkipListSet;
+
+import javax.enterprise.inject.spi.Extension;
+
 import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.log.Logs;
+import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
+import org.apache.aries.cdi.container.internal.model.ExtendedExtensionTemplateDTO;
+import org.apache.aries.cdi.container.internal.util.Throw;
+import org.osgi.framework.Constants;
+import org.osgi.framework.Filter;
+import org.osgi.framework.FrameworkUtil;
+import org.osgi.framework.InvalidSyntaxException;
+import org.osgi.framework.ServiceReference;
+import org.osgi.framework.dto.ServiceReferenceDTO;
+import org.osgi.service.cdi.runtime.dto.ExtensionDTO;
+import org.osgi.service.cdi.runtime.dto.template.ExtensionTemplateDTO;
+import org.osgi.service.log.Logger;
+import org.osgi.util.tracker.ServiceTracker;
+import org.osgi.util.tracker.ServiceTrackerCustomizer;
 
-public class ExtensionPhase implements Phase {
+public class ExtensionPhase extends Phase {
 
-	public ExtensionPhase(ContainerState containerState) {
-/*		_containerState = containerState;
-		_bundleContext = _containerState.bundle().getBundleContext();
-
-		BundleWiring bundleWiring = _containerState.bundle().adapt(BundleWiring.class);
-
-		_extensionDependencies = findExtensionDependencies(bundleWiring);
-		_extensions = new ConcurrentSkipListMap<>(Comparator.reverseOrder());
-
-		_containerState.setExtensionDependencies(_extensionDependencies);
-*/	}
-
-	@Override
-	public void close() {
-		// TODO Auto-generated method stub
-
+	public ExtensionPhase(ContainerState containerState, Phase next) {
+		super(containerState, next);
 	}
 
 	@Override
-	public void open() {
-		// TODO Auto-generated method stub
-
-	}
-
-/*	@Override
-	public void close() {
+	public boolean close() {
 		if (_extensionTracker != null) {
 			_extensionTracker.close();
+
+			_log.debug(l -> l.debug("CDIe - Ended extension TRACKING on {}", bundle()));
 
 			_extensionTracker = null;
 		}
 		else {
-			_nextPhase.close();
+			_log.debug(l -> l.debug("CDIe - Begin extension CLOSE on {}", bundle()));
 
-			_nextPhase = null;
+			next.ifPresent(
+				next -> submit(next::close).then(
+					s -> {
+						_log.debug(l -> l.debug("CDIe - Ended extension CLOSE on {}", bundle()));
+
+						return s;
+					},
+					f -> {
+						_log.error(l -> l.error("CDIe - Error in extension CLOSE on {}", bundle(), f.getFailure()));
+
+						error(f.getFailure());
+					}
+				)
+			);
 		}
+
+		return true;
 	}
 
 	@Override
-	public void open() {
-		if (!_extensionDependencies.isEmpty()) {
-			_containerState.fire(CdiEvent.Type.WAITING_FOR_EXTENSIONS);
+	public boolean open() {
+		if (!templates().isEmpty()) {
+			_log.debug(l -> l.debug("CDIe - Begin extension TRACKING on {}", bundle()));
 
-			Filter filter = createExtensionFilter(_extensionDependencies);
-
-			_extensionTracker = new ServiceTracker<>(_bundleContext, filter, new ExtensionPhaseCustomizer());
+			_extensionTracker = new ServiceTracker<>(
+				containerState.bundleContext(), createExtensionFilter(), new ExtensionPhaseCustomizer());
 
 			_extensionTracker.open();
 		}
 		else {
-			_nextPhase = new Phase_Configuration(_containerState, _extensions.values());
+			_log.debug(l -> l.debug("CDIe - Begin extension OPEN on {}", bundle()));
 
-			_nextPhase.open();
+			next.ifPresent(
+				next -> submit(next::open).then(
+					s -> {
+						_log.debug(l -> l.debug("CDIe - Ended extension OPEN on {}", bundle()));
+
+						return s;
+					},
+					f -> {
+						_log.error(l -> l.error("CDIe - Error in extension OPEN on {}", bundle(), f.getFailure()));
+
+						error(f.getFailure());
+					}
+				)
+			);
 		}
+
+		return true;
 	}
 
-	Filter createExtensionFilter(List<ExtensionDependency> extentionDependencies) {
+	Filter createExtensionFilter() {
+		final List<ExtensionTemplateDTO> templates = templates();
+
 		try {
 			StringBuilder sb = new StringBuilder("(&(objectClass=" + Extension.class.getName() + ")");
 
-			if (extentionDependencies.size() > 1) sb.append("(|");
+			if (templates.size() > 1) sb.append("(|");
 
-			for (ExtensionDependency dependency : extentionDependencies) {
-				sb.append(dependency.toString());
+			for (ExtensionTemplateDTO tmpl : templates) {
+				sb.append(tmpl.serviceFilter);
 			}
 
-			if (extentionDependencies.size() > 1) sb.append(")");
+			if (templates.size() > 1) sb.append(")");
 
 			sb.append(")");
 
 			return FrameworkUtil.createFilter(sb.toString());
 		}
 		catch (InvalidSyntaxException ise) {
-			throw new RuntimeException(ise);
+			return Throw.exception(ise);
 		}
 	}
 
-	List<ExtensionDependency> findExtensionDependencies(BundleWiring bundleWiring) {
-		List<ExtensionDependency> extensionDependencies = new CopyOnWriteArrayList<>();
-		List<BundleWire> requiredWires = bundleWiring.getRequiredWires(CdiConstants.CDI_EXTENSION_NAMESPACE);
-
-		for (BundleWire wire : requiredWires) {
-			Map<String, Object> attributes = wire.getCapability().getAttributes();
-
-			String extension = (String)attributes.get(CdiConstants.CDI_EXTENSION_NAMESPACE);
-
-			if (extension != null) {
-				ExtensionDependency extensionDependency = new ExtensionDependency(
-					_bundleContext, wire.getProvider().getBundle().getBundleId(), extension);
-
-				extensionDependencies.add(extensionDependency);
-			}
-		}
-
-		return extensionDependencies;
+	List<ExtensionTemplateDTO> templates() {
+		return containerState.containerDTO().template.extensions;
 	}
 
-	private static final Logger _log = LoggerFactory.getLogger(Phase_Extension.class);
+	List<ExtensionDTO> snapshots() {
+		return containerState.containerDTO().extensions;
+	}
 
-	private final BundleContext _bundleContext;
-	private final ContainerState _containerState;
-	private final List<ExtensionDependency> _extensionDependencies;
-	private final Map<ServiceReference<Extension>, Metadata<Extension>> _extensions;
-	private Phase _nextPhase;
+	private static final Logger _log = Logs.getLogger(ExtensionPhase.class);
 
-	private ServiceTracker<Extension, ExtensionDependency> _extensionTracker;
+	private ServiceTracker<Extension, ExtendedExtensionDTO> _extensionTracker;
+	private final SortedSet<ServiceReference<Extension>> _references = new ConcurrentSkipListSet<>();
 
-	private class ExtensionPhaseCustomizer implements ServiceTrackerCustomizer<Extension, ExtensionDependency> {
+	private class ExtensionPhaseCustomizer implements ServiceTrackerCustomizer<Extension, ExtendedExtensionDTO> {
 
 		@Override
-		public ExtensionDependency addingService(ServiceReference<Extension> reference) {
-			ExtensionDependency trackedDependency = null;
+		public ExtendedExtensionDTO addingService(ServiceReference<Extension> reference) {
+			_references.add(reference);
 
-			for (ExtensionDependency extensionDependency : _extensionDependencies) {
-				if (extensionDependency.matches(reference)) {
-					_extensionDependencies.remove(extensionDependency);
-					trackedDependency = extensionDependency;
+			ExtendedExtensionTemplateDTO template = templates().stream().map(
+				t -> (ExtendedExtensionTemplateDTO)t
+			).filter(
+				t -> t.filter.match(reference)
+			).findFirst().get();
 
-					Extension extension = _bundleContext.getService(reference);
+			ExtendedExtensionDTO snapshot = snapshots().stream().map(
+				s -> (ExtendedExtensionDTO)s
+			).filter(
+				s -> s.template == template
+			).findFirst().orElse(null);
 
-					_extensions.put(reference, new ExtensionMetadata(extension, reference.getBundle().toString()));
+			if (snapshot != null) {
+				if (reference.compareTo(snapshot.serviceReference) <= 0) {
+					return null;
+				}
 
-					break;
+				snapshots().remove(snapshot);
+				containerState.bundleContext().ungetService(snapshot.serviceReference);
+			}
+
+			ExtendedExtensionDTO extensionDTO = new ExtendedExtensionDTO();
+
+			extensionDTO.extension = containerState.bundleContext().getService(reference);
+			extensionDTO.service = refDTO(reference);
+			extensionDTO.serviceReference = reference;
+			extensionDTO.template = template;
+
+			containerState.containerDTO().extensions.add(extensionDTO);
+			containerState.incrementChangeCount();
+
+			if (containerState.containerDTO().extensions.size() == containerState.containerDTO().template.extensions.size()) {
+				next.ifPresent(
+					next -> submit(next::close).then(
+						s -> {
+							return submit(next::open).then(
+								s2 -> {
+									_log.debug(l -> l.debug("CDIe - Extension open TRACKING {} on {}", reference, bundle()));
+
+									return s2;
+								},
+								f -> {
+									_log.error(l -> l.error("CDIe - Error extension open TRACKING {} on {}", reference, bundle()));
+
+									error(f.getFailure());
+								}
+							);
+						},
+						f -> {
+							_log.error(l -> l.error("CDIe - Error extension close TRACKING {} on {}", reference, bundle()));
+
+							error(f.getFailure());
+						}
+					)
+				);
+			}
+
+			return extensionDTO;
+		}
+
+		private ServiceReferenceDTO refDTO(ServiceReference<Extension> reference) {
+			ServiceReferenceDTO[] refDTOs = reference.getBundle().adapt(ServiceReferenceDTO[].class);
+
+			return Arrays.stream(refDTOs).filter(
+				dto -> dto.id == id(reference)
+			).findFirst().get();
+		}
+
+		private long id(ServiceReference<Extension> reference) {
+			return (Long)reference.getProperty(Constants.SERVICE_ID);
+		}
+
+		@Override
+		public void modifiedService(ServiceReference<Extension> reference, ExtendedExtensionDTO extentionDTO) {
+			removedService(reference, extentionDTO);
+			addingService(reference);
+		}
+
+		@Override
+		public void removedService(ServiceReference<Extension> reference, ExtendedExtensionDTO extentionDTO) {
+			_references.remove(reference);
+
+			if (containerState.containerDTO().extensions.remove(extentionDTO)) {
+				containerState.incrementChangeCount();
+
+				try {
+					containerState.bundleContext().ungetService(reference);
+				}
+				catch (IllegalStateException ise) {
+					if (_log.isWarnEnabled()) {
+						_log.warn("CDIe - UngetService resulted in error", ise);
+					}
+				}
+
+				if (!_references.isEmpty()) {
+					ExtendedExtensionDTO extensionDTO = new ExtendedExtensionDTO();
+
+					extensionDTO.extension = containerState.bundleContext().getService(_references.first());
+					extensionDTO.service = refDTO(reference);
+					extensionDTO.serviceReference = _references.first();
+					extensionDTO.template = extentionDTO.template;
+
+					containerState.containerDTO().extensions.add(extensionDTO);
+					containerState.incrementChangeCount();
+
+					next.ifPresent(
+						next -> containerState.promiseFactory().submit(() -> next.close()).then(
+							s -> {
+								return containerState.promiseFactory().submit(() -> next.open());
+							},
+							f -> {
+								_log.error(l -> l.error("CDIe - Error in EXTENSION on {}", containerState.bundle(), f.getFailure()));
+
+								containerState.containerDTO().errors.add(Throw.toString(f.getFailure()));
+							}
+						)
+					);
 				}
 			}
 
-			if ((trackedDependency != null) && _extensionDependencies.isEmpty()) {
-				_nextPhase = new Phase_Configuration(_containerState, _extensions.values());
+			if (containerState.containerDTO().extensions.size() < containerState.containerDTO().template.extensions.size()) {
+				next.ifPresent(
+					next -> containerState.promiseFactory().submit(() -> next.close()).then(
+						s -> {
+							_log.debug(l -> l.debug("CDIe - Ended close EXTENSION on {}", containerState.bundle()));
 
-				_nextPhase.open();
-			}
-			else if (_log.isDebugEnabled()) {
-				_log.debug("CDIe - Still waiting for extensions {}", _extensionDependencies);
-			}
+							return s;
+						},
+						f -> {
+							_log.error(l -> l.error("CDIe - Error in close EXTENSION on {}", containerState.bundle(), f.getFailure()));
 
-			return trackedDependency;
-		}
-
-		@Override
-		public void modifiedService(ServiceReference<Extension> reference, ExtensionDependency extentionDependency) {
-		}
-
-		@Override
-		public void removedService(ServiceReference<Extension> reference, ExtensionDependency extentionDependency) {
-			_extensionDependencies.add(extentionDependency);
-
-			_extensions.remove(reference);
-
-			try {
-				_bundleContext.ungetService(reference);
-			}
-			catch (IllegalStateException ise) {
-				if (_log.isWarnEnabled()) {
-					_log.warn("CDIe - UngetService resulted in error", ise);
-				}
-			}
-
-			if (!_extensionDependencies.isEmpty()) {
-				_nextPhase.close();
-
-				_nextPhase = null;
-
-				_containerState.fire(CdiEvent.Type.WAITING_FOR_EXTENSIONS);
+							containerState.containerDTO().errors.add(Throw.toString(f.getFailure()));
+						}
+					)
+				);
 			}
 		}
 
 	}
-*/
+
 }

@@ -14,10 +14,38 @@
 
 package org.apache.aries.cdi.container.internal.phase;
 
-public interface Phase {
+import java.util.Optional;
+import java.util.concurrent.Callable;
 
-	public void close();
+import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.util.Throw;
+import org.osgi.framework.Bundle;
+import org.osgi.util.promise.Promise;
 
-	public void open();
+public abstract class Phase {
+
+	public Phase(ContainerState containerState, Phase next) {
+		this.containerState = containerState;
+		this.next = Optional.ofNullable(next);
+	}
+
+	public abstract boolean close();
+
+	public final Bundle bundle() {
+		return containerState.bundle();
+	}
+
+	public final void error(Throwable t) {
+		containerState.containerDTO().errors.add(Throw.toString(t));
+	}
+
+	public abstract boolean open();
+
+	public final <T> Promise<T> submit(Callable<T> callable) {
+		return containerState.promiseFactory().submit(callable);
+	}
+
+	protected final ContainerState containerState;
+	protected final Optional<Phase> next;
 
 }

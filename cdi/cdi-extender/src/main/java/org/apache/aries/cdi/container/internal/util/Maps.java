@@ -19,6 +19,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Dictionary;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +57,17 @@ public class Maps {
 		}
 	}
 
+	public static Map<String, Object> of(Dictionary<String, ?> dict) {
+		Map<String, Object> map = new HashMap<>();
+
+		for (Enumeration<String> enu = dict.keys(); enu.hasMoreElements();) {
+			String key = enu.nextElement();
+			map.put(key, dict.get(key));
+		}
+
+		return map;
+	}
+
 	public static Map<String, ?> of(Object... args) {
 		Map<String, Object> map = new HashMap<>();
 
@@ -67,7 +80,7 @@ public class Maps {
 		return map;
 	}
 
-	public static Map<String, ?> componentProperties(Annotated annotated) {
+	public static Map<String, Object> componentProperties(Annotated annotated) {
 		if (annotated instanceof AnnotatedType) {
 			return merge(Arrays.asList(((AnnotatedType<?>)annotated).getJavaClass().getAnnotations()));
 		}
@@ -86,7 +99,7 @@ public class Maps {
 		return merge(new ArrayList<>(annotated.getAnnotations()));
 	}
 
-	public static Map<String, ?> merge(List<Annotation> annotations) {
+	public static Map<String, Object> merge(List<Annotation> annotations) {
 		return annotations.stream().filter(
 			ann -> Objects.nonNull(ann.annotationType().getAnnotation(ComponentPropertyType.class))
 		).map(

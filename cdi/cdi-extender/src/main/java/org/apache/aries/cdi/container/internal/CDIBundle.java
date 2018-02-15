@@ -14,108 +14,79 @@
 
 package org.apache.aries.cdi.container.internal;
 
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.log.Logs;
 import org.apache.aries.cdi.container.internal.phase.Phase;
-import org.apache.aries.cdi.container.internal.util.Throw;
 import org.apache.felix.utils.extender.Extension;
 import org.osgi.service.log.Logger;
 
-public class CDIBundle implements Extension {
+public class CDIBundle extends Phase implements Extension {
 
-	public CDIBundle(CCR ccr, ContainerState containerState, Phase phase) {
+	public CDIBundle(CCR ccr, ContainerState containerState, Phase next) {
+		super(containerState, next);
 		_ccr = ccr;
-		_containerState = containerState;
-		_nextPhase = phase;
 	}
 
 	@Override
-	public void start() throws Exception {
-		boolean acquired = false;
+	public boolean close() {
+		_log.debug(l -> l.debug("CDIe - Begin cdibundle CLOSE on {}", bundle()));
 
-		try {
-			try {
-				acquired = _lock.tryLock(DEFAULT_STOP_TIMEOUT, TimeUnit.MILLISECONDS);
-			}
-			catch ( InterruptedException e ) {
-				Thread.currentThread().interrupt();
+		next.ifPresent(
+			next -> submit(next::close).then(
+				s -> {
+					_log.debug(l -> l.debug("CDIe - Ended cdibundle CLOSE on {}", bundle()));
 
-				_log.warn(
-					"The wait for bundle {0}/{1} being destroyed before starting has been interrupted.",
-					_containerState.bundle().getSymbolicName(),
-					_containerState.bundle().getBundleId(), e );
-			}
+					return s;
+				},
+				f -> {
+					_log.error(l -> l.error("CDIe - Error in cdibundle CLOSE on {}", bundle(), f.getFailure()));
 
-			if (_log.isDebugEnabled()) {
-				_log.debug("CDIe - bundle detected {}", _containerState.bundle());
-			}
-
-			_ccr.add(_containerState.bundle(), _containerState);
-
-			if (_nextPhase != null) {
-				try {
-					_nextPhase.open();
+					error(f.getFailure());
 				}
-				catch (Throwable t) {
-					_nextPhase.close();
+			)
+		);
 
-					_containerState.containerDTO().errors.add(Throw.toString(t));
-				}
-			}
-		}
-		finally {
-			if (acquired) {
-				_lock.unlock();
-			}
-		}
+		_ccr.remove(bundle());
+
+		return true;
 	}
 
 	@Override
 	public void destroy() throws Exception {
-		boolean acquired = false;
-
-		try {
-			try {
-				acquired = _lock.tryLock(DEFAULT_STOP_TIMEOUT, TimeUnit.MILLISECONDS);
-			}
-			catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-
-				_log.warn(
-					"The wait for bundle {0}/{1} being started before destruction has been interrupted.",
-					_containerState.bundle().getSymbolicName(),
-					_containerState.bundle().getBundleId(), e);
-			}
-
-			if (_nextPhase != null) {
-				_nextPhase.close();
-			}
-
-
-			if (_log.isDebugEnabled()) {
-				_log.debug("CDIe - bundle removed {}", _containerState.bundle());
-			}
-		}
-		finally {
-			if (acquired) {
-				_lock.unlock();
-
-				_ccr.remove(_containerState.bundle());
-			}
-		}
+		close();
 	}
 
-	private static final long DEFAULT_STOP_TIMEOUT = 60000; // TODO make this configurable
+	@Override
+	public boolean open() {
+		_log.debug(l -> l.debug("CDIe - Begin cdibundle OPEN on {}", bundle()));
+
+		_ccr.add(containerState.bundle(), containerState);
+
+		next.ifPresent(
+			next -> submit(next::open).then(
+				s -> {
+					_log.debug(l -> l.debug("CDIe - Ended cdibundle OPEN on {}", bundle()));
+
+					return s;
+				},
+				f -> {
+					_log.error(l -> l.error("CDIe - Error in cdibundle OPEN on {}", bundle(), f.getFailure()));
+
+					error(f.getFailure());
+				}
+			)
+		);
+
+		return false;
+	}
+
+	@Override
+	public void start() throws Exception {
+		open();
+	}
 
 	private static final Logger _log = Logs.getLogger(CDIBundle.class);
 
 	private final CCR _ccr;
-	private final ContainerState _containerState;
-	private final Lock _lock = new ReentrantLock();
-	private final Phase _nextPhase;
 
 }

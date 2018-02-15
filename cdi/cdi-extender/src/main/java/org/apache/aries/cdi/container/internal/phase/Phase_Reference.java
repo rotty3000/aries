@@ -14,35 +14,22 @@
 
 package org.apache.aries.cdi.container.internal.phase;
 
-import java.util.Collection;
-
-import javax.enterprise.inject.spi.Extension;
-
 import org.apache.aries.cdi.container.internal.container.ContainerState;
-import org.jboss.weld.bootstrap.spi.Metadata;
 
-public class Phase_Reference implements Phase {
+public class Phase_Reference extends Phase {
 
-	public Phase_Reference(
-		ContainerState containerState,
-		Collection<Metadata<Extension>> extensions) {
-
-/*		_containerState = containerState;
-		_extensions = extensions;
-
-		_componentModels = _containerState.beansModel().getComponentModels();
-*/	}
-
-	@Override
-	public void close() {
-		// TODO Auto-generated method stub
-
+	public Phase_Reference(ContainerState containerState, Phase next) {
+		super(containerState, next);
 	}
 
 	@Override
-	public void open() {
-		// TODO Auto-generated method stub
+	public boolean close() {
+		return true;
+	}
 
+	@Override
+	public boolean open() {
+		return true;
 	}
 
 /*	@Override

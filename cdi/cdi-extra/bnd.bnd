@@ -1,0 +1,3 @@
+Import-Package: javax.servlet;resoltion:=optional, *
+-contract: JavaServlet;resoltion:=optional
+-includeresource: META-INF/=LICENSE, META-INF/=NOTICE

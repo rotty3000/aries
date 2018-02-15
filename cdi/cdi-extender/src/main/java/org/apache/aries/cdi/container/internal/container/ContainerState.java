@@ -35,6 +35,7 @@ import org.apache.aries.cdi.container.internal.loader.BundleClassLoader;
 import org.apache.aries.cdi.container.internal.loader.BundleResourcesLoader;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
 import org.apache.aries.cdi.container.internal.model.BeansModelBuilder;
+import org.apache.aries.cdi.container.internal.model.ExtendedExtensionTemplateDTO;
 import org.apache.aries.cdi.container.internal.reference.ReferenceCallback;
 import org.apache.aries.cdi.container.internal.service.ServiceDeclaration;
 import org.apache.aries.cdi.container.internal.util.Throw;
@@ -58,8 +59,8 @@ import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO.Type;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ContainerTemplateDTO;
-import org.osgi.service.cdi.runtime.dto.template.ExtensionTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
+import org.osgi.util.promise.PromiseFactory;
 
 public class ContainerState {
 
@@ -68,12 +69,19 @@ public class ContainerState {
 	};
 
 	@SuppressWarnings("unchecked")
-	public ContainerState(Bundle bundle, Bundle extenderBundle, ChangeCount ccrChangeCount) {
+	public ContainerState(
+		Bundle bundle,
+		Bundle extenderBundle,
+		ChangeCount ccrChangeCount,
+		PromiseFactory promiseFactory) {
+
 		_bundle = bundle;
 		_extenderBundle = extenderBundle;
 
 		_changeCount = new ChangeCount();
 		_changeCount.addObserver(ccrChangeCount);
+
+		_promiseFactory = promiseFactory;
 
 		BundleWiring bundleWiring = _bundle.adapt(BundleWiring.class);
 
@@ -95,7 +103,7 @@ public class ContainerState {
 
 		_containerDTO = new ContainerDTO();
 		_containerDTO.bundle = _bundle.adapt(BundleDTO.class);
-		_containerDTO.changeCount = _changeCount.getAndIncrement();
+		_containerDTO.changeCount = _changeCount.get();
 		_containerDTO.components = new CopyOnWriteArrayList<>();
 		_containerDTO.errors = new CopyOnWriteArrayList<>();
 		_containerDTO.extensions = new CopyOnWriteArrayList<>();
@@ -114,10 +122,9 @@ public class ContainerState {
 			list -> list.stream().forEach(
 				extensionFilter -> {
 					try {
-						FrameworkUtil.createFilter(extensionFilter);
+						ExtendedExtensionTemplateDTO extensionTemplateDTO = new ExtendedExtensionTemplateDTO();
 
-						ExtensionTemplateDTO extensionTemplateDTO = new ExtensionTemplateDTO();
-
+						extensionTemplateDTO.filter = FrameworkUtil.createFilter(extensionFilter);
 						extensionTemplateDTO.serviceFilter = extensionFilter;
 
 						_containerDTO.template.extensions.add(extensionTemplateDTO);
@@ -157,6 +164,12 @@ public class ContainerState {
 
 		_beansModel = new BeansModelBuilder(_aggregateClassLoader, bundleWiring, cdiAttributes).build();
 
+		_beansModel.getErrors().stream().map(
+			t -> Throw.toString(t)
+		).forEach(
+			s -> _containerDTO.errors.add(s)
+		);
+
 		_bundleClassLoader = bundleWiring.getClassLoader();
 	}
 
@@ -185,6 +198,7 @@ public class ContainerState {
 	}
 
 	public ContainerDTO containerDTO() {
+		_containerDTO.changeCount = _changeCount.get();
 		return _containerDTO;
 	}
 
@@ -196,9 +210,17 @@ public class ContainerState {
 		return _containerDTO.template.id;
 	}
 
+	public void incrementChangeCount() {
+		_changeCount.incrementAndGet();
+	}
+
 	@SuppressWarnings("unchecked")
 	public <T extends ResourceLoader & ProxyServices> T loader() {
 		return (T)new BundleResourcesLoader(_bundle, _extenderBundle);
+	}
+
+	public PromiseFactory promiseFactory() {
+		return _promiseFactory;
 	}
 
 	public Map<Component, Map<String, ReferenceCallback>> referenceCallbacks() {
@@ -248,6 +270,7 @@ public class ContainerState {
 	private final Map<Component, Map<String, ConfigurationCallback>> _configurationCallbacksMap = new ConcurrentHashMap<>();
 	private final ContainerDTO _containerDTO;
 	private final Bundle _extenderBundle;
+	private final PromiseFactory _promiseFactory;
 	private final Map<Component, Map<String, ReferenceCallback>> _referenceCallbacksMap = new ConcurrentHashMap<>();
 	private final Map<Component, Map<String, ObserverMethod<ReferenceEvent<?>>>> _referenceObserversMap = new ConcurrentHashMap<>();
 	private final Map<Component, ServiceDeclaration> _serviceComponents = new ConcurrentHashMap<>();

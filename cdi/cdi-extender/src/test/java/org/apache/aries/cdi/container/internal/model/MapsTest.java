@@ -84,8 +84,7 @@ public class MapsTest {
 
 	@Test(expected = ClassCastException.class)
 	public void checkMerge_2() throws Exception {
-		Map<String, ?> merged = Maps.merge(
-			Stream.of(getClass().getField("two").getAnnotations()).collect(Collectors.toList()));
+		Maps.merge(Stream.of(getClass().getField("two").getAnnotations()).collect(Collectors.toList()));
 	}
 
 }

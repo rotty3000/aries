@@ -44,7 +44,7 @@ public class MockCdiContainerAndComponents implements AutoCloseable {
 
 		new ContainerDiscovery(_containerState);
 
-		_nextPhase = new Phase_Configuration(_containerState, Collections.emptyList());
+		_nextPhase = new Phase_Configuration(_containerState, null);
 
 		_nextPhase.open();
 	}

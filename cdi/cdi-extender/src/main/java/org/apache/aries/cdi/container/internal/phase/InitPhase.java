@@ -17,64 +17,72 @@ package org.apache.aries.cdi.container.internal.phase;
 import org.apache.aries.cdi.container.internal.container.ContainerDiscovery;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.log.Logs;
-import org.apache.aries.cdi.container.internal.util.Syncro;
 import org.osgi.service.log.Logger;
 
-public class InitPhase implements Phase {
+public class InitPhase extends Phase {
 
 	public InitPhase(ContainerState containerState, Phase next) {
-		_containerState = containerState;
-		_nextPhase = next;
+		super(containerState, next);
 	}
 
 	@Override
-	public void close() {
-		try (Syncro syncro = _lock.open()) {
-			if (_log.isDebugEnabled()) {
-				_log.debug("CDIe - Begin init CLOSE on {}", _containerState);
-			}
+	public boolean close() {
+		_log.debug(log -> log.debug("CDIe - Begin init CLOSE on {}", bundle()));
 
-			if (_nextPhase != null) {
-				_nextPhase.close();
-			}
+		next.ifPresent(
+			next -> {
+				submit(next::close).then(
+					s -> {
+						_log.debug(log -> log.debug("CDIe - Ended init CLOSE on {}", bundle()));
 
-			if (_log.isDebugEnabled()) {
-				_log.debug("CDIe - Ended init CLOSE on {}", _containerState);
+						return s;
+					},
+					f -> {
+						_log.error(log -> log.error("CDIe - Error in init CLOSE on {}", bundle(), f.getFailure()));
+
+						error(f.getFailure());
+					}
+				);
 			}
-		}
+		);
+
+		return true;
 	}
 
 	@Override
-	public void open() {
-		try (Syncro syncro = _lock.open()) {
-			if (_log.isDebugEnabled()) {
-				_log.debug("CDIe - Begin init OPEN on {}", _containerState);
-			}
+	public boolean open() {
+		_log.debug(log -> log.debug("CDIe - Begin init OPEN on {}", bundle()));
 
-			if (_log.isDebugEnabled()) {
-				_log.debug("CDIe - Begin discovery on {}", _containerState);
-			}
+		discover();
 
-			new ContainerDiscovery(_containerState);
+		next.ifPresent(
+			next -> {
+				submit(next::open).then(
+					s -> {
+						_log.debug(log -> log.debug("CDIe - Ended init OPEN on {}", bundle()));
 
-			if (_log.isDebugEnabled()) {
-				_log.debug("CDIe - Ended discovery on {}", _containerState);
-			}
+						return s;
+					},
+					f -> {
+						_log.error(log -> log.error("CDIe - Error in init OPEN on {}", bundle(), f.getFailure()));
 
-			if (_nextPhase != null) {
-				_nextPhase.open();
+						error(f.getFailure());
+					}
+				);
 			}
+		);
 
-			if (_log.isDebugEnabled()) {
-				_log.debug("CDIe - Ended init OPEN on {}", _containerState);
-			}
-		}
+		return true;
+	}
+
+	private void discover() {
+		_log.debug(log -> log.debug("CDIe - Begin discovery on {}", bundle()));
+
+		new ContainerDiscovery(containerState);
+
+		_log.debug(log -> log.debug("CDIe - Ended discovery on {}", bundle()));
 	}
 
 	private static final Logger _log = Logs.getLogger(InitPhase.class);
-
-	private final ContainerState _containerState;
-	private final Phase _nextPhase;
-	private final Syncro _lock = new Syncro(true);
 
 }

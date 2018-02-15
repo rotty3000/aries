@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
 
 import javax.enterprise.inject.spi.CDI;
 
@@ -44,6 +45,7 @@ import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.service.cdi.runtime.CDIComponentRuntime;
 import org.osgi.service.log.Logger;
+import org.osgi.util.promise.PromiseFactory;
 
 public class Activator extends AbstractExtender {
 
@@ -54,7 +56,8 @@ public class Activator extends AbstractExtender {
 	public Activator() {
 		setSynchronous(true);
 
-		_ccr = new CCR();
+
+		_ccr = new CCR(_promiseFactory);
 		_command = new CDICommand(_ccr);
 	}
 
@@ -116,9 +119,14 @@ public class Activator extends AbstractExtender {
 			return null;
 		}
 
-		ContainerState containerState = new ContainerState(bundle, _bundleContext.getBundle(), _ccrChangeCount);
+		ContainerState containerState = new ContainerState(
+			bundle, _bundleContext.getBundle(), _ccrChangeCount, _promiseFactory);
 
-		return new CDIBundle(_ccr, containerState, new InitPhase(containerState, new ExtensionPhase(containerState)));
+		return new CDIBundle(
+			_ccr, containerState,
+			new InitPhase(
+				containerState,
+				new ExtensionPhase(containerState, null)));
 	}
 
 	@Override
@@ -171,6 +179,7 @@ public class Activator extends AbstractExtender {
 	private ServiceRegistration<CDIComponentRuntime> _ccrRegistration;
 	private final CDICommand _command;
 	private ServiceRegistration<?> _commandRegistration;
+	private final PromiseFactory _promiseFactory = new PromiseFactory(Executors.newFixedThreadPool(1));
 
 	private class ChangeObserverFactory implements Observer, ServiceFactory<CDIComponentRuntime> {
 

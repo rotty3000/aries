@@ -26,6 +26,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 
 import org.apache.aries.cdi.container.internal.ChangeCount;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
@@ -44,6 +45,7 @@ import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.namespace.extender.ExtenderNamespace;
 import org.osgi.service.cdi.CDIConstants;
+import org.osgi.util.promise.PromiseFactory;
 
 public class TestUtil {
 
@@ -146,7 +148,7 @@ public class TestUtil {
 		when(ccrBundle.adapt(BundleWiring.class)).thenReturn(ccrBundleWiring);
 		when(ccrBundleWiring.getRequiredWires(PackageNamespace.PACKAGE_NAMESPACE)).thenReturn(new ArrayList<>());
 
-		return new ContainerState(bundle, ccrBundle, new ChangeCount()) {
+		return new ContainerState(bundle, ccrBundle, new ChangeCount(), new PromiseFactory(Executors.newFixedThreadPool(1))) {
 
 			@Override
 			public BeansModel beansModel() {
