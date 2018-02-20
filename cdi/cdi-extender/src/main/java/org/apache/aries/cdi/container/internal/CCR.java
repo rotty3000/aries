@@ -25,8 +25,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
-import org.apache.aries.cdi.container.internal.log.Logs;
 import org.apache.aries.cdi.container.internal.util.Conversions;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Throw;
 import org.osgi.framework.Bundle;
 import org.osgi.service.cdi.runtime.CDIComponentRuntime;
@@ -44,7 +44,7 @@ public class CCR implements CDIComponentRuntime {
 	public void add(Bundle bundle, ContainerState containerState) {
 		_states.put(bundle, containerState);
 
-		_log.debug(log -> log.debug("CDIe - CCR Added {}", bundle));
+		_log.debug(log -> log.debug("CCR CCR Added {}", bundle));
 	}
 
 	@Override
@@ -98,7 +98,7 @@ public class CCR implements CDIComponentRuntime {
 	public void remove(Bundle bundle) {
 		_states.remove(bundle);
 
-		_log.debug(log -> log.debug("CDIe - CCR Removed {}", bundle));
+		_log.debug(log -> log.debug("CCR CCR Removed {}", bundle));
 	}
 
 	public <R> R call(Callable<R> callable) {

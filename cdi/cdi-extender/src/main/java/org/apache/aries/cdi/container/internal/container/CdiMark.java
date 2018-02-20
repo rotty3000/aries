@@ -12,22 +12,20 @@
  * limitations under the License.
  */
 
-package org.apache.aries.cdi.container.internal.model;
+package org.apache.aries.cdi.container.internal.container;
 
-import java.util.Set;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-import org.apache.aries.cdi.container.internal.util.Sets;
+import javax.inject.Qualifier;
 
-public class Constants {
+@Qualifier
+@Target(value = {ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE})
+@Retention(value = RetentionPolicy.RUNTIME)
+public @interface CdiMark {
 
-	private Constants() {
-		// no instances
-	}
-
-	public static final String CDI10_URI = "http://www.osgi.org/xmlns/cdi/v1.0.0";
-	public static final Set<String> CDI_URIS = Sets.immutableHashSet(CDI10_URI);
-
-	public static final String BEAN_ELEMENT = "bean";
-	public static final String CLASS_ATTRIBUTE = "class";
+	int value();
 
 }

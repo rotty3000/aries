@@ -80,7 +80,7 @@ public class Phase_Publish extends Phase {
 		).forEach(
 			s -> {
 				if (_log.isDebugEnabled()) {
-					_log.debug("CDIe - Publishing component {} as '{}' service.", s.getName(), s.getScope());
+					_log.debug("CCR Publishing component {} as '{}' service.", s.getName(), s.getScope());
 				}
 
 				_containerState.serviceRegistrator().registerService(

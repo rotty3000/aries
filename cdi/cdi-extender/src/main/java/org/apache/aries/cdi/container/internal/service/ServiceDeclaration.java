@@ -19,8 +19,8 @@ import static org.apache.aries.cdi.container.internal.util.Reflection.cast;
 import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.inject.spi.Bean;
 
-import org.apache.aries.cdi.container.internal.component.OSGiBean;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.model.OSGiBean;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.PrototypeServiceFactory;
 import org.osgi.framework.ServiceFactory;

@@ -14,20 +14,8 @@
 
 package org.apache.aries.cdi.container.internal.model;
 
-import java.util.Set;
+public enum Multiplicity {
 
-import org.apache.aries.cdi.container.internal.util.Sets;
-
-public class Constants {
-
-	private Constants() {
-		// no instances
-	}
-
-	public static final String CDI10_URI = "http://www.osgi.org/xmlns/cdi/v1.0.0";
-	public static final Set<String> CDI_URIS = Sets.immutableHashSet(CDI10_URI);
-
-	public static final String BEAN_ELEMENT = "bean";
-	public static final String CLASS_ATTRIBUTE = "class";
+	MULTIPLE, UNARY
 
 }

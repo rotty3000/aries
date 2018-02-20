@@ -138,7 +138,7 @@ public class Phase_Reference extends Phase {
 					}
 					catch (InvalidSyntaxException ise) {
 						if (_log.isErrorEnabled()) {
-							_log.error("CDIe - {}", ise.getMessage(), ise);
+							_log.error("CCR {}", ise.getMessage(), ise);
 						}
 					}
 				}

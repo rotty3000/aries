@@ -30,16 +30,15 @@ import javax.enterprise.inject.spi.ObserverMethod;
 import javax.enterprise.util.AnnotationLiteral;
 
 import org.apache.aries.cdi.container.internal.ChangeCount;
-import org.apache.aries.cdi.container.internal.configuration.ConfigurationCallback;
 import org.apache.aries.cdi.container.internal.loader.BundleClassLoader;
 import org.apache.aries.cdi.container.internal.loader.BundleResourcesLoader;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
 import org.apache.aries.cdi.container.internal.model.BeansModelBuilder;
+import org.apache.aries.cdi.container.internal.model.Component;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionTemplateDTO;
 import org.apache.aries.cdi.container.internal.reference.ReferenceCallback;
 import org.apache.aries.cdi.container.internal.service.ServiceDeclaration;
 import org.apache.aries.cdi.container.internal.util.Throw;
-import org.apache.aries.cdi.container.internal.v2.component.Component;
 import org.jboss.weld.resources.spi.ResourceLoader;
 import org.jboss.weld.serialization.spi.ProxyServices;
 import org.osgi.framework.Bundle;
@@ -60,6 +59,7 @@ import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ContainerTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
+import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.util.promise.PromiseFactory;
 
 public class ContainerState {
@@ -73,7 +73,8 @@ public class ContainerState {
 		Bundle bundle,
 		Bundle extenderBundle,
 		ChangeCount ccrChangeCount,
-		PromiseFactory promiseFactory) {
+		PromiseFactory promiseFactory,
+		ConfigurationAdmin configurationAdmin) {
 
 		_bundle = bundle;
 		_extenderBundle = extenderBundle;
@@ -82,6 +83,7 @@ public class ContainerState {
 		_changeCount.addObserver(ccrChangeCount);
 
 		_promiseFactory = promiseFactory;
+		_configurationAdmin = Optional.ofNullable(configurationAdmin);
 
 		BundleWiring bundleWiring = _bundle.adapt(BundleWiring.class);
 
@@ -193,13 +195,13 @@ public class ContainerState {
 		return _aggregateClassLoader;
 	}
 
-	public Map<Component, Map<String, ConfigurationCallback>> configurationCallbacks() {
-		return _configurationCallbacksMap;
-	}
-
 	public ContainerDTO containerDTO() {
 		_containerDTO.changeCount = _changeCount.get();
 		return _containerDTO;
+	}
+
+	public ConfigurationAdmin configurationAdmin() {
+		return _configurationAdmin.get();
 	}
 
 	public Bundle extenderBundle() {
@@ -267,7 +269,7 @@ public class ContainerState {
 	private final Bundle _bundle;
 	private final ClassLoader _bundleClassLoader;
 	private final ChangeCount _changeCount;
-	private final Map<Component, Map<String, ConfigurationCallback>> _configurationCallbacksMap = new ConcurrentHashMap<>();
+	private final Optional<ConfigurationAdmin> _configurationAdmin;
 	private final ContainerDTO _containerDTO;
 	private final Bundle _extenderBundle;
 	private final PromiseFactory _promiseFactory;

@@ -19,7 +19,6 @@ import java.util.List;
 
 import javax.enterprise.inject.spi.Extension;
 
-import org.apache.aries.cdi.container.internal.component.DiscoveryExtension;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
 import org.jboss.weld.bootstrap.WeldBootstrap;
 import org.jboss.weld.bootstrap.spi.BeanDeploymentArchive;

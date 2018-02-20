@@ -14,9 +14,13 @@
 
 package org.apache.aries.cdi.container.internal.phase;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.apache.aries.cdi.container.internal.container.ContainerDiscovery;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
-import org.apache.aries.cdi.container.internal.log.Logs;
+import org.apache.aries.cdi.container.internal.util.Logs;
+import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
+import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 import org.osgi.service.log.Logger;
 
 public class InitPhase extends Phase {
@@ -27,18 +31,18 @@ public class InitPhase extends Phase {
 
 	@Override
 	public boolean close() {
-		_log.debug(log -> log.debug("CDIe - Begin init CLOSE on {}", bundle()));
+		_log.debug(l -> l.debug("CCR Begin init CLOSE on {}", bundle()));
 
 		next.ifPresent(
 			next -> {
 				submit(next::close).then(
 					s -> {
-						_log.debug(log -> log.debug("CDIe - Ended init CLOSE on {}", bundle()));
+						_log.debug(l -> l.debug("CCR Ended init CLOSE on {}", bundle()));
 
 						return s;
 					},
 					f -> {
-						_log.error(log -> log.error("CDIe - Error in init CLOSE on {}", bundle(), f.getFailure()));
+						_log.error(l -> l.error("CCR Error in init CLOSE on {}", bundle(), f.getFailure()));
 
 						error(f.getFailure());
 					}
@@ -51,7 +55,7 @@ public class InitPhase extends Phase {
 
 	@Override
 	public boolean open() {
-		_log.debug(log -> log.debug("CDIe - Begin init OPEN on {}", bundle()));
+		_log.debug(l -> l.debug("CCR Begin init OPEN on {}", bundle()));
 
 		discover();
 
@@ -59,12 +63,12 @@ public class InitPhase extends Phase {
 			next -> {
 				submit(next::open).then(
 					s -> {
-						_log.debug(log -> log.debug("CDIe - Ended init OPEN on {}", bundle()));
+						_log.debug(l -> l.debug("CCR Ended init OPEN on {}", bundle()));
 
 						return s;
 					},
 					f -> {
-						_log.error(log -> log.error("CDIe - Error in init OPEN on {}", bundle(), f.getFailure()));
+						_log.error(l -> l.error("CCR Error in init OPEN on {}", bundle(), f.getFailure()));
 
 						error(f.getFailure());
 					}
@@ -76,11 +80,31 @@ public class InitPhase extends Phase {
 	}
 
 	private void discover() {
-		_log.debug(log -> log.debug("CDIe - Begin discovery on {}", bundle()));
+		_log.debug(l -> l.debug("CCR Begin discovery on {}", bundle()));
 
 		new ContainerDiscovery(containerState);
 
-		_log.debug(log -> log.debug("CDIe - Ended discovery on {}", bundle()));
+		// fix up the configuration templates so factory configs are always at the end
+		containerState.containerDTO().template.components.stream().forEach(
+			c -> {
+				final AtomicReference<ConfigurationTemplateDTO> factoryConfig = new AtomicReference<>();
+
+				if (c.configurations.removeIf(
+						c2 -> {
+							if (c2.maximumCardinality == MaximumCardinality.MANY) {
+								factoryConfig.set(c2);
+								return true;
+							}
+							return false;
+						}
+					)
+				) {
+					c.configurations.add(factoryConfig.get());
+				};
+			}
+		);
+
+		_log.debug(l -> l.debug("CCR Ended discovery on {}", bundle()));
 	}
 
 	private static final Logger _log = Logs.getLogger(InitPhase.class);

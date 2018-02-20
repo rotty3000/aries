@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.Dictionary;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -63,6 +64,18 @@ public class Maps {
 		for (Enumeration<String> enu = dict.keys(); enu.hasMoreElements();) {
 			String key = enu.nextElement();
 			map.put(key, dict.get(key));
+		}
+
+		return map;
+	}
+
+	public static Dictionary<String, ?> dict(Object... args) {
+		Dictionary<String, Object> map = new Hashtable<>();
+
+		if ((args.length % 2) != 0) throw new IllegalArgumentException("requires even number of args");
+
+		for (int i = 0; i < args.length; i+=2) {
+			map.put(String.valueOf(args[i]), args[i+1]);
 		}
 
 		return map;

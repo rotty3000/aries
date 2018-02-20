@@ -23,9 +23,12 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Dictionary;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 
 import org.apache.aries.cdi.container.internal.ChangeCount;
@@ -37,6 +40,9 @@ import org.jboss.weld.serialization.spi.ProxyServices;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleContext;
+import org.osgi.framework.Constants;
+import org.osgi.framework.ServiceRegistration;
 import org.osgi.framework.dto.BundleDTO;
 import org.osgi.framework.namespace.PackageNamespace;
 import org.osgi.framework.wiring.BundleCapability;
@@ -104,8 +110,10 @@ public class TestUtil {
 		return list;
 	}
 
+	@SuppressWarnings("unchecked")
 	public static ContainerState getContainerState(BeansModel beansModel) throws Exception {
 		Bundle bundle = mock(Bundle.class);
+		BundleContext bundleContext = mock(BundleContext.class);
 		BundleWiring bundleWiring = mock(BundleWiring.class);
 		Bundle ccrBundle = mock(Bundle.class);
 		BundleWiring ccrBundleWiring = mock(BundleWiring.class);
@@ -119,23 +127,56 @@ public class TestUtil {
 		bundleDTO.state = Bundle.ACTIVE;
 		bundleDTO.symbolicName = "foo";
 		bundleDTO.version = "1.0.0";
+		when(bundle.getBundleContext()).thenReturn(bundleContext);
 		when(bundle.getSymbolicName()).thenReturn(bundleDTO.symbolicName);
 		when(bundle.adapt(BundleWiring.class)).thenReturn(bundleWiring);
 		when(bundle.adapt(BundleDTO.class)).thenReturn(bundleDTO);
-		when(bundle.getResource(any())).then(new Answer<URL>() {
-			@Override
-			public URL answer(InvocationOnMock invocation) throws ClassNotFoundException {
-				Object[] args = invocation.getArguments();
-				return TestUtil.class.getClassLoader().getResource((String)args[0]);
+		when(bundle.getResource(any())).then(
+			new Answer<URL>() {
+				@Override
+				public URL answer(InvocationOnMock invocation) throws ClassNotFoundException {
+					Object[] args = invocation.getArguments();
+					return TestUtil.class.getClassLoader().getResource((String)args[0]);
+				}
 			}
-		});
-		when(bundle.loadClass(any())).then(new Answer<Class<?>>() {
-			@Override
-			public Class<?> answer(InvocationOnMock invocation) throws ClassNotFoundException {
-				Object[] args = invocation.getArguments();
-				return TestUtil.class.getClassLoader().loadClass((String)args[0]);
+		);
+		when(bundle.loadClass(any())).then(
+			new Answer<Class<?>>() {
+				@Override
+				public Class<?> answer(InvocationOnMock invocation) throws ClassNotFoundException {
+					Object[] args = invocation.getArguments();
+					return TestUtil.class.getClassLoader().loadClass((String)args[0]);
+				}
 			}
-		});
+		);
+		when(bundleContext.registerService(any(Class.class), any(Object.class), any())).then(
+			new Answer<ServiceRegistration<?>> () {
+				@Override
+				public ServiceRegistration<?> answer(InvocationOnMock invocation) throws Throwable {
+					Class<?> clazz = invocation.getArgument(0);
+					MockServiceReference<?> mockServiceReference = new MockServiceReference<>(bundle, invocation.getArgument(1), clazz);
+					Optional.ofNullable(
+						invocation.getArgument(2)
+					).map(
+						arg -> (Dictionary<String, Object>)arg
+					).ifPresent(
+						dict -> {
+							for (Enumeration<String> enu = dict.keys(); enu.hasMoreElements();) {
+								String key = enu.nextElement();
+								if (key.equals(Constants.OBJECTCLASS) ||
+									key.equals(Constants.SERVICE_BUNDLEID) ||
+									key.equals(Constants.SERVICE_ID) ||
+									key.equals(Constants.SERVICE_SCOPE)) {
+									continue;
+								}
+								mockServiceReference.setProperty(key, dict.get(key));
+							}
+						}
+					);
+					return new MockServiceRegistration<>(mockServiceReference);
+				}
+			}
+		);
 		when(bundleWiring.getBundle()).thenReturn(bundle);
 		when(bundleWiring.getRequiredWires(ExtenderNamespace.EXTENDER_NAMESPACE)).thenReturn(Collections.singletonList(extenderWire));
 		when(bundleWiring.listResources("OSGI-INF/cdi", "*.xml", BundleWiring.LISTRESOURCES_LOCAL)).thenReturn(Collections.singletonList("OSGI-INF/cdi/osgi-beans.xml"));
@@ -148,7 +189,7 @@ public class TestUtil {
 		when(ccrBundle.adapt(BundleWiring.class)).thenReturn(ccrBundleWiring);
 		when(ccrBundleWiring.getRequiredWires(PackageNamespace.PACKAGE_NAMESPACE)).thenReturn(new ArrayList<>());
 
-		return new ContainerState(bundle, ccrBundle, new ChangeCount(), new PromiseFactory(Executors.newFixedThreadPool(1))) {
+		return new ContainerState(bundle, ccrBundle, new ChangeCount(), new PromiseFactory(Executors.newFixedThreadPool(1)), null) {
 
 			@Override
 			public BeansModel beansModel() {

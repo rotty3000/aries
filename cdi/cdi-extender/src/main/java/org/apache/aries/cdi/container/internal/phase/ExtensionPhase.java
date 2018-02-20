@@ -22,9 +22,9 @@ import java.util.concurrent.ConcurrentSkipListSet;
 import javax.enterprise.inject.spi.Extension;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
-import org.apache.aries.cdi.container.internal.log.Logs;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionTemplateDTO;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Throw;
 import org.osgi.framework.Constants;
 import org.osgi.framework.Filter;
@@ -49,22 +49,22 @@ public class ExtensionPhase extends Phase {
 		if (_extensionTracker != null) {
 			_extensionTracker.close();
 
-			_log.debug(l -> l.debug("CDIe - Ended extension TRACKING on {}", bundle()));
+			_log.debug(l -> l.debug("CCR Ended extension TRACKING on {}", bundle()));
 
 			_extensionTracker = null;
 		}
 		else {
-			_log.debug(l -> l.debug("CDIe - Begin extension CLOSE on {}", bundle()));
+			_log.debug(l -> l.debug("CCR Begin extension CLOSE on {}", bundle()));
 
 			next.ifPresent(
 				next -> submit(next::close).then(
 					s -> {
-						_log.debug(l -> l.debug("CDIe - Ended extension CLOSE on {}", bundle()));
+						_log.debug(l -> l.debug("CCR Ended extension CLOSE on {}", bundle()));
 
 						return s;
 					},
 					f -> {
-						_log.error(l -> l.error("CDIe - Error in extension CLOSE on {}", bundle(), f.getFailure()));
+						_log.error(l -> l.error("CCR Error in extension CLOSE on {}", bundle(), f.getFailure()));
 
 						error(f.getFailure());
 					}
@@ -78,7 +78,7 @@ public class ExtensionPhase extends Phase {
 	@Override
 	public boolean open() {
 		if (!templates().isEmpty()) {
-			_log.debug(l -> l.debug("CDIe - Begin extension TRACKING on {}", bundle()));
+			_log.debug(l -> l.debug("CCR Begin extension TRACKING on {}", bundle()));
 
 			_extensionTracker = new ServiceTracker<>(
 				containerState.bundleContext(), createExtensionFilter(), new ExtensionPhaseCustomizer());
@@ -86,17 +86,17 @@ public class ExtensionPhase extends Phase {
 			_extensionTracker.open();
 		}
 		else {
-			_log.debug(l -> l.debug("CDIe - Begin extension OPEN on {}", bundle()));
+			_log.debug(l -> l.debug("CCR Begin extension OPEN on {}", bundle()));
 
 			next.ifPresent(
 				next -> submit(next::open).then(
 					s -> {
-						_log.debug(l -> l.debug("CDIe - Ended extension OPEN on {}", bundle()));
+						_log.debug(l -> l.debug("CCR Ended extension OPEN on {}", bundle()));
 
 						return s;
 					},
 					f -> {
-						_log.error(l -> l.error("CDIe - Error in extension OPEN on {}", bundle(), f.getFailure()));
+						_log.error(l -> l.error("CCR Error in extension OPEN on {}", bundle(), f.getFailure()));
 
 						error(f.getFailure());
 					}
@@ -136,6 +136,18 @@ public class ExtensionPhase extends Phase {
 
 	List<ExtensionDTO> snapshots() {
 		return containerState.containerDTO().extensions;
+	}
+
+	ServiceReferenceDTO refDTO(ServiceReference<Extension> reference) {
+		ServiceReferenceDTO[] refDTOs = reference.getBundle().adapt(ServiceReferenceDTO[].class);
+
+		return Arrays.stream(refDTOs).filter(
+			dto -> dto.id == id(reference)
+		).findFirst().get();
+	}
+
+	long id(ServiceReference<Extension> reference) {
+		return (Long)reference.getProperty(Constants.SERVICE_ID);
 	}
 
 	private static final Logger _log = Logs.getLogger(ExtensionPhase.class);
@@ -186,19 +198,19 @@ public class ExtensionPhase extends Phase {
 						s -> {
 							return submit(next::open).then(
 								s2 -> {
-									_log.debug(l -> l.debug("CDIe - Extension open TRACKING {} on {}", reference, bundle()));
+									_log.debug(l -> l.debug("CCR Extension open TRACKING {} on {}", reference, bundle()));
 
 									return s2;
 								},
 								f -> {
-									_log.error(l -> l.error("CDIe - Error in extension open TRACKING {} on {}", reference, bundle()));
+									_log.error(l -> l.error("CCR Error in extension open TRACKING {} on {}", reference, bundle()));
 
 									error(f.getFailure());
 								}
 							);
 						},
 						f -> {
-							_log.error(l -> l.error("CDIe - Error extension close TRACKING {} on {}", reference, bundle()));
+							_log.error(l -> l.error("CCR Error extension close TRACKING {} on {}", reference, bundle()));
 
 							error(f.getFailure());
 						}
@@ -207,18 +219,6 @@ public class ExtensionPhase extends Phase {
 			}
 
 			return extensionDTO;
-		}
-
-		private ServiceReferenceDTO refDTO(ServiceReference<Extension> reference) {
-			ServiceReferenceDTO[] refDTOs = reference.getBundle().adapt(ServiceReferenceDTO[].class);
-
-			return Arrays.stream(refDTOs).filter(
-				dto -> dto.id == id(reference)
-			).findFirst().get();
-		}
-
-		private long id(ServiceReference<Extension> reference) {
-			return (Long)reference.getProperty(Constants.SERVICE_ID);
 		}
 
 		@Override
@@ -259,12 +259,12 @@ public class ExtensionPhase extends Phase {
 						if (snapshots().size() == templates().size()) {
 							return submit(next::open).then(
 								s2 -> {
-									_log.debug(l -> l.debug("CDIe - Extension open TRACKING {} on {}", reference, bundle()));
+									_log.debug(l -> l.debug("CCR Extension open TRACKING {} on {}", reference, bundle()));
 
 									return s2;
 								},
 								f -> {
-									_log.error(l -> l.error("CDIe - Error in extension open TRACKING {} on {}", reference, bundle()));
+									_log.error(l -> l.error("CCR Error in extension open TRACKING {} on {}", reference, bundle()));
 
 									error(f.getFailure());
 								}
@@ -274,7 +274,7 @@ public class ExtensionPhase extends Phase {
 						return s;
 					},
 					f -> {
-						_log.error(l -> l.error("CDIe - Error extension close TRACKING {} on {}", reference, bundle()));
+						_log.error(l -> l.error("CCR Error extension close TRACKING {} on {}", reference, bundle()));
 
 						error(f.getFailure());
 					}

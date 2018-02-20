@@ -22,9 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.aries.cdi.container.internal.component.OSGiBean;
-import org.apache.aries.cdi.container.internal.exception.BeanElementException;
-import org.apache.aries.cdi.container.internal.exception.BlacklistQualifierException;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -43,7 +40,7 @@ public class OSGiBeansHandler extends DefaultHandler {
 	@Override
 	public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
 		if (matches(BEAN_ELEMENT, uri, localName)) {
-			String className = getValue(CDI10_URI, CLASS_ATTRIBUTE, attributes);
+			String className = getValue(CDI10_URI, CLASS_ATTRIBUTE, attributes, "");
 
 			try {
 				Class<?> clazz = _classLoader.loadClass(className);
@@ -52,21 +49,8 @@ public class OSGiBeansHandler extends DefaultHandler {
 			}
 			catch (ReflectiveOperationException roe) {
 				_errors.add(
-					new BeanElementException(
+					new IllegalArgumentException(
 						String.format("Error loading class for <cdi:bean class=\"%s\">", className),
-						roe));
-			}
-		}
-		if (matches(QUALIFIER_ELEMENT, uri, localName)) {
-			String className = getValue(CDI10_URI, NAME_ATTRIBUTE, attributes);
-
-			try {
-				_qualifier = _classLoader.loadClass(className);
-			}
-			catch (ReflectiveOperationException roe) {
-				_errors.add(
-					new BlacklistQualifierException(
-						String.format("Error loading class for <cdi:qualifier name=\"%s\">", className),
 						roe));
 			}
 		}
@@ -79,10 +63,6 @@ public class OSGiBeansHandler extends DefaultHandler {
 			_beans.put(osgiBean.getBeanClass().getName(), osgiBean);
 			_beanModel = null;
 		}
-		if (matches(QUALIFIER_ELEMENT, uri, localName) && (_qualifier != null)) {
-			_qualifierBlackList.add(_qualifier);
-			_qualifier = null;
-		}
 	}
 
 	private boolean matches(String elementName, String uri, String localName) {
@@ -90,19 +70,6 @@ public class OSGiBeansHandler extends DefaultHandler {
 			return true;
 		}
 		return false;
-	}
-	public static boolean getBoolean(String uri, String localName, Attributes attributes, boolean defaultValue) {
-		String value = getValue(uri, localName, attributes);
-
-		if (value == null) {
-			return defaultValue;
-		}
-
-		return Boolean.parseBoolean(value);
-	}
-
-	public static String getValue(String uri, String localName, Attributes attributes) {
-		return getValue(uri, localName, attributes, "");
 	}
 
 	public static String getValue(String uri, String localName, Attributes attributes, String defaultValue) {
@@ -123,26 +90,11 @@ public class OSGiBeansHandler extends DefaultHandler {
 		return value;
 	}
 
-	public static String[] getValues(String uri, String localName, Attributes attributes) {
-		return getValues(uri, localName, attributes, new String[0]);
-	}
-
-	public static String[] getValues(String uri, String localName, Attributes attributes, String[] defaultValue) {
-		String value = getValue(uri, localName, attributes, "");
-
-		if (value.length() == 0) {
-			return defaultValue;
-		}
-
-		return value.split("\\s+");
-	}
-
 	private final ClassLoader _classLoader;
 	private final Map<String, OSGiBean> _beans = new HashMap<>();
 	private final List<URL> _beanDescriptorURLs;
 	private OSGiBean.Builder _beanModel;
 	private List<Throwable> _errors = new ArrayList<>();
-	private Class<?> _qualifier;
 	private final List<Class<?>> _qualifierBlackList = new ArrayList<>();
 
 }

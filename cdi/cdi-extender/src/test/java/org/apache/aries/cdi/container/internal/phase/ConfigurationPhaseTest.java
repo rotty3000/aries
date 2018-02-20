@@ -14,167 +14,93 @@
 
 package org.apache.aries.cdi.container.internal.phase;
 
-public class ConfigurationPhaseTest {
+import static org.apache.aries.cdi.container.internal.util.Reflection.*;
+import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
-/*	@Test
-	public void testOnlyBeans() throws Exception {
-		AbstractModelBuilder builder = getModelBuilder(Collections.singletonList("OSGI-INF/cdi/beans-only.xml"), null);
+import java.util.concurrent.atomic.AtomicReference;
 
-		final BeansModel beansModel = builder.build();
+import org.apache.aries.cdi.container.internal.container.CDIBundle;
+import org.apache.aries.cdi.container.internal.container.ConfigurationListener;
+import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.util.Maps;
+import org.apache.aries.cdi.container.test.BaseCDIBundleTest;
+import org.apache.aries.cdi.container.test.MockConfiguration;
+import org.apache.aries.cdi.container.test.MockServiceRegistration;
+import org.junit.Test;
+import org.mockito.stubbing.Answer;
+import org.osgi.framework.Filter;
+import org.osgi.framework.FrameworkUtil;
+import org.osgi.service.cdi.runtime.dto.ContainerDTO;
+import org.osgi.service.cm.Configuration;
+import org.osgi.service.cm.ConfigurationAdmin;
+import org.osgi.service.cm.ConfigurationEvent;
 
-		ContainerState containerState = getContainerState(beansModel);
-
-		ContainerDiscovery.discover(containerState);
-
-		Phase_Configuration phase = new Phase_Configuration(containerState, Collections.emptyList());
-
-		phase.open();
-
-		Assert.assertEquals(2, containerState.managedServiceRegistrator().size());
-		Assert.assertEquals(1, containerState.beanManagerRegistrator().size());
-		Assert.assertEquals(0, containerState.serviceRegistrator().size());
-		Assert.assertEquals(CdiEvent.Type.CREATED, containerState.lastState());
-	}
-
-	@Test
-	public void testConfiguration() throws Exception {
-		AbstractModelBuilder builder = getModelBuilder(Collections.singletonList("OSGI-INF/cdi/beans-configuration.xml"), null);
-
-		final BeansModel beansModel = builder.build();
-
-		ContainerState containerState = getContainerState(beansModel);
-
-		ContainerDiscovery.discover(containerState);
-
-		Phase_Configuration phase = new Phase_Configuration(containerState, Collections.emptyList());
-
-		phase.open();
-
-		Assert.assertEquals(4, containerState.managedServiceRegistrator().size());
-		Assert.assertEquals(0, containerState.beanManagerRegistrator().size());
-		Assert.assertEquals(0, containerState.serviceRegistrator().size());
-		Assert.assertEquals(CdiEvent.Type.WAITING_FOR_CONFIGURATIONS, containerState.lastState());
-	}
+public class ConfigurationPhaseTest extends BaseCDIBundleTest {
 
 	@Test
-	public void testReferences() throws Exception {
-		AbstractModelBuilder builder = getModelBuilder(Collections.singletonList("OSGI-INF/cdi/beans-references.xml"), null);
+	public void configuration_tracking() throws Exception {
+		ConfigurationAdmin ca = mock(ConfigurationAdmin.class);
 
-		final BeansModel beansModel = builder.build();
+		when(ca.listConfigurations(any())).then(
+			(Answer<Configuration[]>) listConfigurations -> {
+				MockConfiguration mockConfiguration = new MockConfiguration("osgi.cdi.foo", null);
+				mockConfiguration.update(Maps.dict("foo", "bar"));
+				return new Configuration[] {mockConfiguration};
+			}
+		);
 
-		ContainerState containerState = getContainerState(beansModel);
+		MockServiceRegistration<ConfigurationAdmin> caReg = cast(
+			bundle.getBundleContext().registerService(ConfigurationAdmin.class, ca, null));
 
-		ContainerDiscovery.discover(containerState);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, ca);
 
-		Phase_Configuration phase = new Phase_Configuration(containerState, Collections.emptyList());
+		CDIBundle cdiBundle = new CDIBundle(
+			ccr, containerState,
+				new InitPhase(containerState,
+					new ExtensionPhase(containerState,
+						new ConfigurationPhase(containerState))));
 
-		phase.open();
+		cdiBundle.start();
 
-		Assert.assertEquals(2, containerState.managedServiceRegistrator().size());
-		Assert.assertEquals(0, containerState.beanManagerRegistrator().size());
-		Assert.assertEquals(0, containerState.serviceRegistrator().size());
-		Assert.assertEquals(CdiEvent.Type.WAITING_FOR_SERVICES, containerState.lastState());
+		ContainerDTO containerDTO = ccr.getContainerDTO(bundle);
+		assertNotNull(containerDTO);
+		assertEquals(1, containerDTO.changeCount);
+		assertTrue(containerDTO.errors + "", containerDTO.errors.isEmpty());
+		assertNotNull(containerDTO.template);
+
+		final Filter filter = FrameworkUtil.createFilter("(objectClass=" + ConfigurationListener.class.getName() + ")");
+
+		AtomicReference<ConfigurationListener> listener = new AtomicReference<>();
+
+		do {
+			serviceRegistrations.stream().filter(
+				reg ->
+					filter.match(reg.getReference())
+			).findFirst().ifPresent(
+				reg -> listener.set(cast(reg.getReference().getService()))
+			);
+
+			Thread.sleep(10);
+		} while(listener.get() == null);
+
+		final String pid = containerState.containerDTO().components.get(0).template.configurations.get(0).pid;
+
+		assertNull(containerState.containerDTO().components.get(0).instances.get(0).properties);
+
+		listener.get().configurationEvent(
+			new ConfigurationEvent(caReg.getReference(), ConfigurationEvent.CM_DELETED, null, pid));
+
+		assertNull(containerState.containerDTO().components.get(0).instances.get(0).properties);
+
+		listener.get().configurationEvent(
+			new ConfigurationEvent(caReg.getReference(), ConfigurationEvent.CM_UPDATED, null, pid));
+
+
+		assertNotNull(containerState.containerDTO().components.get(0).instances.get(0).properties);
+
+		cdiBundle.destroy();
 	}
 
-	@Test
-	public void testEverything() throws Exception {
-		AbstractModelBuilder builder = getModelBuilder(null);
-
-		final BeansModel beansModel = builder.build();
-
-		ContainerState containerState = getContainerState(beansModel);
-
-		ContainerDiscovery.discover(containerState);
-
-		Phase_Configuration phase = new Phase_Configuration(containerState, Collections.emptyList());
-
-		phase.open();
-
-		Assert.assertEquals(10, containerState.managedServiceRegistrator().size());
-		Assert.assertEquals(0, containerState.beanManagerRegistrator().size());
-		Assert.assertEquals(0, containerState.serviceRegistrator().size());
-		Assert.assertEquals(CdiEvent.Type.WAITING_FOR_CONFIGURATIONS, containerState.lastState());
-	}
-
-	@Test
-	public void testEverythingCreateConfigurations() throws Exception {
-		AbstractModelBuilder builder = getModelBuilder(null);
-
-		final BeansModel beansModel = builder.build();
-
-		ContainerState containerState = getContainerState(beansModel);
-
-		ContainerDiscovery.discover(containerState);
-
-		Phase_Configuration phase = new Phase_Configuration(containerState, Collections.emptyList());
-
-		phase.open();
-
-		Assert.assertEquals(10, containerState.managedServiceRegistrator().size());
-		Assert.assertEquals(0, containerState.beanManagerRegistrator().size());
-		Assert.assertEquals(0, containerState.serviceRegistrator().size());
-		Assert.assertEquals(CdiEvent.Type.WAITING_FOR_CONFIGURATIONS, containerState.lastState());
-
-		Set<Entry<Dictionary<String,?>,ManagedService>> entrySet =
-			((TMSRegistrator)containerState.managedServiceRegistrator()).registrations.entrySet();
-
-		for (Map.Entry<Dictionary<String, ?>, ManagedService> entry : entrySet) {
-			Dictionary<String, Object> properties = new Hashtable<>();
-
-			properties.put(Constants.SERVICE_PID, entry.getKey().get(Constants.SERVICE_PID));
-			properties.put("time", System.currentTimeMillis());
-
-			entry.getValue().updated(properties);
-		}
-
-		Assert.assertEquals(CdiEvent.Type.WAITING_FOR_SERVICES, containerState.lastState());
-	}
-
-	@Test
-	public void testReactiveConfigurations() throws Exception {
-		AbstractModelBuilder builder = getModelBuilder(Collections.singletonList("OSGI-INF/cdi/beans-configuration.xml"), null);
-
-		final BeansModel beansModel = builder.build();
-
-		ContainerState containerState = getContainerState(beansModel);
-
-		ContainerDiscovery.discover(containerState);
-
-		Phase_Configuration phase = new Phase_Configuration(containerState, Collections.emptyList());
-
-		phase.open();
-
-		Assert.assertEquals(4, containerState.managedServiceRegistrator().size());
-		Assert.assertEquals(0, containerState.beanManagerRegistrator().size());
-		Assert.assertEquals(0, containerState.serviceRegistrator().size());
-		Assert.assertEquals(CdiEvent.Type.WAITING_FOR_CONFIGURATIONS, containerState.lastState());
-
-		Collection<Entry<Dictionary<String, ?>, ManagedService>> collection = sort(
-			((TMSRegistrator)containerState.managedServiceRegistrator()).registrations.entrySet(), (a, b) -> ((Integer)a.getKey().get("component.id")).compareTo((Integer)b.getKey().get("component.id")));
-
-		Iterator<Entry<Dictionary<String, ?>, ManagedService>> iterator = collection.iterator();
-
-		Entry<Dictionary<String, ?>, ManagedService> entry = iterator.next();
-		Dictionary<String, Object> properties = new Hashtable<>();
-		String pid = (String)entry.getKey().get(Constants.SERVICE_PID);
-		Assert.assertEquals("org.apache.aries.cdi.container.test.beans.BarWithConfig", pid);
-		properties.put(Constants.SERVICE_PID, pid);
-		properties.put("time", System.currentTimeMillis());
-		entry.getValue().updated(properties);
-		Assert.assertEquals(CdiEvent.Type.WAITING_FOR_CONFIGURATIONS, containerState.lastState());
-
-		entry = iterator.next();
-		properties = new Hashtable<>();
-		pid = (String)entry.getKey().get(Constants.SERVICE_PID);
-		Assert.assertEquals("org.apache.aries.cdi.container.test.beans.BarWithConfig", pid);
-		properties.put(Constants.SERVICE_PID, pid);
-		properties.put("time", System.currentTimeMillis());
-		entry.getValue().updated(properties);
-		Assert.assertEquals(CdiEvent.Type.CREATED, containerState.lastState());
-		entry.getValue().updated(null);
-		Assert.assertEquals(CdiEvent.Type.WAITING_FOR_CONFIGURATIONS, containerState.lastState());
-		entry.getValue().updated(properties);
-		Assert.assertEquals(CdiEvent.Type.CREATED, containerState.lastState());
-	}
-*/
 }

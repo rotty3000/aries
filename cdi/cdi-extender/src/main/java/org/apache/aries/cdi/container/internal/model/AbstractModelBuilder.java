@@ -29,7 +29,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
-import org.apache.aries.cdi.container.internal.log.Logs;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Throw;
 import org.osgi.service.log.Logger;
 import org.xml.sax.InputSource;
@@ -124,7 +124,7 @@ public abstract class AbstractModelBuilder {
 				InputSource source = new InputSource(inputStream);
 
 				if (source.getByteStream().available() == 0) {
-					_log.warn("CDIe - Ignoring {} because it contains 0 bytes", osgiBeansDescriptorURL);
+					_log.warn("CCR Ignoring {} because it contains 0 bytes", osgiBeansDescriptorURL);
 
 					continue;
 				}

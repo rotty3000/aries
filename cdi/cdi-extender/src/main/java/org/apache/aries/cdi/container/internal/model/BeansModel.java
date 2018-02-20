@@ -19,7 +19,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.aries.cdi.container.internal.component.OSGiBean;
 import org.jboss.weld.bootstrap.spi.BeansXml;
 import org.jboss.weld.xml.BeansXmlParser;
 

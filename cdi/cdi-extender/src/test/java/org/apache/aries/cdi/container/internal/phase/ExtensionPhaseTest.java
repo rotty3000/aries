@@ -1,7 +1,7 @@
 package org.apache.aries.cdi.container.internal.phase;
 
+import static org.apache.aries.cdi.container.internal.util.Reflection.*;
 import static org.junit.Assert.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import java.util.Arrays;
@@ -10,18 +10,19 @@ import java.util.Map;
 
 import javax.enterprise.inject.spi.Extension;
 
-import org.apache.aries.cdi.container.internal.CDIBundle;
+import org.apache.aries.cdi.container.internal.container.CDIBundle;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.test.BaseCDIBundleTest;
-import org.apache.aries.cdi.container.test.MockServiceReference;
+import org.apache.aries.cdi.container.test.MockServiceRegistration;
 import org.junit.Test;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.Constants;
 import org.osgi.framework.ServiceEvent;
 import org.osgi.framework.ServiceListener;
 import org.osgi.framework.dto.ServiceReferenceDTO;
+import org.osgi.framework.wiring.BundleWiring;
+import org.osgi.namespace.extender.ExtenderNamespace;
 import org.osgi.service.cdi.CDIConstants;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.util.promise.Deferred;
@@ -30,35 +31,17 @@ public class ExtensionPhaseTest extends BaseCDIBundleTest {
 
 	@Test
 	public void extensions_tracking() throws Exception {
-		when(bundle.getBundleContext()).thenReturn(bundleContext);
-
-		Deferred<ServiceListener> slD = promiseFactory.deferred();
-		Deferred<String> filterD = promiseFactory.deferred();
-
-		doAnswer(
-			(Answer<?>) invocation -> {
-				slD.resolve((ServiceListener)invocation.getArgument(0));
-				filterD.resolve((String)invocation.getArgument(1));
-				return null;
-			}
-		).when(bundleContext).addServiceListener(any(), any());
-
-
-		when(ccrBundle.loadClass(any())).then(new Answer<Class<?>>() {
-			@Override
-			public Class<?> answer(InvocationOnMock invocation) throws ClassNotFoundException {
-				Object[] args = invocation.getArguments();
-				return getClass().getClassLoader().loadClass((String)args[0]);
-			}
-		});
-
 		Map<String, Object> attributes = new HashMap<>();
-
 		attributes.put(CDIConstants.REQUIREMENT_EXTENSIONS_ATTRIBUTE, Arrays.asList("(foo=name)"));
 
-		when(extenderRequirement.getAttributes()).thenReturn(attributes);
+		when(
+			bundle.adapt(
+				BundleWiring.class).getRequiredWires(
+					ExtenderNamespace.EXTENDER_NAMESPACE).get(
+						0).getRequirement().getAttributes()
+		).thenReturn(attributes);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null);
 
 		CDIBundle cdiBundle = new CDIBundle(
 			ccr, containerState,
@@ -86,39 +69,60 @@ public class ExtensionPhaseTest extends BaseCDIBundleTest {
 		assertEquals(1, containerDTO.template.extensions.size());
 		assertEquals("(foo=name)", containerDTO.template.extensions.get(0).serviceFilter);
 
-		MockServiceReference<Extension> refA = new MockServiceReference<>(bundle, new Extension(){});
-		refA.setProperty("foo", "name");
-		MockServiceReference<Extension> refB = new MockServiceReference<>(bundle, new Extension(){});
-		refB.setProperty("foo", "name");
-		refB.setProperty(Constants.SERVICE_RANKING, 10);
+		MockServiceRegistration<Extension> regA = cast(bundle.getBundleContext().registerService(
+			Extension.class, new Extension(){}, Maps.dict("foo", "name")));
 
-		ServiceReferenceDTO[] dtos = new ServiceReferenceDTO[] {refA.toDTO(), refB.toDTO()};
+		MockServiceRegistration<Extension> regB = cast(bundle.getBundleContext().registerService(
+			Extension.class, new Extension(){}, Maps.dict("foo", "name", Constants.SERVICE_RANKING, 10)));
 
+		ServiceReferenceDTO[] dtos = new ServiceReferenceDTO[] {
+				regA.getReference().toDTO(),
+				regB.getReference().toDTO()};
 		when(bundle.adapt(ServiceReferenceDTO[].class)).thenReturn(dtos);
-		when(bundleContext.getService(refA)).thenReturn(refA.getService());
-		when(bundleContext.getService(refB)).thenReturn(refB.getService());
+
+		Deferred<ServiceListener> slD = testPromiseFactory.deferred();
+
+		testPromiseFactory.submit(
+			() -> {
+				do {
+					serviceListeners.stream().filter(
+						en -> en.getValue().matches(
+							Maps.of(Constants.OBJECTCLASS, Extension.class.getName(),
+							"foo", "name"))
+					).map(
+						en -> en.getKey()
+					).findFirst().ifPresent(
+						sl -> slD.resolve(sl)
+					);
+
+					Thread.sleep(10);
+				} while(!slD.getPromise().isDone());
+
+				return null;
+			}
+		);
 
 		slD.getPromise().thenAccept(
 			sl -> {
-				sl.serviceChanged(new ServiceEvent(ServiceEvent.REGISTERED, refA));
+				sl.serviceChanged(new ServiceEvent(ServiceEvent.REGISTERED, regA.getReference()));
 
 				assertEquals(2, containerState.containerDTO().changeCount);
 				assertEquals(1, containerState.containerDTO().extensions.size());
-				assertEquals(1, containerState.containerDTO().extensions.get(0).service.id);
+				assertEquals(regA.getReference().getProperty(Constants.SERVICE_ID), containerState.containerDTO().extensions.get(0).service.id);
 
-				sl.serviceChanged(new ServiceEvent(ServiceEvent.REGISTERED, refB));
+				sl.serviceChanged(new ServiceEvent(ServiceEvent.REGISTERED, regB.getReference()));
 
 				assertEquals(3, containerState.containerDTO().changeCount);
 				assertEquals(1, containerState.containerDTO().extensions.size());
-				assertEquals(2, containerState.containerDTO().extensions.get(0).service.id);
+				assertEquals(regB.getReference().getProperty(Constants.SERVICE_ID), containerState.containerDTO().extensions.get(0).service.id);
 
-				sl.serviceChanged(new ServiceEvent(ServiceEvent.UNREGISTERING, refB));
+				sl.serviceChanged(new ServiceEvent(ServiceEvent.UNREGISTERING, regB.getReference()));
 
 				assertEquals(4, containerState.containerDTO().changeCount);
 				assertEquals(1, containerState.containerDTO().extensions.size());
-				assertEquals(1, containerState.containerDTO().extensions.get(0).service.id);
+				assertEquals(regA.getReference().getProperty(Constants.SERVICE_ID), containerState.containerDTO().extensions.get(0).service.id);
 
-				sl.serviceChanged(new ServiceEvent(ServiceEvent.UNREGISTERING, refA));
+				sl.serviceChanged(new ServiceEvent(ServiceEvent.UNREGISTERING, regA.getReference()));
 
 				assertEquals(0, containerState.containerDTO().extensions.size());
 			}

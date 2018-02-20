@@ -29,10 +29,12 @@ import java.util.concurrent.Executors;
 import javax.enterprise.inject.spi.CDI;
 
 import org.apache.aries.cdi.container.internal.command.CDICommand;
+import org.apache.aries.cdi.container.internal.container.CDIBundle;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
-import org.apache.aries.cdi.container.internal.log.Logs;
+import org.apache.aries.cdi.container.internal.phase.ConfigurationPhase;
 import org.apache.aries.cdi.container.internal.phase.ExtensionPhase;
 import org.apache.aries.cdi.container.internal.phase.InitPhase;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.provider.CDIProvider;
 import org.apache.felix.utils.extender.AbstractExtender;
 import org.apache.felix.utils.extender.Extension;
@@ -44,8 +46,10 @@ import org.osgi.framework.ServiceRegistration;
 import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.service.cdi.runtime.CDIComponentRuntime;
+import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.log.Logger;
 import org.osgi.util.promise.PromiseFactory;
+import org.osgi.util.tracker.ServiceTracker;
 
 public class Activator extends AbstractExtender {
 
@@ -64,7 +68,7 @@ public class Activator extends AbstractExtender {
 	@Override
 	public void start(BundleContext bundleContext) throws Exception {
 		if (_log.isDebugEnabled()) {
-			_log.debug("CDIe - starting {}", bundleContext.getBundle());
+			_log.debug("CCR starting {}", bundleContext.getBundle());
 		}
 
 		_bundleContext = bundleContext;
@@ -75,7 +79,7 @@ public class Activator extends AbstractExtender {
 		super.start(bundleContext);
 
 		if (_log.isDebugEnabled()) {
-			_log.debug("CDIe - started {}", bundleContext.getBundle());
+			_log.debug("CCR started {}", bundleContext.getBundle());
 		}
 	}
 
@@ -100,7 +104,7 @@ public class Activator extends AbstractExtender {
 	@Override
 	public void stop(BundleContext bundleContext) throws Exception {
 		if (_log.isDebugEnabled()) {
-			_log.debug("CDIe - stoping {}", bundleContext.getBundle());
+			_log.debug("CCR stoping {}", bundleContext.getBundle());
 		}
 
 		super.stop(bundleContext);
@@ -109,7 +113,7 @@ public class Activator extends AbstractExtender {
 		_ccrRegistration.unregister();
 
 		if (_log.isDebugEnabled()) {
-			_log.debug("CDIe - stoped {}", bundleContext.getBundle());
+			_log.debug("CCR stoped {}", bundleContext.getBundle());
 		}
 	}
 
@@ -119,14 +123,25 @@ public class Activator extends AbstractExtender {
 			return null;
 		}
 
+		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = new ServiceTracker<>(
+			bundle.getBundleContext(), ConfigurationAdmin.class, null);
+
+		caTracker.open();
+
+		ConfigurationAdmin ca = caTracker.waitForService(200);
+
+		// TODO verify if we need to treat the ca somehow...
+
 		ContainerState containerState = new ContainerState(
-			bundle, _bundleContext.getBundle(), _ccrChangeCount, _promiseFactory);
+			bundle, _bundleContext.getBundle(), _ccrChangeCount, _promiseFactory, ca);
 
 		return new CDIBundle(
 			_ccr, containerState,
 			new InitPhase(
 				containerState,
-				new ExtensionPhase(containerState, null)));
+				new ExtensionPhase(
+					containerState,
+					new ConfigurationPhase(containerState))));
 	}
 
 	@Override

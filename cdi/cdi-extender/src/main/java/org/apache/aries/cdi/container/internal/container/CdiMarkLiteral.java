@@ -12,22 +12,27 @@
  * limitations under the License.
  */
 
-package org.apache.aries.cdi.container.internal.model;
+package org.apache.aries.cdi.container.internal.container;
 
-import java.util.Set;
+import javax.enterprise.util.AnnotationLiteral;
 
-import org.apache.aries.cdi.container.internal.util.Sets;
+public class CdiMarkLiteral extends AnnotationLiteral<CdiMark> implements CdiMark {
 
-public class Constants {
+	private static final long serialVersionUID = 1L;
 
-	private Constants() {
-		// no instances
+	public static CdiMark from(int i) {
+		return new CdiMarkLiteral(i);
 	}
 
-	public static final String CDI10_URI = "http://www.osgi.org/xmlns/cdi/v1.0.0";
-	public static final Set<String> CDI_URIS = Sets.immutableHashSet(CDI10_URI);
+	public CdiMarkLiteral(int i) {
+		_value = i;
+	}
 
-	public static final String BEAN_ELEMENT = "bean";
-	public static final String CLASS_ATTRIBUTE = "class";
+	@Override
+	public int value() {
+		return _value;
+	}
+
+	private final int _value;
 
 }

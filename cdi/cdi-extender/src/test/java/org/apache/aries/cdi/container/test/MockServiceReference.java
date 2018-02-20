@@ -1,9 +1,11 @@
 package org.apache.aries.cdi.container.test;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.osgi.framework.Bundle;
@@ -13,10 +15,13 @@ import org.osgi.framework.dto.ServiceReferenceDTO;
 
 public class MockServiceReference<S> implements ServiceReference<S> {
 
-	public MockServiceReference(Bundle bundle, S service) {
+	public MockServiceReference(Bundle bundle, S service, Class<?>... clazz) {
 		_bundle = bundle;
 		_service = service;
+		_properties.put(Constants.OBJECTCLASS, Arrays.stream(clazz).map(c -> c.getName()).collect(Collectors.toList()).toArray(new String[0]));
+		_properties.put(Constants.SERVICE_BUNDLEID, bundle.getBundleId());
 		_properties.put(Constants.SERVICE_ID, _serviceIds.incrementAndGet());
+		_properties.put(Constants.SERVICE_SCOPE, Constants.SCOPE_SINGLETON);
 	}
 
 	@Override
@@ -133,6 +138,7 @@ public class MockServiceReference<S> implements ServiceReference<S> {
 		dto.bundle = _bundle.getBundleId();
 		dto.id = (Long)getProperty(Constants.SERVICE_ID);
 		dto.properties = Maps.of(_properties);
+		dto.usingBundles = new long[0];
 
 		return dto;
 	}
