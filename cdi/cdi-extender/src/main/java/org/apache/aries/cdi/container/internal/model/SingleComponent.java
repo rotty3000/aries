@@ -3,6 +3,7 @@ package org.apache.aries.cdi.container.internal.model;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import org.apache.aries.cdi.container.internal.container.Op;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
@@ -32,8 +33,18 @@ public class SingleComponent implements Component {
 	}
 
 	@Override
+	public Op startOp() {
+		return Op.SINGLE_COMPONENT_START;
+	}
+
+	@Override
 	public boolean start() {
 		return false;
+	}
+
+	@Override
+	public Op stopOp() {
+		return Op.SINGLE_COMPONENT_STOP;
 	}
 
 	@Override

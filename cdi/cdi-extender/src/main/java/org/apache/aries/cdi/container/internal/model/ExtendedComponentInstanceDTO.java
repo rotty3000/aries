@@ -5,11 +5,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.osgi.framework.Constants;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
+import org.osgi.service.cdi.runtime.dto.ConfigurationDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
@@ -20,25 +20,28 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 
 	public Long componentId = _componentIds.incrementAndGet();
 
+	public ActivationBuilder activationBuilder;
+
 	/**
 	 * @return true when all the configuration templates are resolved, otherwise false
 	 */
 	public final boolean configurationsResolved() {
-		final AtomicBoolean resolved = new AtomicBoolean(true);
-		template.configurations.stream().filter(
-			t -> t.policy == ConfigurationPolicy.REQUIRED
-		).forEach(
-			t -> configurations.stream().filter(
-				c -> c.template.equals(t)
-			).findFirst().orElseGet(
-				() -> {
-					resolved.set(false);
-					return null;
+		for (ConfigurationTemplateDTO template : template.configurations) {
+			if (template.policy == ConfigurationPolicy.REQUIRED) {
+				// find a configuration snapshot or not resolved
+				boolean found = false;
+				for (ConfigurationDTO snapshot : configurations) {
+					if (snapshot.template == template) {
+						found = true;
+					}
 				}
-			)
-		);
+				if (!found) {
+					return false;
+				}
+			}
+		}
 
-		return resolved.get();
+		return true;
 	}
 
 	// TODO
@@ -49,13 +52,17 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 	// - factory/single component service instance
 
 	public boolean start() {
+		if (!configurationsResolved()) {
+			return false;
+		}
+
 		Map<String, Object> props = new HashMap<>();
 		props.putAll(template.properties);
 		List<String> servicePids = new ArrayList<>();
 
 		for (ConfigurationTemplateDTO t : template.configurations) {
 			configurations.stream().filter(
-				c -> c.template.equals(t)
+				c -> c.template.equals(t) && t.componentConfiguration
 			).findFirst().ifPresent(
 				c -> {
 					Map<String, Object> copy = new HashMap<>(c.properties);
@@ -82,7 +89,11 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 		// open all the service trackers
 		template.references.forEach(
 			r -> {
-				// when the references are resolved, create component
+				// when the references are resolved, create activations
+//				ReferenceDTO referenceDTO = new ReferenceDTO();
+//				referenceDTO.
+//
+//				references.add(e);
 			}
 		);
 
@@ -91,10 +102,13 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 
 	public boolean stop() {
 		// close service trackers
+
 		references.stream().forEach(
 			r -> {
 			}
 		);
+
+		properties = null;
 
 		return true;
 	}

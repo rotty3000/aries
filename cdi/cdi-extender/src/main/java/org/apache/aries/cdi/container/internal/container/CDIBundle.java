@@ -32,7 +32,7 @@ public class CDIBundle extends Phase implements Extension {
 		_log.debug(l -> l.debug("CCR Begin cdibundle CLOSE on {}", bundle()));
 
 		next.ifPresent(
-			next -> submit(next::close).then(
+			next -> submit(Op.INIT_CLOSE, next::close).then(
 				s -> {
 					_log.debug(l -> l.debug("CCR Ended cdibundle CLOSE on {}", bundle()));
 
@@ -63,7 +63,7 @@ public class CDIBundle extends Phase implements Extension {
 		_ccr.add(containerState.bundle(), containerState);
 
 		next.ifPresent(
-			next -> submit(next::open).then(
+			next -> submit(Op.INIT_OPEN, next::open).then(
 				s -> {
 					_log.debug(l -> l.debug("CCR Ended cdibundle OPEN on {}", bundle()));
 

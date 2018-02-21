@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.aries.cdi.container.internal.container.ContainerDiscovery;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
@@ -35,7 +36,7 @@ public class InitPhase extends Phase {
 
 		next.ifPresent(
 			next -> {
-				submit(next::close).then(
+				submit(Op.EXTENSION_CLOSE, next::close).then(
 					s -> {
 						_log.debug(l -> l.debug("CCR Ended init CLOSE on {}", bundle()));
 
@@ -61,7 +62,7 @@ public class InitPhase extends Phase {
 
 		next.ifPresent(
 			next -> {
-				submit(next::open).then(
+				submit(Op.EXTENSION_OPEN, next::open).then(
 					s -> {
 						_log.debug(l -> l.debug("CCR Ended init OPEN on {}", bundle()));
 

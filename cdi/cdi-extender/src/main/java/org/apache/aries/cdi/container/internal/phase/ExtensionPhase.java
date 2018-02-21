@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
 import javax.enterprise.inject.spi.Extension;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionTemplateDTO;
 import org.apache.aries.cdi.container.internal.util.Logs;
@@ -57,7 +58,7 @@ public class ExtensionPhase extends Phase {
 			_log.debug(l -> l.debug("CCR Begin extension CLOSE on {}", bundle()));
 
 			next.ifPresent(
-				next -> submit(next::close).then(
+				next -> submit(Op.CONFIGURATION_CLOSE, next::close).then(
 					s -> {
 						_log.debug(l -> l.debug("CCR Ended extension CLOSE on {}", bundle()));
 
@@ -89,7 +90,7 @@ public class ExtensionPhase extends Phase {
 			_log.debug(l -> l.debug("CCR Begin extension OPEN on {}", bundle()));
 
 			next.ifPresent(
-				next -> submit(next::open).then(
+				next -> submit(Op.CONFIGURATION_OPEN, next::open).then(
 					s -> {
 						_log.debug(l -> l.debug("CCR Ended extension OPEN on {}", bundle()));
 
@@ -194,9 +195,9 @@ public class ExtensionPhase extends Phase {
 
 			if (snapshots().size() == templates().size()) {
 				next.ifPresent(
-					next -> submit(next::close).then(
+					next -> submit(Op.CONFIGURATION_CLOSE, next::close).then(
 						s -> {
-							return submit(next::open).then(
+							return submit(Op.CONFIGURATION_OPEN, next::open).then(
 								s2 -> {
 									_log.debug(l -> l.debug("CCR Extension open TRACKING {} on {}", reference, bundle()));
 
@@ -254,10 +255,10 @@ public class ExtensionPhase extends Phase {
 			containerState.incrementChangeCount();
 
 			next.ifPresent(
-				next -> submit(next::close).then(
+				next -> submit(Op.CONFIGURATION_CLOSE, next::close).then(
 					s -> {
 						if (snapshots().size() == templates().size()) {
-							return submit(next::open).then(
+							return submit(Op.CONFIGURATION_OPEN, next::open).then(
 								s2 -> {
 									_log.debug(l -> l.debug("CCR Extension open TRACKING {} on {}", reference, bundle()));
 

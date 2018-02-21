@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -35,6 +36,7 @@ import org.apache.aries.cdi.container.internal.loader.BundleResourcesLoader;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
 import org.apache.aries.cdi.container.internal.model.BeansModelBuilder;
 import org.apache.aries.cdi.container.internal.model.Component;
+import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationTemplateDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionTemplateDTO;
 import org.apache.aries.cdi.container.internal.reference.ReferenceCallback;
 import org.apache.aries.cdi.container.internal.service.ServiceDeclaration;
@@ -60,6 +62,7 @@ import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ContainerTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 import org.osgi.service.cm.ConfigurationAdmin;
+import org.osgi.util.promise.Promise;
 import org.osgi.util.promise.PromiseFactory;
 
 public class ContainerState {
@@ -149,7 +152,7 @@ public class ContainerState {
 		componentTemplate.references = new CopyOnWriteArrayList<>();
 		componentTemplate.type = Type.CONTAINER;
 
-		ConfigurationTemplateDTO configurationTemplate = new ConfigurationTemplateDTO();
+		ExtendedConfigurationTemplateDTO configurationTemplate = new ExtendedConfigurationTemplateDTO();
 		configurationTemplate.componentConfiguration = true;
 		configurationTemplate.maximumCardinality = MaximumCardinality.ONE;
 		configurationTemplate.pid = Optional.ofNullable(
@@ -191,6 +194,14 @@ public class ContainerState {
 		return _bundle.getBundleContext();
 	}
 
+	public <T, R> boolean addCallback(CheckedCallback<T, R> checkedCallback) {
+		return _callbacks.add(checkedCallback);
+	}
+
+	public <T, R> boolean removeCallback(CheckedCallback<T, R> checkedCallback) {
+		return _callbacks.remove(checkedCallback);
+	}
+
 	public ClassLoader classLoader() {
 		return _aggregateClassLoader;
 	}
@@ -221,10 +232,6 @@ public class ContainerState {
 		return (T)new BundleResourcesLoader(_bundle, _extenderBundle);
 	}
 
-	public PromiseFactory promiseFactory() {
-		return _promiseFactory;
-	}
-
 	public Map<Component, Map<String, ReferenceCallback>> referenceCallbacks() {
 		return _referenceCallbacksMap;
 	}
@@ -235,6 +242,20 @@ public class ContainerState {
 
 	public Map<Component, ServiceDeclaration> serviceComponents() {
 		return _serviceComponents;
+	}
+
+	public <T, R> Promise<T> submit(Op op, Callable<T> task) {
+		Promise<T> promise = _promiseFactory.submit(task);
+
+		for (CheckedCallback<?, ?> cc : _callbacks) {
+			@SuppressWarnings("unchecked")
+			CheckedCallback<T, R> cc2 = (CheckedCallback<T, R>)cc;
+			if (cc2.test(op)) {
+				promise.then(cc2, cc2);
+			}
+		}
+
+		return promise;
 	}
 
 	private static Bundle[] getBundles(Bundle bundle, Bundle extenderBundle) {
@@ -268,6 +289,7 @@ public class ContainerState {
 	private final BeansModel _beansModel;
 	private final Bundle _bundle;
 	private final ClassLoader _bundleClassLoader;
+	private final List<CheckedCallback<?, ?>> _callbacks = new CopyOnWriteArrayList<>();
 	private final ChangeCount _changeCount;
 	private final Optional<ConfigurationAdmin> _configurationAdmin;
 	private final ContainerDTO _containerDTO;

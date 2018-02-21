@@ -18,6 +18,7 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.util.Throw;
 import org.osgi.framework.Bundle;
 import org.osgi.util.promise.Promise;
@@ -41,8 +42,8 @@ public abstract class Phase {
 
 	public abstract boolean open();
 
-	public final <T> Promise<T> submit(Callable<T> callable) {
-		return containerState.promiseFactory().submit(callable);
+	public final <T> Promise<T> submit(Op op, Callable<T> callable) {
+		return containerState.submit(op, callable);
 	}
 
 	protected final ContainerState containerState;

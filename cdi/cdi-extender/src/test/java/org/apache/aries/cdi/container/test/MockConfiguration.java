@@ -8,6 +8,7 @@ import java.util.Hashtable;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.osgi.framework.Constants;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cm.Configuration;
 
@@ -40,6 +41,10 @@ public class MockConfiguration implements Configuration {
 		for (Enumeration<String> enu = properties.keys();enu.hasMoreElements();) {
 			String key = enu.nextElement();
 			dict.put(key, properties.get(key));
+		}
+		dict.put(Constants.SERVICE_PID, _pid);
+		if (_factoryPid != null) {
+			dict.put("factory.pid", _factoryPid);
 		}
 		_properties = dict;
 		_changeCount.incrementAndGet();

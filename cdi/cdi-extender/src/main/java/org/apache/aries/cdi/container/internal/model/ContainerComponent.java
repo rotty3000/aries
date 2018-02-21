@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.container.Op;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
@@ -25,6 +26,7 @@ public class ContainerComponent implements Component {
 		_instanceDTO.properties = null;
 		_instanceDTO.references = new CopyOnWriteArrayList<>();
 		_instanceDTO.template = template;
+		_instanceDTO.activationBuilder = new ContainerActivationBuilder(_containerState);
 
 		_snapshot.instances.add(_instanceDTO);
 
@@ -51,8 +53,18 @@ public class ContainerComponent implements Component {
 	}
 
 	@Override
+	public Op startOp() {
+		return Op.CONTAINER_COMPONENT_START;
+	}
+
+	@Override
 	public boolean start() {
 		return _instanceDTO.start();
+	}
+
+	@Override
+	public Op stopOp() {
+		return Op.CONTAINER_COMPONENT_STOP;
 	}
 
 	@Override

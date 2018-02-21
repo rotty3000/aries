@@ -26,7 +26,7 @@ public class ConfigurationListener implements org.osgi.service.cm.ConfigurationL
 	}
 
 	public void close() {
-		_containerState.promiseFactory().submit(_component::stop);
+		_containerState.submit(_component.stopOp(), _component::stop);
 	}
 
 	@Override
@@ -84,9 +84,9 @@ public class ConfigurationListener implements org.osgi.service.cm.ConfigurationL
 		}
 
 		if (needToRefresh.get()) {
-			_containerState.promiseFactory().submit(_component::stop).then(
+			_containerState.submit(_component.stopOp(), _component::stop).then(
 				s -> {
-					return _containerState.promiseFactory().submit(_component::start);
+					return _containerState.submit(_component.startOp(), _component::start);
 				}
 			);
 		}
