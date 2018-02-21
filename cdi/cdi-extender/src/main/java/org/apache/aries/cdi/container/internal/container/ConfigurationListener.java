@@ -23,6 +23,8 @@ public class ConfigurationListener implements org.osgi.service.cm.ConfigurationL
 	public ConfigurationListener(ContainerState containerState, Component component) {
 		_component = component;
 		_containerState = containerState;
+
+		// TODO lookup existing configurations...
 	}
 
 	public void close() {

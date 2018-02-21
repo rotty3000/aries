@@ -82,25 +82,19 @@ public class ExtensionPhaseTest extends BaseCDIBundleTest {
 
 		Deferred<ServiceListener> slD = testPromiseFactory.deferred();
 
-		testPromiseFactory.submit(
-			() -> {
-				do {
-					serviceListeners.stream().filter(
-						en -> en.getValue().matches(
-							Maps.of(Constants.OBJECTCLASS, Extension.class.getName(),
-							"foo", "name"))
-					).map(
-						en -> en.getKey()
-					).findFirst().ifPresent(
-						sl -> slD.resolve(sl)
-					);
+		do {
+			serviceListeners.stream().filter(
+				en -> en.getValue().matches(
+					Maps.of(Constants.OBJECTCLASS, Extension.class.getName(),
+					"foo", "name"))
+			).map(
+				en -> en.getKey()
+			).findFirst().ifPresent(
+				sl -> slD.resolve(sl)
+			);
 
-					Thread.sleep(10);
-				} while(!slD.getPromise().isDone());
-
-				return null;
-			}
-		);
+			Thread.sleep(10);
+		} while(!slD.getPromise().isDone());
 
 		slD.getPromise().thenAccept(
 			sl -> {

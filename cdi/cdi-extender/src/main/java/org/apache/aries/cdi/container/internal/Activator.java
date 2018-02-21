@@ -60,7 +60,6 @@ public class Activator extends AbstractExtender {
 	public Activator() {
 		setSynchronous(true);
 
-
 		_ccr = new CCR(_promiseFactory);
 		_command = new CDICommand(_ccr);
 	}
