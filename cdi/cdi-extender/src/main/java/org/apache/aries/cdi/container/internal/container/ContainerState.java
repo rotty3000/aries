@@ -14,6 +14,8 @@
 
 package org.apache.aries.cdi.container.internal.container;
 
+import static org.apache.aries.cdi.container.internal.util.Filters.*;
+import static org.apache.aries.cdi.container.internal.util.Throw.*;
 import static org.osgi.namespace.extender.ExtenderNamespace.*;
 import static org.osgi.service.cdi.CDIConstants.*;
 
@@ -45,8 +47,6 @@ import org.jboss.weld.resources.spi.ResourceLoader;
 import org.jboss.weld.serialization.spi.ProxyServices;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
-import org.osgi.framework.FrameworkUtil;
-import org.osgi.framework.InvalidSyntaxException;
 import org.osgi.framework.dto.BundleDTO;
 import org.osgi.framework.namespace.PackageNamespace;
 import org.osgi.framework.wiring.BundleCapability;
@@ -58,7 +58,6 @@ import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO.Type;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
-import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ContainerTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 import org.osgi.service.cm.ConfigurationAdmin;
@@ -126,18 +125,16 @@ public class ContainerState {
 		).ifPresent(
 			list -> list.stream().forEach(
 				extensionFilter -> {
-					try {
-						ExtendedExtensionTemplateDTO extensionTemplateDTO = new ExtendedExtensionTemplateDTO();
+					ExtendedExtensionTemplateDTO extensionTemplateDTO = new ExtendedExtensionTemplateDTO();
 
-						extensionTemplateDTO.filter = FrameworkUtil.createFilter(extensionFilter);
+					try {
+						extensionTemplateDTO.filter = asFilter(extensionFilter);
 						extensionTemplateDTO.serviceFilter = extensionFilter;
 
 						_containerDTO.template.extensions.add(extensionTemplateDTO);
 					}
-					catch (InvalidSyntaxException ise) {
-						_containerDTO.errors.add(Throw.toString(ise));
-
-						// TODO log this error also
+					catch (Exception e) {
+						_containerDTO.errors.add(Throw.asString(e));
 					}
 				}
 			)
@@ -148,7 +145,7 @@ public class ContainerState {
 		componentTemplate.beans = new CopyOnWriteArrayList<>();
 		componentTemplate.configurations = new CopyOnWriteArrayList<>();
 		componentTemplate.name = _containerDTO.template.id;
-		componentTemplate.properties = Collections.emptyMap(); // TODO
+		componentTemplate.properties = Collections.emptyMap();
 		componentTemplate.references = new CopyOnWriteArrayList<>();
 		componentTemplate.type = Type.CONTAINER;
 
@@ -170,7 +167,7 @@ public class ContainerState {
 		_beansModel = new BeansModelBuilder(_aggregateClassLoader, bundleWiring, cdiAttributes).build();
 
 		_beansModel.getErrors().stream().map(
-			t -> Throw.toString(t)
+			t -> asString(t)
 		).forEach(
 			s -> _containerDTO.errors.add(s)
 		);

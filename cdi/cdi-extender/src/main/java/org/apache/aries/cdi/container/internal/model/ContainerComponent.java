@@ -23,6 +23,7 @@ public class ContainerComponent implements Component {
 		_instanceDTO = new ExtendedComponentInstanceDTO();
 		_instanceDTO.activations = new CopyOnWriteArrayList<>();
 		_instanceDTO.configurations = new CopyOnWriteArrayList<>();
+		_instanceDTO.containerState = _containerState;
 		_instanceDTO.properties = null;
 		_instanceDTO.references = new CopyOnWriteArrayList<>();
 		_instanceDTO.template = template;

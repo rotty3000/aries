@@ -1,26 +1,57 @@
 package org.apache.aries.cdi.container.internal.model;
 
+import static org.apache.aries.cdi.container.internal.util.Filters.*;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.container.ReferenceSync;
 import org.osgi.framework.Constants;
+import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.ConfigurationDTO;
+import org.osgi.service.cdi.runtime.dto.ReferenceDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
+import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO;
+import org.osgi.util.tracker.ServiceTracker;
 
 public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
+
+	public ContainerState containerState;
 
 	public ComponentTemplateDTO template;
 
 	public Long componentId = _componentIds.incrementAndGet();
 
 	public ActivationBuilder activationBuilder;
+
+	public void activate(ServiceReference<Object> reference) {
+		if (referencesResolved()) {
+			containerState.submit(
+				activationBuilder.startOp(),
+				() -> {
+					// TODO
+					return true;
+				}
+			);
+		}
+	}
+
+	public void deactivate(ServiceReference<Object> reference) {
+	}
+
+	private boolean changeRequired() {
+		return false;
+	}
 
 	/**
 	 * @return true when all the configuration templates are resolved, otherwise false
@@ -44,12 +75,43 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 		return true;
 	}
 
+	public final boolean referencesResolved() {
+		for (ReferenceTemplateDTO template : template.references) {
+			if (template.minimumCardinality > 0) {
+				// find a reference snapshot or not resolved
+				boolean found = false;
+				for (ReferenceDTO snapshot : references) {
+					ExtendedReferenceDTO extended = (ExtendedReferenceDTO)snapshot;
+					if (extended.matches.size() >= extended.minimumCardinality) {
+						found = true;
+					}
+				}
+				if (!found) {
+					return false;
+				}
+			}
+		}
+
+		return true;
+	}
+
 	// TODO
 	// The types of activations:
 	// - container
 	// - container service
 	// - factory/single component immediate
 	// - factory/single component service instance
+	//
+	// Here there's only a single component (the container component):
+	// @References defined by container beans
+	// - activation of the CDI container
+	// -- publish services defined by the CDI container beans
+	//
+	// These component evolve concurrently (this only happens once the container component is resolved):
+	// --- track single and factory component configurations
+	// ----- track single and factory component references
+	// ------ activate immediate components OR publish single and factory component services
+	//
 
 	public boolean start() {
 		if (!configurationsResolved()) {
@@ -86,14 +148,24 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 
 		properties = props;
 
-		// open all the service trackers
-		template.references.forEach(
-			r -> {
-				// when the references are resolved, create activations
-//				ReferenceDTO referenceDTO = new ReferenceDTO();
-//				referenceDTO.
-//
-//				references.add(e);
+		template.references.stream().map(
+			t -> (ExtendedReferenceTemplateDTO)t
+		).forEach(
+			t -> {
+				ExtendedReferenceDTO referenceDTO = new ExtendedReferenceDTO();
+
+				referenceDTO.matches = new CopyOnWriteArrayList<>();
+				referenceDTO.minimumCardinality = minimumCardinality(t.name, t.minimumCardinality);
+				referenceDTO.references = new ConcurrentSkipListSet<>();
+				referenceDTO.targetFilter = targetFilter(t.serviceType, t.name, t.targetFilter);
+				referenceDTO.template = t;
+				referenceDTO.serviceTracker = new ServiceTracker<>(
+					containerState.bundleContext(),
+					asFilter(referenceDTO.targetFilter),
+					new ReferenceSync(referenceDTO, this));
+
+				references.add(referenceDTO);
+				referenceDTO.serviceTracker.open();
 			}
 		);
 
@@ -101,16 +173,43 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 	}
 
 	public boolean stop() {
-		// close service trackers
-
-		references.stream().forEach(
+		references.removeIf(
 			r -> {
+				ExtendedReferenceDTO referenceDTO = (ExtendedReferenceDTO)r;
+
+				referenceDTO.serviceTracker.close();
+
+				return true;
 			}
 		);
 
 		properties = null;
 
 		return true;
+	}
+
+	private int minimumCardinality(String componentName, int minimumCardinality) {
+		return Optional.ofNullable(
+			properties.get(componentName.concat(".cardinality.minimum"))
+		).map(
+			v -> Integer.valueOf(String.valueOf(v))
+		).filter(
+			v -> v >= minimumCardinality
+		).orElse(minimumCardinality);
+	}
+
+	private String targetFilter(String serviceType, String componentName, String targetFilter) {
+		String base = "(objectClass=".concat(serviceType).concat(")");
+		String extraFilter = Optional.ofNullable(
+			properties.get(componentName.concat(".target"))
+		).map(
+			v -> v + targetFilter
+		).orElse(targetFilter);
+
+		if (extraFilter.length() == 0) {
+			return base;
+		}
+		return "(&".concat(base).concat(extraFilter).concat(")");
 	}
 
 	private static final AtomicLong _componentIds = new AtomicLong();

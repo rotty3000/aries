@@ -14,6 +14,7 @@
 
 package org.apache.aries.cdi.container.internal.model;
 
+import static org.apache.aries.cdi.container.internal.util.Filters.*;
 import static org.apache.aries.cdi.container.internal.util.Reflection.*;
 
 import java.lang.annotation.Annotation;
@@ -41,7 +42,6 @@ import javax.inject.Provider;
 import javax.inject.Qualifier;
 
 import org.osgi.framework.Constants;
-import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.annotations.Greedy;
 import org.osgi.service.cdi.annotations.Prototype;
@@ -252,16 +252,8 @@ public class ReferenceModel {
 
 		int targetFilterLength = targetFilter.length();
 
-		if (targetFilterLength > 0) {
-			try {
-				FrameworkUtil.createFilter(targetFilter);
-
-				filterValid = true;
-			}
-			catch (Exception e) {
-				throw new IllegalArgumentException(
-					"Invalid target filter: " + targetFilter, e);
-			}
+		if ((targetFilterLength > 0) && isValid(targetFilter)) {
+			filterValid = true;
 		}
 
 		StringBuilder sb = new StringBuilder();

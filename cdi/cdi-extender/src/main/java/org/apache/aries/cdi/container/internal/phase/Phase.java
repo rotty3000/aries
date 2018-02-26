@@ -37,7 +37,7 @@ public abstract class Phase {
 	}
 
 	public final void error(Throwable t) {
-		containerState.containerDTO().errors.add(Throw.toString(t));
+		containerState.containerDTO().errors.add(Throw.asString(t));
 	}
 
 	public abstract boolean open();

@@ -49,22 +49,22 @@ public class OSGiBean implements Comparable<OSGiBean> {
 
 	public synchronized void addConfiguration(ConfigurationTemplateDTO dto) {
 		try (Syncro syncro = _lock.open()) {
-			if (_ctDTO == null) {
+			if (_componentTemplate == null) {
 				_configurationsQueue.add(dto);
 			}
 			else {
-				_ctDTO.configurations.add(dto);
+				_componentTemplate.configurations.add(dto);
 			}
 		}
 	}
 
 	public synchronized void addReference(ReferenceTemplateDTO dto) {
 		try (Syncro syncro = _lock.open()) {
-			if (_ctDTO == null) {
+			if (_componentTemplate == null) {
 				_referencesQueue.add(dto);
 			}
 			else {
-				_ctDTO.references.add(dto);
+				_componentTemplate.references.add(dto);
 			}
 		}
 	}
@@ -88,22 +88,22 @@ public class OSGiBean implements Comparable<OSGiBean> {
 
 	public synchronized ComponentTemplateDTO geComponentTemplateDTO() {
 		try (Syncro syncro = _lock.open()) {
-			return _ctDTO;
+			return _componentTemplate;
 		}
 	}
 
-	public void setComponent(ComponentTemplateDTO componentDTO) {
+	public void setComponent(ComponentTemplateDTO componentTemplate) {
 		try (Syncro syncro = _lock.open()) {
-			_ctDTO = componentDTO;
+			_componentTemplate = componentTemplate;
 			_configurationsQueue.removeIf(
 				dto -> {
-					_ctDTO.configurations.add(dto);
+					_componentTemplate.configurations.add(dto);
 					return true;
 				}
 			);
 			_referencesQueue.removeIf(
 				dto -> {
-					_ctDTO.references.add(dto);
+					_componentTemplate.references.add(dto);
 					return true;
 				}
 			);
@@ -122,7 +122,7 @@ public class OSGiBean implements Comparable<OSGiBean> {
 	private final Class<?> _beanClass;
 	private final List<ConfigurationTemplateDTO> _configurationsQueue = new CopyOnWriteArrayList<>();
 	private final List<ReferenceTemplateDTO> _referencesQueue = new CopyOnWriteArrayList<>();
-	private volatile ComponentTemplateDTO _ctDTO;
+	private volatile ComponentTemplateDTO _componentTemplate;
 	private final AtomicBoolean _found = new AtomicBoolean();
 	private volatile String _string;
 }

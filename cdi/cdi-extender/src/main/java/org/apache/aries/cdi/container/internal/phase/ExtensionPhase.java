@@ -14,7 +14,9 @@
 
 package org.apache.aries.cdi.container.internal.phase;
 
-import java.util.Arrays;
+import static org.apache.aries.cdi.container.internal.util.Filters.*;
+
+import java.util.Iterator;
 import java.util.List;
 import java.util.SortedSet;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -25,14 +27,10 @@ import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionTemplateDTO;
+import org.apache.aries.cdi.container.internal.util.DTOs;
 import org.apache.aries.cdi.container.internal.util.Logs;
-import org.apache.aries.cdi.container.internal.util.Throw;
-import org.osgi.framework.Constants;
 import org.osgi.framework.Filter;
-import org.osgi.framework.FrameworkUtil;
-import org.osgi.framework.InvalidSyntaxException;
 import org.osgi.framework.ServiceReference;
-import org.osgi.framework.dto.ServiceReferenceDTO;
 import org.osgi.service.cdi.runtime.dto.ExtensionDTO;
 import org.osgi.service.cdi.runtime.dto.template.ExtensionTemplateDTO;
 import org.osgi.service.log.Logger;
@@ -111,24 +109,19 @@ public class ExtensionPhase extends Phase {
 	Filter createExtensionFilter() {
 		final List<ExtensionTemplateDTO> templates = templates();
 
-		try {
-			StringBuilder sb = new StringBuilder("(&(objectClass=" + Extension.class.getName() + ")");
+		StringBuilder sb = new StringBuilder("(&(objectClass=" + Extension.class.getName() + ")");
 
-			if (templates.size() > 1) sb.append("(|");
+		if (templates.size() > 1) sb.append("(|");
 
-			for (ExtensionTemplateDTO tmpl : templates) {
-				sb.append(tmpl.serviceFilter);
-			}
-
-			if (templates.size() > 1) sb.append(")");
-
-			sb.append(")");
-
-			return FrameworkUtil.createFilter(sb.toString());
+		for (ExtensionTemplateDTO tmpl : templates) {
+			sb.append(tmpl.serviceFilter);
 		}
-		catch (InvalidSyntaxException ise) {
-			return Throw.exception(ise);
-		}
+
+		if (templates.size() > 1) sb.append(")");
+
+		sb.append(")");
+
+		return asFilter(sb.toString());
 	}
 
 	List<ExtensionTemplateDTO> templates() {
@@ -139,29 +132,17 @@ public class ExtensionPhase extends Phase {
 		return containerState.containerDTO().extensions;
 	}
 
-	ServiceReferenceDTO refDTO(ServiceReference<Extension> reference) {
-		ServiceReferenceDTO[] refDTOs = reference.getBundle().adapt(ServiceReferenceDTO[].class);
-
-		return Arrays.stream(refDTOs).filter(
-			dto -> dto.id == id(reference)
-		).findFirst().get();
-	}
-
-	long id(ServiceReference<Extension> reference) {
-		return (Long)reference.getProperty(Constants.SERVICE_ID);
-	}
-
 	private static final Logger _log = Logs.getLogger(ExtensionPhase.class);
 
 	private ServiceTracker<Extension, ExtendedExtensionDTO> _extensionTracker;
-	private final SortedSet<ServiceReference<Extension>> _references = new ConcurrentSkipListSet<>();
+	private final SortedSet<ExtendedExtensionDTO> _references = new ConcurrentSkipListSet<>(
+		(e1, e2) -> e1.serviceReference.compareTo(e2.serviceReference)
+	);
 
 	private class ExtensionPhaseCustomizer implements ServiceTrackerCustomizer<Extension, ExtendedExtensionDTO> {
 
 		@Override
 		public ExtendedExtensionDTO addingService(ServiceReference<Extension> reference) {
-			_references.add(reference);
-
 			ExtendedExtensionTemplateDTO template = templates().stream().map(
 				t -> (ExtendedExtensionTemplateDTO)t
 			).filter(
@@ -179,14 +160,17 @@ public class ExtensionPhase extends Phase {
 					return null;
 				}
 
-				snapshots().remove(snapshot);
-				containerState.bundleContext().ungetService(snapshot.serviceReference);
+				if (snapshots().remove(snapshot)) {
+					_references.add(snapshot);
+					snapshot.extension = null;
+					containerState.bundleContext().ungetService(snapshot.serviceReference);
+				}
 			}
 
 			ExtendedExtensionDTO extensionDTO = new ExtendedExtensionDTO();
 
 			extensionDTO.extension = containerState.bundleContext().getService(reference);
-			extensionDTO.service = refDTO(reference);
+			extensionDTO.service = DTOs.from(reference);
 			extensionDTO.serviceReference = reference;
 			extensionDTO.template = template;
 
@@ -230,27 +214,21 @@ public class ExtensionPhase extends Phase {
 
 		@Override
 		public void removedService(ServiceReference<Extension> reference, final ExtendedExtensionDTO extensionDTO) {
-			_references.remove(reference);
 			containerState.bundleContext().ungetService(reference);
 
 			if (!snapshots().removeIf(snap -> ((ExtendedExtensionDTO)snap).serviceReference.equals(reference))) {
 				return;
 			}
 
-			_references.stream().filter(
-				ref -> ((ExtendedExtensionTemplateDTO)extensionDTO.template).filter.match(ref)
-			).findFirst().ifPresent(
-				ref -> {
-					ExtendedExtensionDTO replacement = new ExtendedExtensionDTO();
-
-					replacement.extension = containerState.bundleContext().getService(ref);
-					replacement.service = refDTO(ref);
-					replacement.serviceReference = ref;
-					replacement.template = extensionDTO.template;
-
-					snapshots().add(replacement);
+			for (Iterator<ExtendedExtensionDTO> itr = _references.iterator();itr.hasNext();) {
+				ExtendedExtensionDTO entry = itr.next();
+				if (((ExtendedExtensionTemplateDTO)extensionDTO.template).filter.match(entry.serviceReference)) {
+					entry.extension = containerState.bundleContext().getService(entry.serviceReference);
+					itr.remove();
+					snapshots().add(entry);
+					break;
 				}
-			);
+			}
 
 			containerState.incrementChangeCount();
 

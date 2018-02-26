@@ -32,7 +32,7 @@ public class Throw {
 		throw (E)throwable;
 	}
 
-	public static String toString(Throwable t) {
+	public static String asString(Throwable t) {
 		StringWriter sw = new StringWriter();
 		t.printStackTrace(new PrintWriter(sw));
 		return sw.toString();
