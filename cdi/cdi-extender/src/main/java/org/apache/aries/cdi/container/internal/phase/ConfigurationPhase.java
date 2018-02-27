@@ -56,6 +56,8 @@ public class ConfigurationPhase extends Phase {
 		_listenerService = containerState.bundleContext().registerService(
 			ConfigurationListener.class, _configurationListener, null);
 
+		_configurationListener.open();
+
 		_log.debug(l -> l.debug("CCR Ended configuration OPEN on {}", bundle()));
 
 		return true;

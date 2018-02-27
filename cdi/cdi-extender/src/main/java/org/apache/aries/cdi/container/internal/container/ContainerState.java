@@ -42,6 +42,7 @@ import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationTempla
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionTemplateDTO;
 import org.apache.aries.cdi.container.internal.reference.ReferenceCallback;
 import org.apache.aries.cdi.container.internal.service.ServiceDeclaration;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Throw;
 import org.jboss.weld.resources.spi.ResourceLoader;
 import org.jboss.weld.serialization.spi.ProxyServices;
@@ -60,9 +61,12 @@ import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO.Type;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
 import org.osgi.service.cdi.runtime.dto.template.ContainerTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
+import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
+import org.osgi.service.log.Logger;
 import org.osgi.util.promise.Promise;
 import org.osgi.util.promise.PromiseFactory;
+import org.osgi.util.tracker.ServiceTracker;
 
 public class ContainerState {
 
@@ -76,7 +80,7 @@ public class ContainerState {
 		Bundle extenderBundle,
 		ChangeCount ccrChangeCount,
 		PromiseFactory promiseFactory,
-		ConfigurationAdmin configurationAdmin) {
+		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker) {
 
 		_bundle = bundle;
 		_extenderBundle = extenderBundle;
@@ -85,7 +89,7 @@ public class ContainerState {
 		_changeCount.addObserver(ccrChangeCount);
 
 		_promiseFactory = promiseFactory;
-		_configurationAdmin = Optional.ofNullable(configurationAdmin);
+		_caTracker = caTracker;
 
 		BundleWiring bundleWiring = _bundle.adapt(BundleWiring.class);
 
@@ -208,12 +212,35 @@ public class ContainerState {
 		return _containerDTO;
 	}
 
-	public ConfigurationAdmin configurationAdmin() {
-		return _configurationAdmin.get();
+	public ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker() {
+		return _caTracker;
 	}
 
 	public Bundle extenderBundle() {
 		return _extenderBundle;
+	}
+
+	public Optional<Configuration> findConfig(String pid) {
+		return findConfigs(pid, false).map(arr -> arr[0]);
+	}
+
+	public Optional<Configuration[]> findConfigs(String pid, boolean factory) {
+		try {
+			String query = "(service.pid=".concat(pid).concat(")");
+
+			if (factory) {
+				query = "(factory.pid=".concat(pid).concat(")");
+			}
+
+			return Optional.ofNullable(
+				_caTracker.getService().listConfigurations(query)
+			);
+		}
+		catch (Exception e) {
+			_log.error(l -> l.error("CCR unexpected failure fetching configuration for {}", pid, e));
+
+			return Throw.exception(e);
+		}
 	}
 
 	public String id() {
@@ -282,13 +309,15 @@ public class ContainerState {
 		return bundles.toArray(new Bundle[0]);
 	}
 
+	private static final Logger _log = Logs.getLogger(ContainerState.class);
+
 	private final ClassLoader _aggregateClassLoader;
 	private final BeansModel _beansModel;
 	private final Bundle _bundle;
 	private final ClassLoader _bundleClassLoader;
 	private final List<CheckedCallback<?, ?>> _callbacks = new CopyOnWriteArrayList<>();
 	private final ChangeCount _changeCount;
-	private final Optional<ConfigurationAdmin> _configurationAdmin;
+	private final ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> _caTracker;
 	private final ContainerDTO _containerDTO;
 	private final Bundle _extenderBundle;
 	private final PromiseFactory _promiseFactory;

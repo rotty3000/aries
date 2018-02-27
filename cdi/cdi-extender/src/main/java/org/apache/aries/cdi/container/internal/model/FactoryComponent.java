@@ -1,30 +1,63 @@
 package org.apache.aries.cdi.container.internal.model;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
+import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
+import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 
 public class FactoryComponent implements Component {
 
-	public FactoryComponent(ComponentTemplateDTO template) {
+	private ContainerState _containerState;
+	public FactoryComponent(ContainerState containerState, ComponentTemplateDTO template) {
+		_containerState = containerState;
 		_template = template;
+
 		_snapshot = new ComponentDTO();
 		_snapshot.instances = new CopyOnWriteArrayList<>();
-		_snapshot.template = new ComponentTemplateDTO();
+		_snapshot.template = _template;
+
+		_containerState.containerDTO().components.add(_snapshot);
+
+		configurationTemplates().stream().filter(
+			t -> t.maximumCardinality == MaximumCardinality.MANY
+		).forEach(
+			t -> {
+				_containerState.findConfigs(t.pid, true).ifPresent(
+					arr -> Arrays.stream(arr).forEach(
+						c -> {
+							ExtendedComponentInstanceDTO instanceDTO = new ExtendedComponentInstanceDTO();
+							instanceDTO.activations = new CopyOnWriteArrayList<>();
+							instanceDTO.configurations = new CopyOnWriteArrayList<>();
+							instanceDTO.containerState = _containerState;
+							instanceDTO.pid = c.getPid();
+							instanceDTO.properties = null;
+							instanceDTO.references = new CopyOnWriteArrayList<>();
+							instanceDTO.template = template;
+							instanceDTO.activator = new FactoryActivator(_containerState);
+
+							_snapshot.instances.add(instanceDTO);
+						}
+					)
+				);
+			}
+		);
 	}
 
 	@Override
 	public List<ConfigurationTemplateDTO> configurationTemplates() {
-		return null;
+		return _template.configurations;
 	}
 
 	@Override
-	public List<ExtendedComponentInstanceDTO> instances(String pid) {
-		return null;
+	public List<ComponentInstanceDTO> instances() {
+		return _snapshot.instances;
 	}
 
 	@Override
@@ -39,7 +72,13 @@ public class FactoryComponent implements Component {
 
 	@Override
 	public boolean start() {
-		return false;
+		_snapshot.instances.stream().map(
+			instance -> (ExtendedComponentInstanceDTO)instance
+		).forEach(
+			instance -> instance.start()
+		);
+
+		return true;
 	}
 
 	@Override
@@ -49,7 +88,13 @@ public class FactoryComponent implements Component {
 
 	@Override
 	public boolean stop() {
-		return false;
+		_snapshot.instances.stream().map(
+			instance -> (ExtendedComponentInstanceDTO)instance
+		).forEach(
+			instance -> instance.stop()
+		);
+
+		return true;
 	}
 
 	@Override

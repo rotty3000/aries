@@ -127,12 +127,10 @@ public class Activator extends AbstractExtender {
 
 		caTracker.open();
 
-		ConfigurationAdmin ca = caTracker.waitForService(200);
-
-		// TODO verify if we need to treat the ca somehow...
+		// TODO verify if we need to treat the caTracker somehow...
 
 		ContainerState containerState = new ContainerState(
-			bundle, _bundleContext.getBundle(), _ccrChangeCount, _promiseFactory, ca);
+			bundle, _bundleContext.getBundle(), _ccrChangeCount, _promiseFactory, caTracker);
 
 		return new CDIBundle(
 			_ccr, containerState,

@@ -231,6 +231,7 @@ public class ReferenceModel {
 		dto.policyOption = (_greedy) ? PolicyOption.GREEDY: PolicyOption.RELUCTANT;
 		dto.serviceType = _serviceType.getName();
 		dto.targetFilter = _targetFilter;
+
 		return dto;
 	}
 

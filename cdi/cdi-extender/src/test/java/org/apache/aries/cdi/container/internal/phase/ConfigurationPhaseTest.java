@@ -31,6 +31,7 @@ import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.test.BaseCDIBundleTest;
 import org.apache.aries.cdi.container.test.MockConfiguration;
 import org.apache.aries.cdi.container.test.MockServiceRegistration;
+import org.apache.aries.cdi.container.test.TestUtil;
 import org.junit.Test;
 import org.mockito.stubbing.Answer;
 import org.osgi.framework.Filter;
@@ -41,12 +42,17 @@ import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.cm.ConfigurationEvent;
 import org.osgi.util.promise.Deferred;
 import org.osgi.util.promise.Promise;
+import org.osgi.util.tracker.ServiceTracker;
 
 public class ConfigurationPhaseTest extends BaseCDIBundleTest {
 
 	@Test
 	public void configuration_tracking() throws Exception {
+		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = new ServiceTracker<>(bundle.getBundleContext(), ConfigurationAdmin.class, null);
+		caTracker.open();
 		ConfigurationAdmin ca = mock(ConfigurationAdmin.class);
+		MockServiceRegistration<ConfigurationAdmin> caReg = cast(
+			bundle.getBundleContext().registerService(ConfigurationAdmin.class, ca, null));
 
 		when(ca.listConfigurations(anyString())).then(
 			(Answer<Configuration[]>) listConfigurations -> {
@@ -65,16 +71,29 @@ public class ConfigurationPhaseTest extends BaseCDIBundleTest {
 			}
 		);
 
-		MockServiceRegistration<ConfigurationAdmin> caReg = cast(
-			bundle.getBundleContext().registerService(ConfigurationAdmin.class, ca, null));
-
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, ca);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker);
 
 		CDIBundle cdiBundle = new CDIBundle(
 			ccr, containerState,
 				new InitPhase(containerState,
 					new ExtensionPhase(containerState,
 						new ConfigurationPhase(containerState))));
+
+		Deferred<Boolean> d0 = testPromiseFactory.deferred();
+
+		CheckedCallback<Boolean, Boolean> c0 = new CheckedCallback<Boolean, Boolean>() {
+			@Override
+			public Promise<Boolean> call(Promise<Boolean> resolved) throws Exception {
+				d0.resolveWith(resolved);
+				return resolved;
+			}
+			@Override
+			public boolean test(Op t) {
+				return t == Op.CONTAINER_COMPONENT_START;
+			}
+		};
+
+		containerState.addCallback(c0);
 
 		cdiBundle.start();
 
@@ -89,7 +108,7 @@ public class ConfigurationPhaseTest extends BaseCDIBundleTest {
 		AtomicReference<ConfigurationListener> listener = new AtomicReference<>();
 
 		do {
-			serviceRegistrations.stream().filter(
+			TestUtil.serviceRegistrations.stream().filter(
 				reg ->
 					filter.match(reg.getReference())
 			).findFirst().ifPresent(
@@ -99,44 +118,38 @@ public class ConfigurationPhaseTest extends BaseCDIBundleTest {
 			Thread.sleep(10);
 		} while(listener.get() == null);
 
+		d0.getPromise().getValue();
+
 		final String pid = containerState.containerDTO().components.get(0).template.configurations.get(0).pid;
 
-		assertNull(containerState.containerDTO().components.get(0).instances.get(0).properties);
+		assertNotNull(containerState.containerDTO().components.get(0).instances.get(0).properties);
+		assertEquals("bar", containerState.containerDTO().components.get(0).instances.get(0).properties.get("foo"));
 
-		listener.get().configurationEvent(
-			new ConfigurationEvent(caReg.getReference(), ConfigurationEvent.CM_DELETED, null, pid));
-
-		assertNull(containerState.containerDTO().components.get(0).instances.get(0).properties);
+		containerState.removeCallback(c0);
 
 		Deferred<Boolean> d1 = testPromiseFactory.deferred();
 
 		CheckedCallback<Boolean, Boolean> c1 = new CheckedCallback<Boolean, Boolean>() {
-
 			@Override
 			public Promise<Boolean> call(Promise<Boolean> resolved) throws Exception {
-				d1.resolve(resolved.getValue());
+				d1.resolveWith(resolved);
 				return resolved;
 			}
-
 			@Override
-			public boolean test(Op op) {
-				return op == Op.CONTAINER_COMPONENT_START;
+			public boolean test(Op t) {
+				return t == Op.CONTAINER_COMPONENT_START;
 			}
-
 		};
 
 		containerState.addCallback(c1);
 
 		listener.get().configurationEvent(
-			new ConfigurationEvent(caReg.getReference(), ConfigurationEvent.CM_UPDATED, null, pid));
+			new ConfigurationEvent(caReg.getReference(), ConfigurationEvent.CM_DELETED, null, pid));
 
-		d1.getPromise().then(
-			s -> {
-				assertNull(containerState.containerDTO().components.get(0).instances.get(0).properties);
+		d1.getPromise().getValue();
 
-				return s;
-			}
-		).getValue();
+		assertNotNull(containerState.containerDTO().components.get(0).instances.get(0).properties);
+		assertNull(containerState.containerDTO().components.get(0).instances.get(0).properties.get("foo"));
 
 		containerState.removeCallback(c1);
 
@@ -160,17 +173,43 @@ public class ConfigurationPhaseTest extends BaseCDIBundleTest {
 		containerState.addCallback(c2);
 
 		listener.get().configurationEvent(
+			new ConfigurationEvent(caReg.getReference(), ConfigurationEvent.CM_UPDATED, null, pid));
+
+		d2.getPromise().getValue();
+
+		assertNotNull(containerState.containerDTO().components.get(0).instances.get(0).properties);
+		assertEquals("bar", containerState.containerDTO().components.get(0).instances.get(0).properties.get("foo"));
+
+		containerState.removeCallback(c2);
+
+		Deferred<Boolean> d3 = testPromiseFactory.deferred();
+
+		CheckedCallback<Boolean, Boolean> c3 = new CheckedCallback<Boolean, Boolean>() {
+
+			@Override
+			public Promise<Boolean> call(Promise<Boolean> resolved) throws Exception {
+				d3.resolve(resolved.getValue());
+				return resolved;
+			}
+
+			@Override
+			public boolean test(Op op) {
+				return op == Op.CONTAINER_COMPONENT_START;
+			}
+
+		};
+
+		containerState.addCallback(c3);
+
+		listener.get().configurationEvent(
 			new ConfigurationEvent(caReg.getReference(), ConfigurationEvent.CM_UPDATED, null, "foo.config"));
 
-		d2.getPromise().then(
-			s -> {
-				Map<String, Object> properties = containerState.containerDTO().components.get(0).instances.get(0).properties;
-				assertNotNull(properties);
-				assertNull(properties.get("fiz"));
-				assertEquals("bar", properties.get("foo"));
-				return s;
-			}
-		).getValue();
+		d3.getPromise().getValue();
+
+		Map<String, Object> properties = containerState.containerDTO().components.get(0).instances.get(0).properties;
+		assertNotNull(properties);
+		assertNull(properties.get("fiz"));
+		assertEquals("bar", properties.get("foo"));
 	}
 
 }

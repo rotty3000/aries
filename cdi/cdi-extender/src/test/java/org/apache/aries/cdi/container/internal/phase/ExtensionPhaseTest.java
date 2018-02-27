@@ -15,16 +15,17 @@ import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.test.BaseCDIBundleTest;
 import org.apache.aries.cdi.container.test.MockServiceRegistration;
+import org.apache.aries.cdi.container.test.TestUtil;
 import org.junit.Test;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.Constants;
 import org.osgi.framework.ServiceEvent;
 import org.osgi.framework.ServiceListener;
-import org.osgi.framework.dto.ServiceReferenceDTO;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.namespace.extender.ExtenderNamespace;
 import org.osgi.service.cdi.CDIConstants;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
+import org.osgi.service.cdi.runtime.dto.ExtensionDTO;
 import org.osgi.util.promise.Deferred;
 
 public class ExtensionPhaseTest extends BaseCDIBundleTest {
@@ -69,21 +70,13 @@ public class ExtensionPhaseTest extends BaseCDIBundleTest {
 		assertEquals(1, containerDTO.template.extensions.size());
 		assertEquals("(foo=name)", containerDTO.template.extensions.get(0).serviceFilter);
 
-		MockServiceRegistration<Extension> regA = cast(bundle.getBundleContext().registerService(
+		final MockServiceRegistration<Extension> regA = cast(bundle.getBundleContext().registerService(
 			Extension.class, new Extension(){}, Maps.dict("foo", "name")));
-
-		MockServiceRegistration<Extension> regB = cast(bundle.getBundleContext().registerService(
-			Extension.class, new Extension(){}, Maps.dict("foo", "name", Constants.SERVICE_RANKING, 10)));
-
-		ServiceReferenceDTO[] dtos = new ServiceReferenceDTO[] {
-				regA.getReference().toDTO(),
-				regB.getReference().toDTO()};
-		when(bundle.adapt(ServiceReferenceDTO[].class)).thenReturn(dtos);
 
 		Deferred<ServiceListener> slD = testPromiseFactory.deferred();
 
 		do {
-			serviceListeners.stream().filter(
+			TestUtil.serviceListeners.stream().filter(
 				en -> en.getValue().matches(
 					Maps.of(Constants.OBJECTCLASS, Extension.class.getName(),
 					"foo", "name"))
@@ -98,13 +91,16 @@ public class ExtensionPhaseTest extends BaseCDIBundleTest {
 
 		slD.getPromise().thenAccept(
 			sl -> {
-				sl.serviceChanged(new ServiceEvent(ServiceEvent.REGISTERED, regA.getReference()));
+				//sl.serviceChanged(new ServiceEvent(ServiceEvent.REGISTERED, regA.getReference()));
 
 				assertEquals(2, containerState.containerDTO().changeCount);
 				assertEquals(1, containerState.containerDTO().extensions.size());
-				assertEquals(regA.getReference().getProperty(Constants.SERVICE_ID), containerState.containerDTO().extensions.get(0).service.id);
+				long id = (long)regA.getReference().getProperty(Constants.SERVICE_ID);
+				ExtensionDTO e = containerState.containerDTO().extensions.get(0);
+				assertEquals(id, e.service.id);
 
-				sl.serviceChanged(new ServiceEvent(ServiceEvent.REGISTERED, regB.getReference()));
+				final MockServiceRegistration<Extension> regB = cast(bundle.getBundleContext().registerService(
+					Extension.class, new Extension(){}, Maps.dict("foo", "name", Constants.SERVICE_RANKING, 10)));
 
 				assertEquals(3, containerState.containerDTO().changeCount);
 				assertEquals(1, containerState.containerDTO().extensions.size());

@@ -17,54 +17,81 @@ package org.apache.aries.cdi.container.internal.bean;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
-import javax.enterprise.context.Dependent;
+import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.spi.CreationalContext;
+import javax.enterprise.inject.Default;
 import javax.enterprise.inject.spi.Bean;
-import javax.enterprise.inject.spi.BeanManager;
-import javax.enterprise.inject.spi.Decorator;
 import javax.enterprise.inject.spi.InjectionPoint;
-import javax.inject.Named;
 
-import org.apache.aries.cdi.container.internal.container.ContainerState;
-import org.apache.aries.cdi.container.internal.model.OSGiBean;
-import org.apache.aries.cdi.container.internal.model.ReferenceModel;
-import org.apache.aries.cdi.container.internal.reference.ReferenceCallback;
+import org.apache.aries.cdi.container.internal.model.CollectionType;
+import org.apache.aries.cdi.container.internal.model.ExtendedReferenceTemplateDTO;
+import org.apache.aries.cdi.container.internal.util.Sets;
+import org.osgi.service.cdi.annotations.ComponentScoped;
+import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
+import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
+import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO.Policy;
 
 public class ReferenceBean implements Bean<Object> {
 
 	public ReferenceBean(
-		ContainerState containerState,
-		ReferenceModel referenceModel,
-		OSGiBean componentModel,
-		InjectionPoint injectionPoint,
-		BeanManager beanManager) {
+		ComponentTemplateDTO componentTemplateDTO,
+		ExtendedReferenceTemplateDTO templateDTO) {
 
-		_containerState = containerState;
-		_referenceModel = referenceModel;
-		_componentModel = componentModel;
-		_injectionPoint = injectionPoint;
-		_beanManager = beanManager;
+		_componentTemplateDTO = componentTemplateDTO;
+		_template = templateDTO;
 
-		Named named = _injectionPoint.getAnnotated().getAnnotation(Named.class);
-
-		_name = named != null ? named.value() : null;
+		_types = Sets.hashSet(_template.injectionPointType, Object.class);
 	}
 
 	@Override
 	public Object create(CreationalContext<Object> creationalContext) {
-		Object instance = _getInjectedInstance();
-		List<Decorator<?>> decorators = _getDecorators(_injectionPoint);
-		if (decorators.isEmpty()) {
-			return instance;
+		if (_template.maximumCardinality == MaximumCardinality.MANY) {
+			// Collection, Iterable, List
+			if (_template.policy == Policy.DYNAMIC) {
+				// Provider
+				// PolicyOption.GREEDY is IGNORED
+				if (_template.collectionType == CollectionType.OBSERVER) {
+
+				}
+				else if (_template.collectionType == CollectionType.PROPERTIES) {
+
+				}
+				else if (_template.collectionType == CollectionType.REFERENCE) {
+
+				}
+				else if (_template.collectionType == CollectionType.SERVICEOBJECTS) {
+
+				}
+				else if (_template.collectionType == CollectionType.TUPLE) {
+
+				}
+				else { // (_template.collectionType == CollectionType.SERVICE)
+
+				}
+			}
+			else {
+
+			}
 		}
-		return instance;
-		// TODO
-//		return Decorators.getOuterDelegate(
-//			cast(this), instance, creationalContext, cast(getBeanClass()), _injectionPoint, _beanManager, decorators);
+		else {
+
+		}
+
+//		List<Decorator<?>> decorators = beanManager.resolveDecorators(
+//			Collections.singleton(Class.forName(_template.serviceType)),
+//			new Annotation[0]);
+//		if (!decorators.isEmpty()) {
+//			instance = Decorators.getOuterDelegate(
+//				cast(this), instance, creationalContext, cast(getBeanClass()), _injectionPoint, _beanManager, decorators);
+//		}
+
+//		Map<String, ReferenceCallback> map = _containerState.referenceCallbacks().get(_componentModel);
+
+//		ReferenceCallback referenceCallback = map.get(_referenceModel.getName());
+
+		return null; // TODO referenceCallback.tracked().values().iterator().next();
 	}
 
 	@Override
@@ -73,7 +100,7 @@ public class ReferenceBean implements Bean<Object> {
 
 	@Override
 	public Class<?> getBeanClass() {
-		return null; // TODO _referenceModel.getBeanClass();
+		return _template.beanClass;
 	}
 
 	@Override
@@ -83,17 +110,20 @@ public class ReferenceBean implements Bean<Object> {
 
 	@Override
 	public String getName() {
-		return _name;
+		return _template.name;
 	}
 
 	@Override
 	public Set<Annotation> getQualifiers() {
-		return _injectionPoint.getQualifiers();
+		return Collections.singleton(Default.Literal.INSTANCE);
 	}
 
 	@Override
 	public Class<? extends Annotation> getScope() {
-		return Dependent.class;
+		if (_componentTemplateDTO.type == ComponentTemplateDTO.Type.CONTAINER) {
+			return ApplicationScoped.class;
+		}
+		return ComponentScoped.class;
 	}
 
 	@Override
@@ -103,7 +133,7 @@ public class ReferenceBean implements Bean<Object> {
 
 	@Override
 	public Set<Type> getTypes() {
-		return null; // TODO _referenceModel.getTypes();
+		return _types;
 	}
 
 	@Override
@@ -113,33 +143,16 @@ public class ReferenceBean implements Bean<Object> {
 
 	@Override
 	public boolean isNullable() {
-		return false;//_referenceModel.getCardinality() == ReferenceCardinality.OPTIONAL ? true : false;
+		return false;
 	}
 
 	@Override
 	public String toString() {
-		return "ReferenceBean[" + _referenceModel + "]";
+		return "ReferenceBean[" + _template + "]";
 	}
 
-	private List<Decorator<?>> _getDecorators(InjectionPoint ip) {
-		return _beanManager.resolveDecorators(
-			Collections.singleton(ip.getType()),
-			_injectionPoint.getQualifiers().toArray(new Annotation[0]));
-	}
-
-	private Object _getInjectedInstance() {
-		Map<String, ReferenceCallback> map = _containerState.referenceCallbacks().get(_componentModel);
-
-//		ReferenceCallback referenceCallback = map.get(_referenceModel.getName());
-
-		return null; // TODO referenceCallback.tracked().values().iterator().next();
-	}
-
-	private final BeanManager _beanManager;
-	private final OSGiBean _componentModel;
-	private final ContainerState _containerState;
-	private final InjectionPoint _injectionPoint;
-	private final String _name;
-	private final ReferenceModel _referenceModel;
+	private final ComponentTemplateDTO _componentTemplateDTO;
+	private final ExtendedReferenceTemplateDTO _template;
+	private final Set<Type> _types;
 
 }

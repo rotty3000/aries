@@ -7,6 +7,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
+import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 
@@ -24,10 +25,11 @@ public class ContainerComponent implements Component {
 		_instanceDTO.activations = new CopyOnWriteArrayList<>();
 		_instanceDTO.configurations = new CopyOnWriteArrayList<>();
 		_instanceDTO.containerState = _containerState;
+		_instanceDTO.pid = _template.configurations.get(0).pid;
 		_instanceDTO.properties = null;
 		_instanceDTO.references = new CopyOnWriteArrayList<>();
 		_instanceDTO.template = template;
-		_instanceDTO.activationBuilder = new ContainerActivationBuilder(_containerState);
+		_instanceDTO.activator = new ContainerActivator(_containerState);
 
 		_snapshot.instances.add(_instanceDTO);
 
@@ -44,7 +46,7 @@ public class ContainerComponent implements Component {
 	}
 
 	@Override
-	public List<ExtendedComponentInstanceDTO> instances(String pid) {
+	public List<ComponentInstanceDTO> instances() {
 		return Collections.singletonList(_instanceDTO);
 	}
 

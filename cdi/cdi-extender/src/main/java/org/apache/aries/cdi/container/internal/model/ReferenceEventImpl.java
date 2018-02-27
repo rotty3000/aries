@@ -18,20 +18,34 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Consumer;
 
+import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.reference.ReferenceEvent;
 import org.osgi.service.cdi.reference.ReferenceServiceObjects;
 
 public class ReferenceEventImpl<T> implements ReferenceEvent<T> {
 
-	public static enum Event { ADDING, MODIFIED, REMOVED }
+	private final ServiceReference<T> _reference;
+	private final BundleContext _bundleContext;
 
-	private final T _t;
-	private final ReferenceEventImpl.Event _event;
+	public ReferenceEventImpl(ServiceReference<T> reference, BundleContext bundleContext) {
+		_reference = reference;
+		_bundleContext = bundleContext;
+	}
 
-	public ReferenceEventImpl(T t, ReferenceEventImpl.Event event) {
-		_t = t;
-		_event = event;
+	public ReferenceEventImpl addingService() {
+		// TODO fire this sometime
+		return this;
+	}
+
+	public ReferenceEventImpl modifiedService() {
+		// TODO fire this sometime
+		return this;
+	}
+
+	public ReferenceEventImpl removedService() {
+		// TODO fire this sometime
+		return this;
 	}
 
 	@Override
@@ -123,29 +137,5 @@ public class ReferenceEventImpl<T> implements ReferenceEvent<T> {
 		// TODO Auto-generated method stub
 
 	}
-
-//	@Override
-//	public ServiceEvent<T> adding(Consumer<T> consumer) {
-//		if (_event == Event.ADDING) {
-//			consumer.accept(_t);
-//		};
-//		return this;
-//	}
-//
-//	@Override
-//	public ServiceEvent<T> modified(Consumer<T> consumer) {
-//		if (_event == Event.MODIFIED) {
-//			consumer.accept(_t);
-//		}
-//		return this;
-//	}
-//
-//	@Override
-//	public ServiceEvent<T> removed(Consumer<T> consumer) {
-//		if (_event == Event.REMOVED) {
-//			consumer.accept(_t);
-//		}
-//		return this;
-//	}
 
 }
