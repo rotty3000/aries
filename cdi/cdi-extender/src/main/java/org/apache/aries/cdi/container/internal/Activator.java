@@ -33,7 +33,6 @@ import org.apache.aries.cdi.container.internal.container.CDIBundle;
 import org.apache.aries.cdi.container.internal.container.ConfigurationListener;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.model.ContainerComponent;
-import org.apache.aries.cdi.container.internal.phase.ConfigurationPhase;
 import org.apache.aries.cdi.container.internal.phase.ExtensionPhase;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.provider.CDIProvider;
@@ -138,8 +137,7 @@ public class Activator extends AbstractExtender {
 
 		return new CDIBundle(_ccr, containerState,
 			new ExtensionPhase(containerState,
-				new ConfigurationPhase(containerState,
-					new ConfigurationListener(containerState, containerComponent))));
+				new ConfigurationListener(containerState, containerComponent)));
 	}
 
 	@Override

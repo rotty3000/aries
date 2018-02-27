@@ -81,8 +81,7 @@ public class ConfigurationPhaseTest extends BaseCDIBundleTest {
 		CDIBundle cdiBundle = new CDIBundle(
 			ccr, containerState,
 				new ExtensionPhase(containerState,
-					new ConfigurationPhase(containerState,
-						new ConfigurationListener(containerState, containerComponent))));
+					new ConfigurationListener(containerState, containerComponent)));
 
 		Promise<Boolean> p0 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) op -> {

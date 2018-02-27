@@ -23,7 +23,7 @@ import java.util.Map;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
 import org.apache.aries.cdi.container.internal.model.OSGiBean;
-import org.apache.aries.cdi.container.internal.phase.ConfigurationPhase;
+import org.apache.aries.cdi.container.internal.phase.ExtensionPhase;
 import org.apache.aries.cdi.container.internal.phase.Phase;
 
 public class MockCdiContainerAndComponents implements AutoCloseable {
@@ -41,7 +41,7 @@ public class MockCdiContainerAndComponents implements AutoCloseable {
 
 		_containerState = getContainerState(_beansModel);
 
-		_nextPhase = new ConfigurationPhase(_containerState, null);
+		_nextPhase = new ExtensionPhase(_containerState, null);
 
 		_nextPhase.open();
 	}
