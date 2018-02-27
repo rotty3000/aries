@@ -20,7 +20,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.aries.cdi.container.internal.container.ContainerDiscovery;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
 import org.apache.aries.cdi.container.internal.model.OSGiBean;
@@ -42,9 +41,7 @@ public class MockCdiContainerAndComponents implements AutoCloseable {
 
 		_containerState = getContainerState(_beansModel);
 
-		new ContainerDiscovery(_containerState);
-
-		_nextPhase = new ConfigurationPhase(_containerState);
+		_nextPhase = new ConfigurationPhase(_containerState, null);
 
 		_nextPhase.open();
 	}

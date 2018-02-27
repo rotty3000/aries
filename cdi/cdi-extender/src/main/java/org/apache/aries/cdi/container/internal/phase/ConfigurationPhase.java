@@ -14,31 +14,35 @@
 
 package org.apache.aries.cdi.container.internal.phase;
 
-import org.apache.aries.cdi.container.internal.container.ConfigurationListener;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
-import org.apache.aries.cdi.container.internal.model.ContainerComponent;
+import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.util.Logs;
-import org.osgi.framework.ServiceRegistration;
-import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.log.Logger;
 
 public class ConfigurationPhase extends Phase {
 
-	public ConfigurationPhase(ContainerState containerState) {
-		super(containerState, null);
+	public ConfigurationPhase(ContainerState containerState, Phase next) {
+		super(containerState, next);
 	}
 
 	@Override
 	public boolean close() {
 		_log.debug(l -> l.debug("CCR Begin configuration CLOSE on {}", bundle()));
 
-		_listenerService.unregister();
+		next.ifPresent(
+			next -> submit(Op.CONFIGURATION_LISTENER_CLOSE, next::close).then(
+				s -> {
+					_log.debug(l -> l.debug("CCR Ended configuration CLOSE on {}", bundle()));
 
-		_configurationListener.close();
+					return s;
+				},
+				f -> {
+					_log.error(l -> l.error("CCR Error in configuration CLOSE on {}", bundle(), f.getFailure()));
 
-		_configurationListener = null;
-
-		_log.debug(l -> l.debug("CCR Ended configuration CLOSE on {}", bundle()));
+					error(f.getFailure());
+				}
+			)
+		);
 
 		return true;
 	}
@@ -47,25 +51,24 @@ public class ConfigurationPhase extends Phase {
 	public boolean open() {
 		_log.debug(l -> l.debug("CCR Begin configuration OPEN on {}", bundle()));
 
-		ComponentTemplateDTO containerTemplate = containerState.containerDTO().template.components.get(0);
+		next.ifPresent(
+			next -> submit(Op.CONFIGURATION_LISTENER_OPEN, next::open).then(
+				s -> {
+					_log.debug(l -> l.debug("CCR Ended configuration OPEN on {}", bundle()));
 
-		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate);
+					return s;
+				},
+				f -> {
+					_log.error(l -> l.error("CCR Error in configuration OPEN on {}", bundle(), f.getFailure()));
 
-		_configurationListener = new ConfigurationListener(containerState, containerComponent);
-
-		_listenerService = containerState.bundleContext().registerService(
-			ConfigurationListener.class, _configurationListener, null);
-
-		_configurationListener.open();
-
-		_log.debug(l -> l.debug("CCR Ended configuration OPEN on {}", bundle()));
+					error(f.getFailure());
+				}
+			)
+		);
 
 		return true;
 	}
 
 	private static final Logger _log = Logs.getLogger(ConfigurationPhase.class);
-
-	private ConfigurationListener _configurationListener;
-	private ServiceRegistration<ConfigurationListener> _listenerService;
 
 }

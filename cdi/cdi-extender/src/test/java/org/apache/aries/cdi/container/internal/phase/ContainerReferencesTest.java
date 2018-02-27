@@ -6,8 +6,10 @@ import static org.mockito.Mockito.*;
 
 import org.apache.aries.cdi.container.internal.container.CDIBundle;
 import org.apache.aries.cdi.container.internal.container.CheckedCallback;
+import org.apache.aries.cdi.container.internal.container.ConfigurationListener;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
+import org.apache.aries.cdi.container.internal.model.ContainerComponent;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.test.BaseCDIBundleTest;
 import org.apache.aries.cdi.container.test.MockConfiguration;
@@ -16,10 +18,10 @@ import org.mockito.stubbing.Answer;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
+import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO.Type;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
-import org.osgi.util.promise.Deferred;
 import org.osgi.util.promise.Promise;
 import org.osgi.util.tracker.ServiceTracker;
 
@@ -46,11 +48,19 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 
 		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker);
 
+		ComponentTemplateDTO containerTemplate = containerState.containerDTO().template.components.get(0);
+
+		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate);
+
 		CDIBundle cdiBundle = new CDIBundle(
 			ccr, containerState,
-				new InitPhase(containerState,
-					new ExtensionPhase(containerState,
-						new ConfigurationPhase(containerState))));
+				new ConfigurationListener(containerState, containerComponent));
+
+		Promise<Boolean> p0 = containerState.addCallback(
+			(CheckedCallback<Boolean, Boolean>) cc -> {
+				return cc == Op.CONTAINER_COMPONENT_START;
+			}
+		);
 
 		cdiBundle.start();
 
@@ -60,24 +70,7 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		assertTrue(containerDTO.errors + "", containerDTO.errors.isEmpty());
 		assertNotNull(containerDTO.template);
 
-		Deferred<Object> waitForContainerComponent = testPromiseFactory.deferred();
-
-		containerState.addCallback(new CheckedCallback<Boolean, Boolean>() {
-
-			@Override
-			public boolean test(Op op) {
-				return op == Op.CONTAINER_COMPONENT_START;
-			}
-
-			@Override
-			public Promise<Boolean> call(Promise<Boolean> resolved) throws Exception {
-				waitForContainerComponent.resolveWith(resolved);
-				return resolved;
-			}
-
-		});
-
-		waitForContainerComponent.getPromise().getValue();
+		p0.getValue();
 
 		ComponentDTO componentDTO = containerDTO.components.stream().filter(
 			c -> c.template.type == Type.CONTAINER
@@ -88,25 +81,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		ComponentInstanceDTO componentInstanceDTO = componentDTO.instances.get(0);
 
 		assertNotNull(componentInstanceDTO);
-
-		Deferred<Boolean> referencesD = testPromiseFactory.deferred();
-
-		containerState.addCallback(new CheckedCallback<Boolean, Boolean>() {
-
-			@Override
-			public Promise<Boolean> call(Promise<Boolean> resolved) throws Exception {
-				referencesD.resolve(resolved.getValue());
-				return resolved;
-			}
-
-			@Override
-			public boolean test(Op op) {
-				return op == Op.CONTAINER_INSTANCE_ACTIVATE;
-			}
-
-		});
-
 		assertEquals(6, componentInstanceDTO.references.size());
+
 	}
 
 }

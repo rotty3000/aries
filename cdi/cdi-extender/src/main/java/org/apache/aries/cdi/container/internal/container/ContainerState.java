@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -64,6 +65,7 @@ import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.log.Logger;
+import org.osgi.util.promise.Deferred;
 import org.osgi.util.promise.Promise;
 import org.osgi.util.promise.PromiseFactory;
 import org.osgi.util.tracker.ServiceTracker;
@@ -177,6 +179,15 @@ public class ContainerState {
 		);
 
 		_bundleClassLoader = bundleWiring.getClassLoader();
+
+		try {
+			new ContainerDiscovery(this);
+		}
+		catch (Exception e) {
+			_containerDTO.errors.add(Throw.asString(e));
+
+			_log.error(l -> l.error("CCR Discovery resulted in errors on {}", bundle, e));
+		}
 	}
 
 	public BeansModel beansModel() {
@@ -195,12 +206,10 @@ public class ContainerState {
 		return _bundle.getBundleContext();
 	}
 
-	public <T, R> boolean addCallback(CheckedCallback<T, R> checkedCallback) {
-		return _callbacks.add(checkedCallback);
-	}
-
-	public <T, R> boolean removeCallback(CheckedCallback<T, R> checkedCallback) {
-		return _callbacks.remove(checkedCallback);
+	public <T, R> Promise<R> addCallback(CheckedCallback<T, R> checkedCallback) {
+		Deferred<R> deferred = _promiseFactory.deferred();
+		_callbacks.put(checkedCallback, deferred);
+		return deferred.getPromise();
 	}
 
 	public ClassLoader classLoader() {
@@ -268,14 +277,20 @@ public class ContainerState {
 		return _serviceComponents;
 	}
 
+	@SuppressWarnings("unchecked")
 	public <T, R> Promise<T> submit(Op op, Callable<T> task) {
 		Promise<T> promise = _promiseFactory.submit(task);
 
-		for (CheckedCallback<?, ?> cc : _callbacks) {
-			@SuppressWarnings("unchecked")
-			CheckedCallback<T, R> cc2 = (CheckedCallback<T, R>)cc;
-			if (cc2.test(op)) {
-				promise.then(cc2, cc2);
+		for (Entry<CheckedCallback<?, ?>, Deferred<?>> entry : _callbacks.entrySet()) {
+			CheckedCallback<T, R> cc = (CheckedCallback<T, R>)entry.getKey();
+			if (cc.test(op)) {
+				((Deferred<R>)entry.getValue()).resolveWith(promise.then(cc, cc)).then(
+					s -> {
+						_callbacks.remove(cc);
+						return s;
+					},
+					f -> _callbacks.remove(cc)
+				);
 			}
 		}
 
@@ -315,7 +330,7 @@ public class ContainerState {
 	private final BeansModel _beansModel;
 	private final Bundle _bundle;
 	private final ClassLoader _bundleClassLoader;
-	private final List<CheckedCallback<?, ?>> _callbacks = new CopyOnWriteArrayList<>();
+	private final Map<CheckedCallback<?, ?>, Deferred<?>> _callbacks = new ConcurrentHashMap<>();
 	private final ChangeCount _changeCount;
 	private final ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> _caTracker;
 	private final ContainerDTO _containerDTO;

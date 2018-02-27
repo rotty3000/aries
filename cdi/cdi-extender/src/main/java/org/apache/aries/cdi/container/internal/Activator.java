@@ -30,10 +30,11 @@ import javax.enterprise.inject.spi.CDI;
 
 import org.apache.aries.cdi.container.internal.command.CDICommand;
 import org.apache.aries.cdi.container.internal.container.CDIBundle;
+import org.apache.aries.cdi.container.internal.container.ConfigurationListener;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.model.ContainerComponent;
 import org.apache.aries.cdi.container.internal.phase.ConfigurationPhase;
 import org.apache.aries.cdi.container.internal.phase.ExtensionPhase;
-import org.apache.aries.cdi.container.internal.phase.InitPhase;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.provider.CDIProvider;
 import org.apache.felix.utils.extender.AbstractExtender;
@@ -46,6 +47,7 @@ import org.osgi.framework.ServiceRegistration;
 import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.service.cdi.runtime.CDIComponentRuntime;
+import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.log.Logger;
 import org.osgi.util.promise.PromiseFactory;
@@ -127,18 +129,17 @@ public class Activator extends AbstractExtender {
 
 		caTracker.open();
 
-		// TODO verify if we need to treat the caTracker somehow...
-
 		ContainerState containerState = new ContainerState(
 			bundle, _bundleContext.getBundle(), _ccrChangeCount, _promiseFactory, caTracker);
 
-		return new CDIBundle(
-			_ccr, containerState,
-			new InitPhase(
-				containerState,
-				new ExtensionPhase(
-					containerState,
-					new ConfigurationPhase(containerState))));
+		ComponentTemplateDTO containerTemplate = containerState.containerDTO().template.components.get(0);
+
+		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate);
+
+		return new CDIBundle(_ccr, containerState,
+			new ExtensionPhase(containerState,
+				new ConfigurationPhase(containerState,
+					new ConfigurationListener(containerState, containerComponent))));
 	}
 
 	@Override

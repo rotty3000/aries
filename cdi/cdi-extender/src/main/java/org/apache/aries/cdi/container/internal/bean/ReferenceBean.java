@@ -148,7 +148,7 @@ public class ReferenceBean implements Bean<Object> {
 
 	@Override
 	public String toString() {
-		return "ReferenceBean[" + _template + "]";
+		return "ReferenceBean[" + _template.name + "]";
 	}
 
 	private final ComponentTemplateDTO _componentTemplateDTO;

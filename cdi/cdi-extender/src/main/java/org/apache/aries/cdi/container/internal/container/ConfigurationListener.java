@@ -12,6 +12,7 @@ import org.apache.aries.cdi.container.internal.model.FactoryActivator;
 import org.apache.aries.cdi.container.internal.phase.Phase;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
+import org.osgi.framework.ServiceRegistration;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
@@ -30,6 +31,10 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 	@Override
 	public boolean close() {
 		_log.debug(l -> l.debug("CCR Begin configuration listener close on {}", _component));
+
+		if (_listenerService != null) {
+			_listenerService.unregister();
+		}
 
 		submit(_component.stopOp(), _component::stop).then(
 			s -> {
@@ -64,6 +69,9 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 
 	@Override
 	public boolean open() {
+		_listenerService = containerState.bundleContext().registerService(
+			ConfigurationListener.class, this, null);
+
 		AtomicBoolean hasMandatoryConfigurations = new AtomicBoolean(false);
 
 		for (ConfigurationTemplateDTO template : _component.configurationTemplates()) {
@@ -213,5 +221,6 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 	private static final Logger _log = Logs.getLogger(ConfigurationListener.class);
 
 	private final Component _component;
+	private volatile ServiceRegistration<ConfigurationListener> _listenerService;
 
 }

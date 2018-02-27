@@ -46,8 +46,7 @@ public class ExtensionPhaseTest extends BaseCDIBundleTest {
 
 		CDIBundle cdiBundle = new CDIBundle(
 			ccr, containerState,
-				new InitPhase(containerState,
-					new ExtensionPhase(containerState, null)));
+				new ExtensionPhase(containerState, null));
 
 		cdiBundle.start();
 

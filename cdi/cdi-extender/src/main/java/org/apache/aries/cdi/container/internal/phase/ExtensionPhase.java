@@ -45,16 +45,18 @@ public class ExtensionPhase extends Phase {
 
 	@Override
 	public boolean close() {
-		if (_extensionTracker != null) {
-			_extensionTracker.close();
+		_log.debug(l -> l.debug("CCR Begin extension CLOSE on {}", bundle()));
 
-			_log.debug(l -> l.debug("CCR Ended extension TRACKING on {}", bundle()));
+		if (!templates().isEmpty()) {
+			if (_extensionTracker != null) {
+				_extensionTracker.close();
 
-			_extensionTracker = null;
+				_extensionTracker = null;
+			}
+
+			_log.debug(l -> l.debug("CCR Ended extension CLOSE on {}", bundle()));
 		}
 		else {
-			_log.debug(l -> l.debug("CCR Begin extension CLOSE on {}", bundle()));
-
 			next.ifPresent(
 				next -> submit(Op.CONFIGURATION_CLOSE, next::close).then(
 					s -> {
@@ -76,17 +78,15 @@ public class ExtensionPhase extends Phase {
 
 	@Override
 	public boolean open() {
-		if (!templates().isEmpty()) {
-			_log.debug(l -> l.debug("CCR Begin extension TRACKING on {}", bundle()));
+		_log.debug(l -> l.debug("CCR Begin extension OPEN on {}", bundle()));
 
+		if (!templates().isEmpty()) {
 			_extensionTracker = new ServiceTracker<>(
 				containerState.bundleContext(), createExtensionFilter(), new ExtensionPhaseCustomizer());
 
 			_extensionTracker.open();
 		}
 		else {
-			_log.debug(l -> l.debug("CCR Begin extension OPEN on {}", bundle()));
-
 			next.ifPresent(
 				next -> submit(Op.CONFIGURATION_OPEN, next::open).then(
 					s -> {

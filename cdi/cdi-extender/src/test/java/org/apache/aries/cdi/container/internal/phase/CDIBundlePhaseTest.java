@@ -44,7 +44,7 @@ public class CDIBundlePhaseTest extends BaseCDIBundleTest {
 		assertTrue(containerDTO.extensions + "", containerDTO.extensions.isEmpty());
 
 		assertNotNull(containerDTO.template);
-		assertEquals(1, containerDTO.template.components.size());
+		assertEquals(2, containerDTO.template.components.size());
 		assertEquals(0, containerDTO.template.extensions.size());
 		assertEquals("foo", containerDTO.template.id);
 
@@ -87,7 +87,7 @@ public class CDIBundlePhaseTest extends BaseCDIBundleTest {
 		assertTrue(containerDTO.extensions + "", containerDTO.extensions.isEmpty());
 
 		assertNotNull(containerDTO.template);
-		assertEquals(1, containerDTO.template.components.size());
+		assertEquals(2, containerDTO.template.components.size());
 		assertEquals(2, containerDTO.template.extensions.size());
 		assertEquals("(foo=name)", containerDTO.template.extensions.get(0).serviceFilter);
 		assertEquals("(fum=bar)", containerDTO.template.extensions.get(1).serviceFilter);

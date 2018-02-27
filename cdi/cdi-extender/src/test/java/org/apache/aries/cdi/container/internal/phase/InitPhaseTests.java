@@ -33,7 +33,7 @@ public class InitPhaseTests extends BaseCDIBundleTest {
 	public void components_simple() throws Exception {
 		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null);
 
-		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, new InitPhase(containerState, null));
+		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, null);
 
 		cdiBundle.start();
 
@@ -95,7 +95,7 @@ public class InitPhaseTests extends BaseCDIBundleTest {
 
 		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null);
 
-		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, new InitPhase(containerState, null));
+		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, null);
 
 		cdiBundle.start();
 
@@ -176,7 +176,7 @@ public class InitPhaseTests extends BaseCDIBundleTest {
 
 		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null);
 
-		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, new InitPhase(containerState, null));
+		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, null);
 
 		cdiBundle.start();
 
@@ -395,7 +395,7 @@ public class InitPhaseTests extends BaseCDIBundleTest {
 
 		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null);
 
-		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, new InitPhase(containerState, null));
+		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, null);
 
 		cdiBundle.start();
 
