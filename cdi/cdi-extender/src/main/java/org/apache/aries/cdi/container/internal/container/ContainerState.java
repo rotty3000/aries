@@ -166,6 +166,7 @@ public class ContainerState {
 		configurationTemplate.policy = ConfigurationPolicy.OPTIONAL;
 
 		componentTemplate.configurations.add(configurationTemplate);
+
 		_containerDTO.template.components.add(componentTemplate);
 
 		_aggregateClassLoader = new BundleClassLoader(getBundles(_bundle, _extenderBundle));
@@ -223,6 +224,12 @@ public class ContainerState {
 
 	public ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker() {
 		return _caTracker;
+	}
+
+	public void error(Throwable t) {
+		containerDTO().errors.add(Throw.asString(t));
+
+		_log.error(l -> l.error(t.getMessage(), t));
 	}
 
 	public Bundle extenderBundle() {

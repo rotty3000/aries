@@ -116,7 +116,7 @@ public class ConfigurationModel {
 			dto.componentConfiguration = true;
 		}
 
-		dto.policy = (_pid.policy().toString().equals(ConfigurationPolicy.REQUIRED.toString()))
+		dto.policy = ((_pid != null) && _pid.policy().toString().equals(ConfigurationPolicy.REQUIRED.toString()))
 			? ConfigurationPolicy.REQUIRED : ConfigurationPolicy.OPTIONAL;
 
 		return dto;

@@ -8,14 +8,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.aries.cdi.container.internal.container.CDIBundle;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.test.BaseCDIBundleTest;
 import org.apache.aries.cdi.container.test.TestUtil;
 import org.apache.aries.cdi.container.test.beans.Bar;
+import org.apache.aries.cdi.container.test.beans.Baz;
 import org.junit.Test;
 import org.osgi.framework.Bundle;
+import org.osgi.framework.Constants;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.namespace.extender.ExtenderNamespace;
 import org.osgi.service.cdi.CDIConstants;
@@ -27,17 +28,13 @@ import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO;
 
-public class InitPhaseTests extends BaseCDIBundleTest {
+public class TemplatesTests extends BaseCDIBundleTest {
 
 	@Test
 	public void components_simple() throws Exception {
 		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null);
 
-		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, null);
-
-		cdiBundle.start();
-
-		ContainerDTO containerDTO = ccr.getContainerDTO(bundle);
+		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
 
 		assertTrue(containerDTO.errors + "", containerDTO.errors.isEmpty());
@@ -48,36 +45,42 @@ public class InitPhaseTests extends BaseCDIBundleTest {
 		assertEquals(2, components.size());
 
 		{
-			ComponentTemplateDTO ct = components.get(0);
-			assertEquals(0, ct.activations.size());
-			assertEquals(1, ct.beans.size());
-			assertEquals(2, ct.configurations.size());
-			assertEquals("foo", ct.name);
-			assertEquals(Maps.of(), ct.properties);
-			assertEquals(6, ct.references.size());
-			assertEquals(ComponentTemplateDTO.Type.CONTAINER, ct.type);
+			ComponentTemplateDTO template = components.get(0);
+			assertEquals(1, template.activations.size());
+
+			{
+				ActivationTemplateDTO at = template.activations.get(0);
+				assertEquals(Maps.of("jaxrs.resource", true), at.properties);
+				assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
+				assertEquals(Arrays.asList(Baz.class.getName()), at.serviceClasses);
+			}
+
+			assertEquals(1, template.beans.size());
+			assertEquals(2, template.configurations.size());
+			assertEquals("foo", template.name);
+			assertEquals(Maps.of(), template.properties);
+			assertEquals(6, template.references.size());
+			assertEquals(ComponentTemplateDTO.Type.CONTAINER, template.type);
 		}
 
 		{
-			ComponentTemplateDTO ct = components.get(1);
-			assertEquals(1, ct.activations.size());
+			ComponentTemplateDTO template = components.get(1);
+			assertEquals(1, template.activations.size());
 
 			{
-				ActivationTemplateDTO at = ct.activations.get(0);
+				ActivationTemplateDTO at = template.activations.get(0);
 				assertEquals(Maps.of(), at.properties);
 				assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
 				assertEquals(Arrays.asList("org.apache.aries.cdi.container.test.beans.Foo"), at.serviceClasses);
 			}
 
-			assertEquals(1, ct.beans.size());
-			assertEquals(1, ct.configurations.size());
-			assertEquals("foo.annotated", ct.name);
-			assertEquals(Maps.of("service.ranking", 12), ct.properties);
-			assertEquals(0, ct.references.size());
-			assertEquals(ComponentTemplateDTO.Type.SINGLE, ct.type);
+			assertEquals(2, template.beans.size());
+			assertEquals(2, template.configurations.size());
+			assertEquals("foo.annotated", template.name);
+			assertEquals(Maps.of("service.ranking", 12), template.properties);
+			assertEquals(3, template.references.size());
+			assertEquals(ComponentTemplateDTO.Type.SINGLE, template.type);
 		}
-
-		cdiBundle.destroy();
 	}
 
 	@Test
@@ -95,11 +98,7 @@ public class InitPhaseTests extends BaseCDIBundleTest {
 
 		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null);
 
-		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, null);
-
-		cdiBundle.start();
-
-		ContainerDTO containerDTO = ccr.getContainerDTO(bundle);
+		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
 
 		assertTrue(containerDTO.errors + "", containerDTO.errors.isEmpty());
@@ -130,7 +129,7 @@ public class InitPhaseTests extends BaseCDIBundleTest {
 
 		{
 			ComponentTemplateDTO ct = components.get(1);
-			assertEquals(2, ct.activations.size());
+			assertEquals(3, ct.activations.size());
 			assertEquals(3, ct.beans.size());
 			assertEquals(2, ct.configurations.size());
 			assertEquals("foo", ct.name);
@@ -150,15 +149,13 @@ public class InitPhaseTests extends BaseCDIBundleTest {
 				assertEquals(Arrays.asList("org.apache.aries.cdi.container.test.beans.Foo"), at.serviceClasses);
 			}
 
-			assertEquals(1, ct.beans.size());
-			assertEquals(1, ct.configurations.size());
+			assertEquals(2, ct.beans.size());
+			assertEquals(2, ct.configurations.size());
 			assertEquals("foo.annotated", ct.name);
 			assertEquals(Maps.of("service.ranking", 12), ct.properties);
-			assertEquals(0, ct.references.size());
+			assertEquals(3, ct.references.size());
 			assertEquals(ComponentTemplateDTO.Type.SINGLE, ct.type);
 		}
-
-		cdiBundle.destroy();
 	}
 
 	@Test
@@ -176,11 +173,7 @@ public class InitPhaseTests extends BaseCDIBundleTest {
 
 		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null);
 
-		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, null);
-
-		cdiBundle.start();
-
-		ContainerDTO containerDTO = ccr.getContainerDTO(bundle);
+		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
 
 		assertTrue(containerDTO.errors + "", containerDTO.errors.isEmpty());
@@ -221,17 +214,24 @@ public class InitPhaseTests extends BaseCDIBundleTest {
 		{ // component "foo"
 			ComponentTemplateDTO ct = components.get(1);
 
-			assertEquals(2, ct.activations.size());
+			assertEquals(3, ct.activations.size());
 
 			{
 				ActivationTemplateDTO at = ct.activations.get(0);
-				assertEquals(Maps.of("service.ranking", 100), at.properties);
+				assertEquals(Maps.of("jaxrs.resource", true), at.properties);
+				assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
+				assertEquals(Arrays.asList(Baz.class.getName()), at.serviceClasses);
+			}
+
+			{
+				ActivationTemplateDTO at = ct.activations.get(1);
+				assertEquals(Maps.of(Constants.SERVICE_RANKING, 100), at.properties);
 				assertEquals(ActivationTemplateDTO.Scope.BUNDLE, at.scope);
 				assertEquals(Arrays.asList(Integer.class.getName()), at.serviceClasses);
 			}
 
 			{
-				ActivationTemplateDTO at = ct.activations.get(1);
+				ActivationTemplateDTO at = ct.activations.get(2);
 				assertEquals(Maps.of(), at.properties);
 				assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
 				assertEquals(Arrays.asList(Bar.class.getName()), at.serviceClasses);
@@ -360,12 +360,12 @@ public class InitPhaseTests extends BaseCDIBundleTest {
 		{ // component "foo.annotated"
 			ComponentTemplateDTO ct = components.get(2);
 			assertEquals(1, ct.activations.size());
-			assertEquals(1, ct.beans.size());
+			assertEquals(2, ct.beans.size());
 			assertEquals("org.apache.aries.cdi.container.test.beans.FooAnnotated", ct.beans.get(0));
-			assertEquals(1, ct.configurations.size());
+			assertEquals(2, ct.configurations.size());
 			assertEquals("foo.annotated", ct.name);
 			assertEquals(Maps.of("service.ranking", 12), ct.properties);
-			assertEquals(0, ct.references.size());
+			assertEquals(3, ct.references.size());
 			assertEquals(ComponentTemplateDTO.Type.SINGLE, ct.type);
 
 			{ // configuration "foo.annotated"
@@ -376,8 +376,6 @@ public class InitPhaseTests extends BaseCDIBundleTest {
 				assertEquals(ConfigurationPolicy.OPTIONAL, configurationTemplateDTO.policy);
 			}
 		}
-
-		cdiBundle.destroy();
 	}
 
 	@Test
@@ -395,11 +393,7 @@ public class InitPhaseTests extends BaseCDIBundleTest {
 
 		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null);
 
-		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, null);
-
-		cdiBundle.start();
-
-		ContainerDTO containerDTO = ccr.getContainerDTO(bundle);
+		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
 
 		assertNotNull(containerDTO.bundle);
@@ -413,11 +407,8 @@ public class InitPhaseTests extends BaseCDIBundleTest {
 
 		assertTrue(containerDTO.components + "", containerDTO.components.isEmpty());
 		assertFalse(containerDTO.errors.isEmpty());
-		assertEquals(1, containerDTO.errors.size());
 		String[] linesOfError = containerDTO.errors.get(0).split("\r\n|\r|\n", 4);
 		assertTrue(linesOfError[0], linesOfError[0].contains("Error loading class for <cdi:bean class=\"org.apache.aries.cdi.container.test.beans.Missing\">"));
-
-		cdiBundle.destroy();
 	}
 
 }

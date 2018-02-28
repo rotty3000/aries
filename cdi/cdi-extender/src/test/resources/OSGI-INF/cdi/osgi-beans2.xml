@@ -4,6 +4,7 @@
 	<cdi:bean class="org.apache.aries.cdi.container.test.beans.BarAnnotated" />
 	<cdi:bean class="org.apache.aries.cdi.container.test.beans.BarProducer" />
 	<cdi:bean class="org.apache.aries.cdi.container.test.beans.FooAnnotated" />
+	<cdi:bean class="org.apache.aries.cdi.container.test.beans.FooWithReferenceAndConfig" />
 	<cdi:bean class="org.apache.aries.cdi.container.test.beans.ObserverFoo" />
 	<cdi:bean class="org.apache.aries.cdi.container.test.beans.BarService" />
 </beans>

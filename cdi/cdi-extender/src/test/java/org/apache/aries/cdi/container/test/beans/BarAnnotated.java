@@ -18,9 +18,11 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
+import javax.enterprise.inject.Produces;
 import javax.inject.Inject;
 import javax.inject.Provider;
 
+import org.apache.aries.cdi.extra.propertytypes.JaxrsResource;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.Greedy;
@@ -28,6 +30,7 @@ import org.osgi.service.cdi.annotations.PID;
 import org.osgi.service.cdi.annotations.PID.Policy;
 import org.osgi.service.cdi.annotations.Prototype;
 import org.osgi.service.cdi.annotations.Reference;
+import org.osgi.service.cdi.annotations.Service;
 
 public class BarAnnotated {
 
@@ -61,5 +64,10 @@ public class BarAnnotated {
 	@PID(value = "foo.config", policy = Policy.REQUIRED)
 	@Configuration
 	Config config;
+
+	@Produces
+	@Service
+	@JaxrsResource
+	Baz baz = new Baz() {};
 
 }

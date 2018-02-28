@@ -14,7 +14,6 @@ import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.osgi.framework.ServiceRegistration;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
-import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 import org.osgi.service.cm.ConfigurationEvent;
@@ -72,12 +71,12 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 		_listenerService = containerState.bundleContext().registerService(
 			ConfigurationListener.class, this, null);
 
-		AtomicBoolean hasMandatoryConfigurations = new AtomicBoolean(false);
+//		AtomicBoolean hasMandatoryConfigurations = new AtomicBoolean(false);
 
 		for (ConfigurationTemplateDTO template : _component.configurationTemplates()) {
-			if (template.policy == ConfigurationPolicy.REQUIRED) {
-				hasMandatoryConfigurations.set(true);
-			}
+//			if (template.policy == ConfigurationPolicy.REQUIRED) {
+//				hasMandatoryConfigurations.set(true);
+//			}
 
 			if (template.maximumCardinality == MaximumCardinality.ONE) {
 				containerState.findConfig(template.pid).ifPresent(
@@ -104,9 +103,9 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 			}
 		}
 
-		if (!hasMandatoryConfigurations.get()) {
-			startComponent();
-		}
+//		if (!hasMandatoryConfigurations.get()) {
+//			startComponent();
+//		}
 
 		return true;
 	}

@@ -14,11 +14,14 @@
 
 package org.apache.aries.cdi.container.internal.container;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Parameter;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
@@ -29,6 +32,7 @@ import javax.enterprise.inject.spi.AnnotatedField;
 import javax.enterprise.inject.spi.AnnotatedMethod;
 import javax.enterprise.inject.spi.AnnotatedParameter;
 import javax.enterprise.inject.spi.AnnotatedType;
+import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.DefinitionException;
 import javax.enterprise.inject.spi.Extension;
@@ -47,6 +51,7 @@ import javax.enterprise.inject.spi.ProcessSyntheticBean;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
 import org.apache.aries.cdi.container.internal.model.ConfigurationModel;
 import org.apache.aries.cdi.container.internal.model.ExtendedActivationTemplateDTO;
+import org.apache.aries.cdi.container.internal.model.ExtendedComponentTemplateDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationTemplateDTO;
 import org.apache.aries.cdi.container.internal.model.OSGiBean;
 import org.apache.aries.cdi.container.internal.model.ReferenceModel;
@@ -54,6 +59,7 @@ import org.apache.aries.cdi.container.internal.model.ReferenceModel.Builder;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.internal.util.Types;
 import org.osgi.service.cdi.annotations.Bundle;
+import org.osgi.service.cdi.annotations.ComponentScoped;
 import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.FactoryComponent;
 import org.osgi.service.cdi.annotations.PID;
@@ -64,6 +70,7 @@ import org.osgi.service.cdi.annotations.SingleComponent;
 import org.osgi.service.cdi.reference.ReferenceEvent;
 import org.osgi.service.cdi.runtime.dto.template.ActivationTemplateDTO.Scope;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
+import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO.Type;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
 import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 
@@ -75,7 +82,18 @@ public class DiscoveryExtension implements Extension {
 		_containerTemplate = _containerState.containerDTO().template.components.get(0);
 	}
 
-	void afterBeanDiscovery(@Observes AfterBeanDiscovery abd) {
+	void afterBeanDiscovery(@Observes AfterBeanDiscovery abd, BeanManager beanManager) {
+		_containerState.containerDTO().template.components.stream().filter(
+			template -> template.type != Type.CONTAINER
+		).map(
+			template -> (ExtendedComponentTemplateDTO)template
+		).forEach(
+			template -> {
+				Set<Bean<?>> visited = new HashSet<>();
+				scanComponentBean(template, template.bean, beanManager, visited);
+			}
+		);
+
 		_beansModel.getOSGiBeans().stream().forEach(
 			osgiBean -> {
 				if (!osgiBean.found()) {
@@ -162,7 +180,7 @@ public class DiscoveryExtension implements Extension {
 				Optional.ofNullable(
 					annotated.getAnnotation(SingleComponent.class)).isPresent()) {
 
-				ComponentTemplateDTO componentTemplate = new ComponentTemplateDTO();
+				ExtendedComponentTemplateDTO componentTemplate = new ExtendedComponentTemplateDTO();
 				componentTemplate.activations = new CopyOnWriteArrayList<>();
 
 				if (!serviceTypes.isEmpty()) {
@@ -177,6 +195,7 @@ public class DiscoveryExtension implements Extension {
 					componentTemplate.activations.add(activationTemplate);
 				}
 
+				componentTemplate.bean = pb.getBean();
 				componentTemplate.beans = new CopyOnWriteArrayList<>();
 				componentTemplate.configurations = new CopyOnWriteArrayList<>();
 				componentTemplate.name = pb.getBean().getName();
@@ -238,7 +257,7 @@ public class DiscoveryExtension implements Extension {
 					Optional.ofNullable(
 					annotated.getAnnotation(FactoryComponent.class)).isPresent()) {
 
-				ComponentTemplateDTO componentTemplate = new ComponentTemplateDTO();
+				ExtendedComponentTemplateDTO componentTemplate = new ExtendedComponentTemplateDTO();
 				componentTemplate.activations = new CopyOnWriteArrayList<>();
 
 				if (!serviceTypes.isEmpty()) {
@@ -253,6 +272,7 @@ public class DiscoveryExtension implements Extension {
 					componentTemplate.activations.add(activationTemplate);
 				}
 
+				componentTemplate.bean = pb.getBean();
 				componentTemplate.beans = new CopyOnWriteArrayList<>();
 				componentTemplate.configurations = new CopyOnWriteArrayList<>();
 				componentTemplate.name = pb.getBean().getName();
@@ -307,6 +327,12 @@ public class DiscoveryExtension implements Extension {
 
 				osgiBean.setComponent(componentTemplate);
 			}
+			else if ((annotated instanceof AnnotatedType) &&
+					Optional.ofNullable(
+					annotated.getAnnotation(ComponentScoped.class)).isPresent()) {
+
+				// Explicitly ignore this case
+			}
 			else {
 				if (!_containerTemplate.beans.contains(className)) {
 					_containerTemplate.beans.add(className);
@@ -332,56 +358,21 @@ public class DiscoveryExtension implements Extension {
 		}
 	}
 
-	private Scope getScope(Annotated annotated) {
-		Prototype prototype = annotated.getAnnotation(Prototype.class);
-		Bundle bundle = annotated.getAnnotation(Bundle.class);
-
-		if (prototype != null) {
-			if (bundle != null) {
-				throw new IllegalArgumentException(
-					String.format(
-						"@Prototype and @Bundle must not be used to gether: %s",
-						annotated));
-			}
-
-			return Scope.PROTOTYPE;
-		}
-
-		if (bundle != null) {
-			return Scope.BUNDLE;
-		}
-
-		return Scope.SINGLETON;
+	void processInjectionPoint(@Observes ProcessInjectionPoint<?, ?> pip) {
+		processInjectionPoint(pip.getInjectionPoint());
 	}
 
-	void processInjectionPoint(@Observes ProcessInjectionPoint<?, ?> pip) {
-		final InjectionPoint injectionPoint = pip.getInjectionPoint();
-
+	OSGiBean processInjectionPoint(final InjectionPoint injectionPoint) {
 		Annotated annotated = injectionPoint.getAnnotated();
 
-		Class<?> injectionPointClass = null;
+		Class<?> declaringClass = getDeclaringClass(injectionPoint);
 
-		if (annotated instanceof AnnotatedParameter) {
-			AnnotatedParameter<?> ap = (AnnotatedParameter<?>)annotated;
-
-			Parameter javaParameter = ap.getJavaParameter();
-
-			Executable executable = javaParameter.getDeclaringExecutable();
-
-			injectionPointClass = executable.getDeclaringClass();
-		}
-		else {
-			AnnotatedField<?> af = (AnnotatedField<?>)annotated;
-
-			injectionPointClass = af.getDeclaringType().getJavaClass();
-		}
-
-		String className = injectionPointClass.getName();
+		String className = declaringClass.getName();
 
 		OSGiBean osgiBean = _beansModel.getOSGiBean(className);
 
 		if (osgiBean == null) {
-			return;
+			return null;
 		}
 
 		Reference reference = annotated.getAnnotation(Reference.class);
@@ -389,14 +380,14 @@ public class DiscoveryExtension implements Extension {
 
 		if (reference != null) {
 			if (configuration != null) {
-				pip.addDefinitionError(
+				_containerState.error(
 					new IllegalArgumentException(
 						String.format(
 							"Cannot use @Reference and @Configuration on the same injection point {}",
 							injectionPoint))
 				);
 
-				return;
+				return null;
 			}
 
 			Builder builder = null;
@@ -414,7 +405,7 @@ public class DiscoveryExtension implements Extension {
 				osgiBean.addReference(referenceModel.toDTO());
 			}
 			catch (Exception e) {
-				pip.addDefinitionError(e);
+				_containerState.error(e);
 			}
 		}
 		else if (configuration != null) {
@@ -422,7 +413,7 @@ public class DiscoveryExtension implements Extension {
 				ConfigurationModel configurationModel = new ConfigurationModel.Builder(
 					injectionPoint.getType()
 				).declaringClass(
-					injectionPointClass
+					declaringClass
 				).injectionPoint(
 					injectionPoint
 				).build();
@@ -430,9 +421,11 @@ public class DiscoveryExtension implements Extension {
 				osgiBean.addConfiguration(configurationModel.toDTO());
 			}
 			catch (Exception e) {
-				pip.addDefinitionError(e);
+				_containerState.error(e);
 			}
 		}
+
+		return osgiBean;
 	}
 
 	void processObserverMethod(@Observes ProcessObserverMethod<ReferenceEvent<?>, ?> pom) {
@@ -480,6 +473,103 @@ public class DiscoveryExtension implements Extension {
 		catch (Exception e) {
 			pom.addDefinitionError(e);
 		}
+	}
+
+	Scope getScope(Annotated annotated) {
+		Prototype prototype = annotated.getAnnotation(Prototype.class);
+		Bundle bundle = annotated.getAnnotation(Bundle.class);
+
+		if (prototype != null) {
+			if (bundle != null) {
+				throw new IllegalArgumentException(
+					String.format(
+						"@Prototype and @Bundle must not be used to gether: %s",
+						annotated));
+			}
+
+			return Scope.PROTOTYPE;
+		}
+
+		if (bundle != null) {
+			return Scope.BUNDLE;
+		}
+
+		return Scope.SINGLETON;
+	}
+
+	void scanComponentBean(
+		ExtendedComponentTemplateDTO template,
+		Bean<?> bean,
+		BeanManager beanManager,
+		Set<Bean<?>> visited) {
+
+		if (visited.contains(bean)) {
+			return;
+		}
+
+		visited.add(bean);
+
+		Class<?> beanClass = bean.getBeanClass();
+
+		String className = beanClass.getName();
+
+		OSGiBean osgiBean = _beansModel.getOSGiBean(className);
+
+		ComponentTemplateDTO currentTemplate = osgiBean.getComponent();
+
+		if (currentTemplate == null) {
+			osgiBean.setComponent(template);
+		}
+		else if (!currentTemplate.equals(template)) {
+			throw new IllegalStateException("Something is wrong here");
+		}
+
+		if (!template.beans.contains(className)) {
+			template.beans.add(className);
+		}
+
+		for (InjectionPoint injectionPoint : bean.getInjectionPoints()) {
+			if ((injectionPoint.getAnnotated().getAnnotation(Configuration.class) != null) ||
+				(injectionPoint.getAnnotated().getAnnotation(Reference.class) != null)) {
+
+				continue;
+			}
+
+			Set<Bean<?>> beans = beanManager.getBeans(
+				injectionPoint.getType(),
+				injectionPoint.getQualifiers().toArray(new Annotation[0]));
+
+			Bean<?> next = beanManager.resolve(beans);
+
+			if (next.getScope() != ComponentScoped.class) {
+				continue;
+			}
+
+			scanComponentBean(template, next, beanManager, visited);
+		}
+	}
+
+	private Class<?> getDeclaringClass(final InjectionPoint injectionPoint) {
+		Annotated annotated = injectionPoint.getAnnotated();
+
+		Class<?> declaringClass = null;
+
+		if (annotated instanceof AnnotatedParameter) {
+			AnnotatedParameter<?> ap = (AnnotatedParameter<?>)annotated;
+
+			Parameter javaParameter = ap.getJavaParameter();
+
+			Executable executable = javaParameter.getDeclaringExecutable();
+
+			declaringClass = executable.getDeclaringClass();
+		}
+		else {
+			AnnotatedField<?> af = (AnnotatedField<?>)annotated;
+
+			declaringClass = af.getDeclaringType().getJavaClass();
+		}
+
+		return declaringClass;
 	}
 
 	private final BeansModel _beansModel;

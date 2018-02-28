@@ -16,26 +16,27 @@ package org.apache.aries.cdi.container.test.beans;
 
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
-import javax.inject.Named;
 
-import org.apache.aries.cdi.extra.propertytypes.ServiceRanking;
-import org.osgi.service.cdi.annotations.Service;
-import org.osgi.service.cdi.annotations.SingleComponent;
+import org.osgi.service.cdi.annotations.ComponentScoped;
+import org.osgi.service.cdi.annotations.Configuration;
+import org.osgi.service.cdi.annotations.Reference;
 import org.osgi.service.cdi.reference.ReferenceEvent;
 
-@SingleComponent
-@Named("foo.annotated")
-@Service(Foo.class)
-@ServiceRanking(12)
-public class FooAnnotated implements Foo, Cloneable {
+@ComponentScoped
+public class FooWithReferenceAndConfig {
 
-	void watchFoos(@Observes ReferenceEvent<Integer> numbers) {
+	void watchNumbers(@Observes ReferenceEvent<Integer> numbers) {
 		numbers.onAddingServiceReference(number -> System.out.println("Added: " + number));
 		numbers.onUpdateServiceReference(number -> System.out.println("Updated: " + number));
 		numbers.onRemoveServiceReference(number -> System.out.println("Removed: " + number));
 	}
 
 	@Inject
-	FooWithReferenceAndConfig fooWithReferenceAndConfig;
+	@Reference
+	public Foo fooReference;
+
+	@Inject
+	@Configuration
+	public Config config;
 
 }
