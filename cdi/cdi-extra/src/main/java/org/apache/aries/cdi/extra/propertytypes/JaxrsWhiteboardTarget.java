@@ -16,9 +16,10 @@
 
 package org.apache.aries.cdi.extra.propertytypes;
 
-import java.lang.annotation.ElementType;
+import static java.lang.annotation.ElementType.*;
+import static java.lang.annotation.RetentionPolicy.*;
+
 import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 import org.osgi.service.cdi.annotations.ComponentPropertyType;
@@ -33,8 +34,8 @@ import org.osgi.service.cdi.annotations.ComponentPropertyType;
  * service property.
  */
 @ComponentPropertyType
-@Retention(RetentionPolicy.CLASS)
-@Target(ElementType.TYPE)
+@Retention(RUNTIME)
+@Target({FIELD, METHOD, TYPE})
 public @interface JaxrsWhiteboardTarget {
 	/**
 	 * Prefix for the property name. This value is prepended to each property

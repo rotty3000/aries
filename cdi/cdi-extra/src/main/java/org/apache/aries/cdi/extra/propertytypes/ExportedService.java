@@ -16,9 +16,10 @@
 
 package org.apache.aries.cdi.extra.propertytypes;
 
-import java.lang.annotation.ElementType;
+import static java.lang.annotation.ElementType.*;
+import static java.lang.annotation.RetentionPolicy.*;
+
 import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 import org.osgi.framework.Constants;
@@ -36,8 +37,8 @@ import org.osgi.service.cdi.annotations.SingleComponent;
  * the remote service properties for an exported service.
  */
 @ComponentPropertyType
-@Retention(RetentionPolicy.CLASS)
-@Target(ElementType.TYPE)
+@Retention(RUNTIME)
+@Target({FIELD, METHOD, TYPE})
 public @interface ExportedService {
 	/**
 	 * Service property marking the service for export. It defines the

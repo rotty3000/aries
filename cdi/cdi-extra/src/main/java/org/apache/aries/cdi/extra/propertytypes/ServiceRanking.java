@@ -37,7 +37,7 @@ import org.osgi.service.cdi.annotations.SingleComponent;
  */
 @ComponentPropertyType
 @Retention(RUNTIME)
-@Target(value = {FIELD, METHOD, TYPE})
+@Target({FIELD, METHOD, TYPE})
 public @interface ServiceRanking {
 	/**
 	 * Service property identifying a service's ranking.

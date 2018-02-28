@@ -16,14 +16,14 @@
 
 package org.apache.aries.cdi.extra.propertytypes;
 
+import static java.lang.annotation.ElementType.*;
+import static java.lang.annotation.RetentionPolicy.*;
 import static javax.ws.rs.core.MediaType.*;
 import static org.osgi.annotation.bundle.Requirement.Resolution.*;
 import static org.osgi.namespace.service.ServiceNamespace.*;
 import static org.osgi.resource.Namespace.*;
 
-import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 import org.osgi.annotation.bundle.Requirement;
@@ -40,14 +40,16 @@ import org.osgi.service.jaxrs.whiteboard.annotations.RequireJaxrsWhiteboard;
  * optional {@link Requirement} for a service providing this media type to aid
  * with provisioning.
  */
-@Retention(RetentionPolicy.CLASS)
-@Target(ElementType.TYPE)
-@RequireJaxrsWhiteboard
-@Requirement(namespace = SERVICE_NAMESPACE, //
-		filter = JSONRequired.FILTER, //
-		resolution = OPTIONAL, //
-		effective = EFFECTIVE_ACTIVE)
 @ComponentPropertyType
+@RequireJaxrsWhiteboard
+@Requirement(
+	namespace = SERVICE_NAMESPACE, //
+	filter = JSONRequired.FILTER, //
+	resolution = OPTIONAL, //
+	effective = EFFECTIVE_ACTIVE
+)
+@Retention(RUNTIME)
+@Target({FIELD, METHOD, TYPE})
 public @interface JSONRequired {
 	/**
 	 * A filter requiring an <code>osgi.jaxrs.media.type</code> of

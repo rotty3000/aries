@@ -16,9 +16,10 @@
 
 package org.apache.aries.cdi.extra.propertytypes;
 
-import java.lang.annotation.ElementType;
+import static java.lang.annotation.ElementType.*;
+import static java.lang.annotation.RetentionPolicy.*;
+
 import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 import org.osgi.service.cdi.annotations.ComponentPropertyType;
@@ -34,9 +35,9 @@ import org.osgi.service.event.annotations.RequireEventAdmin;
  * the value of the {@link EventConstants#EVENT_FILTER} service property.
  */
 @ComponentPropertyType
-@Retention(RetentionPolicy.CLASS)
-@Target(ElementType.TYPE)
 @RequireEventAdmin
+@Retention(RUNTIME)
+@Target({FIELD, METHOD, TYPE})
 public @interface EventFilter {
 	/**
 	 * Service property specifying the {@code Event} filter to an

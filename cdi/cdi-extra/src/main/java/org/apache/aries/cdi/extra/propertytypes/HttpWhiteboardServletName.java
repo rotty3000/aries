@@ -16,9 +16,10 @@
 
 package org.apache.aries.cdi.extra.propertytypes;
 
-import java.lang.annotation.ElementType;
+import static java.lang.annotation.ElementType.*;
+import static java.lang.annotation.RetentionPolicy.*;
+
 import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 import org.osgi.service.cdi.annotations.ComponentPropertyType;
@@ -34,9 +35,9 @@ import org.osgi.service.http.whiteboard.annotations.RequireHttpWhiteboard;
  * HTTP_WHITEBOARD_SERVLET_NAME} service property.
  */
 @ComponentPropertyType
-@Retention(RetentionPolicy.CLASS)
-@Target(ElementType.TYPE)
 @RequireHttpWhiteboard
+@Retention(RUNTIME)
+@Target({FIELD, METHOD, TYPE})
 public @interface HttpWhiteboardServletName {
 	/**
 	 * Prefix for the property name. This value is prepended to each property
