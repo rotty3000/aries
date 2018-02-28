@@ -1,8 +1,6 @@
 package org.apache.aries.cdi.container.internal.phase;
 
 import static org.junit.Assert.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 import java.util.Collection;
 import java.util.List;
@@ -26,7 +24,6 @@ import org.apache.aries.cdi.container.test.MockConfiguration;
 import org.apache.aries.cdi.container.test.TestUtil;
 import org.apache.aries.cdi.container.test.beans.Foo;
 import org.junit.Test;
-import org.mockito.stubbing.Answer;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
@@ -36,7 +33,6 @@ import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO.Type;
 import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO;
-import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.util.converter.TypeReference;
 import org.osgi.util.promise.Promise;
@@ -46,22 +42,11 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 
 	@Test
 	public void reference_tracking() throws Exception {
-		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = new ServiceTracker<>(bundle.getBundleContext(), ConfigurationAdmin.class, null);
-		caTracker.open();
-		ConfigurationAdmin ca = mock(ConfigurationAdmin.class);
-		bundle.getBundleContext().registerService(ConfigurationAdmin.class, ca, null);
+		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = TestUtil.mockCaSt(bundle);
 
-		when(ca.listConfigurations(anyString())).then(
-			(Answer<Configuration[]>) listConfigurations -> {
-				String query = listConfigurations.getArgument(0);
-				if (query.contains("service.pid=foo.config")) {
-					MockConfiguration mockConfiguration = new MockConfiguration("foo.config", null);
-					mockConfiguration.update(Maps.dict("fiz", "buz"));
-					return new Configuration[] {mockConfiguration};
-				}
-				return null;
-			}
-		);
+		MockConfiguration mockConfiguration = new MockConfiguration("foo.config", null);
+		mockConfiguration.update(Maps.dict("fiz", "buz"));
+		TestUtil.configurations.add(mockConfiguration);
 
 		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker);
 
@@ -229,22 +214,11 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 
 	@Test
 	public void check_all_components() throws Exception {
-		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = new ServiceTracker<>(bundle.getBundleContext(), ConfigurationAdmin.class, null);
-		caTracker.open();
-		ConfigurationAdmin ca = mock(ConfigurationAdmin.class);
-		bundle.getBundleContext().registerService(ConfigurationAdmin.class, ca, null);
+		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = TestUtil.mockCaSt(bundle);
 
-		when(ca.listConfigurations(anyString())).then(
-			(Answer<Configuration[]>) listConfigurations -> {
-				String query = listConfigurations.getArgument(0);
-				if (query.contains("service.pid=foo.config")) {
-					MockConfiguration mockConfiguration = new MockConfiguration("foo.config", null);
-					mockConfiguration.update(Maps.dict("fiz", "buz"));
-					return new Configuration[] {mockConfiguration};
-				}
-				return null;
-			}
-		);
+		MockConfiguration mockConfiguration = new MockConfiguration("foo.config", null);
+		mockConfiguration.update(Maps.dict("fiz", "buz"));
+		TestUtil.configurations.add(mockConfiguration);
 
 		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker);
 

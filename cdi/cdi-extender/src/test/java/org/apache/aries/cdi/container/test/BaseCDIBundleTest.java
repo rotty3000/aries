@@ -32,6 +32,7 @@ public class BaseCDIBundleTest {
 
 	@Before
 	public void before() throws Exception {
+		TestUtil.configurations.clear();
 		TestUtil.serviceListeners.clear();
 		TestUtil.serviceRegistrations.clear();
 		promiseFactory = new PromiseFactory(Executors.newFixedThreadPool(1));

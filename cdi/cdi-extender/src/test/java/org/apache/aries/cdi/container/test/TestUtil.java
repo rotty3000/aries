@@ -40,6 +40,7 @@ import org.apache.aries.cdi.container.internal.ChangeCount;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.model.AbstractModelBuilder;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
+import org.apache.aries.cdi.container.internal.util.Filters;
 import org.jboss.weld.resources.spi.ResourceLoader;
 import org.jboss.weld.serialization.spi.ProxyServices;
 import org.mockito.stubbing.Answer;
@@ -60,6 +61,7 @@ import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.namespace.extender.ExtenderNamespace;
 import org.osgi.service.cdi.CDIConstants;
+import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.util.promise.PromiseFactory;
 import org.osgi.util.tracker.ServiceTracker;
@@ -263,6 +265,31 @@ public class TestUtil {
 		return bundle;
 	}
 
+	public static ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> mockCaSt(Bundle bundle) throws Exception {
+		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = new ServiceTracker<>(bundle.getBundleContext(), ConfigurationAdmin.class, null);
+		caTracker.open();
+		ConfigurationAdmin ca = mock(ConfigurationAdmin.class);
+		bundle.getBundleContext().registerService(ConfigurationAdmin.class, ca, null);
+
+		when(ca.listConfigurations(anyString())).then(
+			(Answer<Configuration[]>) listConfigurations -> {
+				String query = listConfigurations.getArgument(0);
+				Filter filter = Filters.asFilter(query);
+				List<MockConfiguration> list = configurations.stream().filter(
+					c -> filter.match(c.getProperties())
+				).collect(Collectors.toList());
+
+				if (list.isEmpty()) {
+					return null;
+				}
+				return list.toArray(new Configuration[0]);
+			}
+		);
+
+		return caTracker;
+	}
+
+	public static final List<MockConfiguration> configurations = new CopyOnWriteArrayList<>();
 	public static final List<Map.Entry<ServiceListener, Filter>> serviceListeners = new CopyOnWriteArrayList<>();
 	public static final List<MockServiceRegistration<?>> serviceRegistrations = new CopyOnWriteArrayList<>();
 

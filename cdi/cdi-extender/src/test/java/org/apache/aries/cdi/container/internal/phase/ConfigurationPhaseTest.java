@@ -16,13 +16,10 @@ package org.apache.aries.cdi.container.internal.phase;
 
 import static org.apache.aries.cdi.container.internal.util.Reflection.*;
 import static org.junit.Assert.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.apache.aries.cdi.container.internal.container.CDIBundle;
 import org.apache.aries.cdi.container.internal.container.CheckedCallback;
 import org.apache.aries.cdi.container.internal.container.ConfigurationListener;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
@@ -31,15 +28,12 @@ import org.apache.aries.cdi.container.internal.model.ContainerComponent;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.test.BaseCDIBundleTest;
 import org.apache.aries.cdi.container.test.MockConfiguration;
-import org.apache.aries.cdi.container.test.MockServiceRegistration;
 import org.apache.aries.cdi.container.test.TestUtil;
 import org.junit.Test;
-import org.mockito.stubbing.Answer;
 import org.osgi.framework.Filter;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
-import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.cm.ConfigurationEvent;
 import org.osgi.util.promise.Promise;
@@ -49,28 +43,15 @@ public class ConfigurationPhaseTest extends BaseCDIBundleTest {
 
 	@Test
 	public void configuration_tracking() throws Exception {
-		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = new ServiceTracker<>(bundle.getBundleContext(), ConfigurationAdmin.class, null);
-		caTracker.open();
-		ConfigurationAdmin ca = mock(ConfigurationAdmin.class);
-		MockServiceRegistration<ConfigurationAdmin> caReg = cast(
-			bundle.getBundleContext().registerService(ConfigurationAdmin.class, ca, null));
+		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = TestUtil.mockCaSt(bundle);
 
-		when(ca.listConfigurations(anyString())).then(
-			(Answer<Configuration[]>) listConfigurations -> {
-				String query = listConfigurations.getArgument(0);
-				if (query.contains("service.pid=foo.config")) {
-					MockConfiguration mockConfiguration = new MockConfiguration("foo.config", null);
-					mockConfiguration.update(Maps.dict("fiz", "buz"));
-					return new Configuration[] {mockConfiguration};
-				}
-				else if (query.contains("service.pid=osgi.cdi.foo")) {
-					MockConfiguration mockConfiguration = new MockConfiguration("osgi.cdi.foo", null);
-					mockConfiguration.update(Maps.dict("foo", "bar"));
-					return new Configuration[] {mockConfiguration};
-				}
-				return null;
-			}
-		);
+		MockConfiguration mockConfiguration = new MockConfiguration("foo.config", null);
+		mockConfiguration.update(Maps.dict("fiz", "buz"));
+		TestUtil.configurations.add(mockConfiguration);
+
+		mockConfiguration = new MockConfiguration("osgi.cdi.foo", null);
+		mockConfiguration.update(Maps.dict("foo", "bar"));
+		TestUtil.configurations.add(mockConfiguration);
 
 		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker);
 
@@ -78,10 +59,7 @@ public class ConfigurationPhaseTest extends BaseCDIBundleTest {
 
 		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate);
 
-		CDIBundle cdiBundle = new CDIBundle(
-			ccr, containerState,
-				new ExtensionPhase(containerState,
-					new ConfigurationListener(containerState, containerComponent)));
+		ConfigurationListener configurationListener = new ConfigurationListener(containerState, containerComponent);
 
 		Promise<Boolean> p0 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) op -> {
@@ -89,9 +67,9 @@ public class ConfigurationPhaseTest extends BaseCDIBundleTest {
 			}
 		);
 
-		cdiBundle.start();
+		configurationListener.open();
 
-		ContainerDTO containerDTO = ccr.getContainerDTO(bundle);
+		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
 		assertEquals(1, containerDTO.changeCount);
 		assertTrue(containerDTO.errors + "", containerDTO.errors.isEmpty());
@@ -126,7 +104,7 @@ public class ConfigurationPhaseTest extends BaseCDIBundleTest {
 		);
 
 		listener.get().configurationEvent(
-			new ConfigurationEvent(caReg.getReference(), ConfigurationEvent.CM_DELETED, null, pid));
+			new ConfigurationEvent(caTracker.getServiceReference(), ConfigurationEvent.CM_DELETED, null, pid));
 
 		p1.getValue();
 
@@ -140,7 +118,7 @@ public class ConfigurationPhaseTest extends BaseCDIBundleTest {
 		);
 
 		listener.get().configurationEvent(
-			new ConfigurationEvent(caReg.getReference(), ConfigurationEvent.CM_UPDATED, null, pid));
+			new ConfigurationEvent(caTracker.getServiceReference(), ConfigurationEvent.CM_UPDATED, null, pid));
 
 		p2.getValue();
 
@@ -154,7 +132,7 @@ public class ConfigurationPhaseTest extends BaseCDIBundleTest {
 		);
 
 		listener.get().configurationEvent(
-			new ConfigurationEvent(caReg.getReference(), ConfigurationEvent.CM_UPDATED, null, "foo.config"));
+			new ConfigurationEvent(caTracker.getServiceReference(), ConfigurationEvent.CM_UPDATED, null, "foo.config"));
 
 		p3.getValue();
 
