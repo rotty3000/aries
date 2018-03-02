@@ -32,6 +32,7 @@ import org.apache.aries.cdi.container.internal.command.CDICommand;
 import org.apache.aries.cdi.container.internal.container.CDIBundle;
 import org.apache.aries.cdi.container.internal.container.ConfigurationListener;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.model.ContainerActivator;
 import org.apache.aries.cdi.container.internal.model.ContainerComponent;
 import org.apache.aries.cdi.container.internal.phase.ExtensionPhase;
 import org.apache.aries.cdi.container.internal.util.Logs;
@@ -49,6 +50,7 @@ import org.osgi.service.cdi.runtime.CDIComponentRuntime;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.log.Logger;
+import org.osgi.service.log.LoggerFactory;
 import org.osgi.util.promise.PromiseFactory;
 import org.osgi.util.tracker.ServiceTracker;
 
@@ -128,12 +130,19 @@ public class Activator extends AbstractExtender {
 
 		caTracker.open();
 
+		ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker = new ServiceTracker<>(
+			bundle.getBundleContext(), LoggerFactory.class, null);
+
+		loggerTracker.open();
+
 		ContainerState containerState = new ContainerState(
-			bundle, _bundleContext.getBundle(), _ccrChangeCount, _promiseFactory, caTracker);
+			bundle, _bundleContext.getBundle(), _ccrChangeCount, _promiseFactory, caTracker, loggerTracker);
 
 		ComponentTemplateDTO containerTemplate = containerState.containerDTO().template.components.get(0);
 
-		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate);
+		ContainerActivator.Builder builder = new ContainerActivator.Builder(containerState, null);
+
+		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate, builder);
 
 		return new CDIBundle(_ccr, containerState,
 			new ExtensionPhase(containerState,

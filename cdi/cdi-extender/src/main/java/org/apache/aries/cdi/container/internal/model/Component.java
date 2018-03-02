@@ -2,28 +2,30 @@ package org.apache.aries.cdi.container.internal.model;
 
 import java.util.List;
 
+import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
+import org.apache.aries.cdi.container.internal.phase.Phase;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 
-public interface Component {
+public abstract class Component extends Phase {
 
-	List<ConfigurationTemplateDTO> configurationTemplates();
+	public Component(ContainerState containerState, Phase next) {
+		super(containerState, next);
+	}
 
-	List<ComponentInstanceDTO> instances();
+	public abstract Op closeOp();
 
-	ComponentDTO snapshot();
+	public abstract List<ConfigurationTemplateDTO> configurationTemplates();
 
-	ComponentTemplateDTO template();
+	public abstract List<ComponentInstanceDTO> instances();
 
-	boolean start();
+	public abstract Op openOp();
 
-	Op startOp();
+	public abstract ComponentDTO snapshot();
 
-	boolean stop();
-
-	Op stopOp();
+	public abstract ComponentTemplateDTO template();
 
 }

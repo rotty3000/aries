@@ -1,12 +1,16 @@
 package org.apache.aries.cdi.container.internal.phase;
 
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import javax.inject.Provider;
 
@@ -15,6 +19,7 @@ import org.apache.aries.cdi.container.internal.container.ConfigurationListener;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.model.CollectionType;
+import org.apache.aries.cdi.container.internal.model.ContainerActivator;
 import org.apache.aries.cdi.container.internal.model.ContainerComponent;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceTemplateDTO;
@@ -24,18 +29,28 @@ import org.apache.aries.cdi.container.test.MockConfiguration;
 import org.apache.aries.cdi.container.test.TestUtil;
 import org.apache.aries.cdi.container.test.beans.Foo;
 import org.junit.Test;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.Constants;
 import org.osgi.framework.ServiceReference;
+import org.osgi.framework.ServiceRegistration;
+import org.osgi.framework.dto.BundleDTO;
+import org.osgi.framework.wiring.BundleWiring;
+import org.osgi.namespace.extender.ExtenderNamespace;
+import org.osgi.service.cdi.CDIConstants;
+import org.osgi.service.cdi.ComponentType;
+import org.osgi.service.cdi.MaximumCardinality;
+import org.osgi.service.cdi.ReferencePolicy;
+import org.osgi.service.cdi.ReferencePolicyOption;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.service.cdi.runtime.dto.ReferenceDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
-import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO.Type;
-import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
-import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO;
 import org.osgi.service.cm.ConfigurationAdmin;
+import org.osgi.service.log.LoggerFactory;
 import org.osgi.util.converter.TypeReference;
 import org.osgi.util.promise.Promise;
+import org.osgi.util.promise.TimeoutException;
 import org.osgi.util.tracker.ServiceTracker;
 
 public class ContainerReferencesTest extends BaseCDIBundleTest {
@@ -43,16 +58,19 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 	@Test
 	public void reference_tracking() throws Exception {
 		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = TestUtil.mockCaSt(bundle);
+		ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker = TestUtil.mockLoggerFactory(bundle);
 
 		MockConfiguration mockConfiguration = new MockConfiguration("foo.config", null);
 		mockConfiguration.update(Maps.dict("fiz", "buz"));
 		TestUtil.configurations.add(mockConfiguration);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, loggerTracker);
 
 		ComponentTemplateDTO containerTemplate = containerState.containerDTO().template.components.get(0);
 
-		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate);
+		ContainerActivator.Builder builder = new ContainerActivator.Builder(containerState, null);
+
+		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate, builder);
 
 		ConfigurationListener configurationListener = new ConfigurationListener(containerState, containerComponent);
 
@@ -73,7 +91,7 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		p0.getValue();
 
 		ComponentDTO componentDTO = containerDTO.components.stream().filter(
-			c -> c.template.type == Type.CONTAINER
+			c -> c.template.type == ComponentType.CONTAINER
 		).findFirst().get();
 
 		assertNotNull(componentDTO);
@@ -106,8 +124,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 			assertEquals(MaximumCardinality.MANY, template.maximumCardinality);
 			assertEquals(0, template.minimumCardinality);
 			assertEquals("org.apache.aries.cdi.container.test.beans.BarAnnotated.dynamicFoos", template.name);
-			assertEquals(ReferenceTemplateDTO.Policy.DYNAMIC, template.policy);
-			assertEquals(ReferenceTemplateDTO.PolicyOption.RELUCTANT, template.policyOption);
+			assertEquals(ReferencePolicy.DYNAMIC, template.policy);
+			assertEquals(ReferencePolicyOption.RELUCTANT, template.policyOption);
 			assertEquals(Foo.class.getName(), template.serviceType);
 			assertEquals("", template.targetFilter);
 
@@ -125,8 +143,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 			assertEquals(MaximumCardinality.ONE, template.maximumCardinality);
 			assertEquals(1, template.minimumCardinality);
 			assertEquals("org.apache.aries.cdi.container.test.beans.BarAnnotated.foo", template.name);
-			assertEquals(ReferenceTemplateDTO.Policy.STATIC, template.policy);
-			assertEquals(ReferenceTemplateDTO.PolicyOption.GREEDY, template.policyOption);
+			assertEquals(ReferencePolicy.STATIC, template.policy);
+			assertEquals(ReferencePolicyOption.GREEDY, template.policyOption);
 			assertEquals(Foo.class.getName(), template.serviceType);
 			assertEquals("", template.targetFilter);
 
@@ -144,8 +162,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 			assertEquals(MaximumCardinality.ONE, template.maximumCardinality);
 			assertEquals(0, template.minimumCardinality);
 			assertEquals("org.apache.aries.cdi.container.test.beans.BarAnnotated.fooOptional", template.name);
-			assertEquals(ReferenceTemplateDTO.Policy.STATIC, template.policy);
-			assertEquals(ReferenceTemplateDTO.PolicyOption.RELUCTANT, template.policyOption);
+			assertEquals(ReferencePolicy.STATIC, template.policy);
+			assertEquals(ReferencePolicyOption.RELUCTANT, template.policyOption);
 			assertEquals(Foo.class.getName(), template.serviceType);
 			assertEquals("", template.targetFilter);
 
@@ -163,8 +181,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 			assertEquals(MaximumCardinality.MANY, template.maximumCardinality);
 			assertEquals(0, template.minimumCardinality);
 			assertEquals("org.apache.aries.cdi.container.test.beans.BarAnnotated.propertiesFoos", template.name);
-			assertEquals(ReferenceTemplateDTO.Policy.STATIC, template.policy);
-			assertEquals(ReferenceTemplateDTO.PolicyOption.RELUCTANT, template.policyOption);
+			assertEquals(ReferencePolicy.STATIC, template.policy);
+			assertEquals(ReferencePolicyOption.RELUCTANT, template.policyOption);
 			assertEquals(Foo.class.getName(), template.serviceType);
 			assertEquals("", template.targetFilter);
 
@@ -182,8 +200,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 			assertEquals(MaximumCardinality.MANY, template.maximumCardinality);
 			assertEquals(0, template.minimumCardinality);
 			assertEquals("org.apache.aries.cdi.container.test.beans.BarAnnotated.serviceReferencesFoos", template.name);
-			assertEquals(ReferenceTemplateDTO.Policy.STATIC, template.policy);
-			assertEquals(ReferenceTemplateDTO.PolicyOption.RELUCTANT, template.policyOption);
+			assertEquals(ReferencePolicy.STATIC, template.policy);
+			assertEquals(ReferencePolicyOption.RELUCTANT, template.policyOption);
 			assertEquals(Foo.class.getName(), template.serviceType);
 			assertEquals("(service.scope=prototype)", template.targetFilter);
 
@@ -201,8 +219,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 			assertEquals(MaximumCardinality.MANY, template.maximumCardinality);
 			assertEquals(0, template.minimumCardinality);
 			assertEquals("org.apache.aries.cdi.container.test.beans.BarAnnotated.tupleIntegers", template.name);
-			assertEquals(ReferenceTemplateDTO.Policy.STATIC, template.policy);
-			assertEquals(ReferenceTemplateDTO.PolicyOption.RELUCTANT, template.policyOption);
+			assertEquals(ReferencePolicy.STATIC, template.policy);
+			assertEquals(ReferencePolicyOption.RELUCTANT, template.policyOption);
 			assertEquals(Integer.class.getName(), template.serviceType);
 			assertEquals("", template.targetFilter);
 
@@ -213,28 +231,40 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 	}
 
 	@Test
-	public void check_all_components() throws Exception {
+	public void checkUnresolvedReferences() throws Exception {
+		Map<String, Object> attributes = new HashMap<>();
+
+		attributes.put(CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE, Arrays.asList("OSGI-INF/cdi/org.apache.aries.cdi.container.test.beans.Reference_S_R_M_U_Service.xml"));
+
+		when(
+			bundle.adapt(
+				BundleWiring.class).getRequiredWires(
+					ExtenderNamespace.EXTENDER_NAMESPACE).get(
+						0).getRequirement().getAttributes()
+		).thenReturn(attributes);
+
 		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = TestUtil.mockCaSt(bundle);
+		ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker = TestUtil.mockLoggerFactory(bundle);
 
 		MockConfiguration mockConfiguration = new MockConfiguration("foo.config", null);
 		mockConfiguration.update(Maps.dict("fiz", "buz"));
 		TestUtil.configurations.add(mockConfiguration);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, loggerTracker);
 
 		ComponentTemplateDTO containerTemplate = containerState.containerDTO().template.components.get(0);
 
-		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate);
+		ContainerActivator.Builder builder = new ContainerActivator.Builder(containerState, null);
 
-		ConfigurationListener configurationListener = new ConfigurationListener(containerState, containerComponent);
+		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate, builder);
 
 		Promise<Boolean> p0 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_COMPONENT_START;
+				return cc == Op.CONTAINER_REFERENCES_OPEN;
 			}
 		);
 
-		configurationListener.open();
+		containerComponent.open();
 
 		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
@@ -242,8 +272,96 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		assertTrue(containerDTO.errors + "", containerDTO.errors.isEmpty());
 		assertNotNull(containerDTO.template);
 
-		p0.getValue();
+		assertNull(p0.timeout(500).getValue());
 
+		ComponentInstanceDTO containerComponentInstance = containerDTO.components.get(0).instances.get(0);
+
+		List<ExtendedReferenceDTO> unresolvedReferences = containerComponentInstance.references.stream().map(
+			r -> (ExtendedReferenceDTO)r
+		).filter(
+			r -> r.matches.size() < r.minimumCardinality
+		).collect(Collectors.toList());
+
+		assertEquals(1, unresolvedReferences.size());
+
+		ExtendedReferenceDTO extendedReferenceDTO = unresolvedReferences.get(0);
+
+		assertTrue(extendedReferenceDTO.matches.isEmpty());
+		assertEquals(1, extendedReferenceDTO.minimumCardinality);
+		assertNotNull(extendedReferenceDTO.serviceTracker);
+		assertEquals("(objectClass=org.apache.aries.cdi.container.test.beans.Foo)", extendedReferenceDTO.targetFilter);
+		assertNotNull(extendedReferenceDTO.template);
+		assertEquals(MaximumCardinality.ONE, extendedReferenceDTO.template.maximumCardinality);
+		assertEquals(1, extendedReferenceDTO.template.minimumCardinality);
+		assertEquals("org.apache.aries.cdi.container.test.beans.Reference_S_R_M_U_Service.foo", extendedReferenceDTO.template.name);
+		assertEquals(ReferencePolicy.STATIC, extendedReferenceDTO.template.policy);
+		assertEquals(ReferencePolicyOption.RELUCTANT, extendedReferenceDTO.template.policyOption);
+		assertEquals(Foo.class.getName(), extendedReferenceDTO.template.serviceType);
+		assertEquals("", extendedReferenceDTO.template.targetFilter);
+
+		// first test publishing a service targeting one of the optional references
+
+		BundleDTO serviceBundleDTO = new BundleDTO();
+
+		Bundle serviceBundle = TestUtil.mockBundle(serviceBundleDTO, b -> {});
+
+		p0 = containerState.addCallback(
+			(CheckedCallback<Boolean, Boolean>) cc -> {
+				return cc == Op.CONTAINER_INSTANCE_ACTIVATE;
+			}
+		);
+
+		ServiceRegistration<Foo> sr1 = serviceBundle.getBundleContext().registerService(
+			Foo.class, new Foo() {}, Maps.dict("sr1", "sr1"));
+
+		assertTrue(p0.timeout(500).getValue());
+
+		assertEquals(1, extendedReferenceDTO.matches.size());
+
+		p0 = containerState.addCallback(
+			(CheckedCallback<Boolean, Boolean>) cc -> {
+				return cc == Op.CONTAINER_INSTANCE_DEACTIVATE;
+			}
+		);
+
+		ServiceRegistration<Foo> sr2 = serviceBundle.getBundleContext().registerService(
+			Foo.class, new Foo() {}, Maps.dict("sr2", "sr2"));
+
+		assertTrue("should be a TimeoutException", TimeoutException.class.equals(p0.timeout(500).getFailure().getClass()));
+
+		assertEquals(2, extendedReferenceDTO.matches.size());
+
+		p0 = containerState.addCallback(
+			(CheckedCallback<Boolean, Boolean>) cc -> {
+				return cc == Op.CONTAINER_INSTANCE_DEACTIVATE;
+			}
+		);
+
+		ServiceRegistration<Foo> sr3 = serviceBundle.getBundleContext().registerService(
+			Foo.class, new Foo() {}, Maps.dict("sr3", "sr3", Constants.SERVICE_RANKING, 100));
+
+		assertTrue("should be a TimeoutException", TimeoutException.class.equals(p0.timeout(500).getFailure().getClass()));
+
+		assertEquals(3, extendedReferenceDTO.matches.size());
+
+		p0 = containerState.addCallback(
+			(CheckedCallback<Boolean, Boolean>) cc -> {
+				return cc == Op.CONTAINER_INSTANCE_DEACTIVATE;
+			}
+		);
+		Promise<Boolean> p1 = containerState.addCallback(
+			(CheckedCallback<Boolean, Boolean>) cc -> {
+				return cc == Op.CONTAINER_INSTANCE_ACTIVATE;
+			}
+		);
+
+		sr1.unregister();
+
+		assertNull(p0.timeout(500).getFailure());
+
+		assertEquals(2, extendedReferenceDTO.matches.size());
+
+		assertTrue(p1.timeout(500).getValue());
 	}
 
 }

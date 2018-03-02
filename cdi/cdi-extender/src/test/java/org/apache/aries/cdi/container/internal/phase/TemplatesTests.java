@@ -20,19 +20,23 @@ import org.osgi.framework.Constants;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.namespace.extender.ExtenderNamespace;
 import org.osgi.service.cdi.CDIConstants;
+import org.osgi.service.cdi.ComponentType;
+import org.osgi.service.cdi.ConfigurationPolicy;
+import org.osgi.service.cdi.MaximumCardinality;
+import org.osgi.service.cdi.ReferencePolicy;
+import org.osgi.service.cdi.ReferencePolicyOption;
+import org.osgi.service.cdi.ServiceScope;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.service.cdi.runtime.dto.template.ActivationTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
-import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
-import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO;
 
 public class TemplatesTests extends BaseCDIBundleTest {
 
 	@Test
 	public void components_simple() throws Exception {
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, null);
 
 		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
@@ -51,7 +55,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 			{
 				ActivationTemplateDTO at = template.activations.get(0);
 				assertEquals(Maps.of("jaxrs.resource", true), at.properties);
-				assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
+				assertEquals(ServiceScope.SINGLETON, at.scope);
 				assertEquals(Arrays.asList(Baz.class.getName()), at.serviceClasses);
 			}
 
@@ -60,7 +64,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 			assertEquals("foo", template.name);
 			assertEquals(Maps.of(), template.properties);
 			assertEquals(6, template.references.size());
-			assertEquals(ComponentTemplateDTO.Type.CONTAINER, template.type);
+			assertEquals(ComponentType.CONTAINER, template.type);
 		}
 
 		{
@@ -70,7 +74,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 			{
 				ActivationTemplateDTO at = template.activations.get(0);
 				assertEquals(Maps.of(), at.properties);
-				assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
+				assertEquals(ServiceScope.SINGLETON, at.scope);
 				assertEquals(Arrays.asList("org.apache.aries.cdi.container.test.beans.Foo"), at.serviceClasses);
 			}
 
@@ -79,7 +83,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 			assertEquals("foo.annotated", template.name);
 			assertEquals(Maps.of("service.ranking", 12), template.properties);
 			assertEquals(3, template.references.size());
-			assertEquals(ComponentTemplateDTO.Type.SINGLE, template.type);
+			assertEquals(ComponentType.SINGLE, template.type);
 		}
 	}
 
@@ -96,7 +100,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 						0).getRequirement().getAttributes()
 		).thenReturn(attributes);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, null);
 
 		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
@@ -115,7 +119,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 			{
 				ActivationTemplateDTO at = ct.activations.get(0);
 				assertEquals(Maps.of(), at.properties);
-				assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
+				assertEquals(ServiceScope.SINGLETON, at.scope);
 				assertEquals(Arrays.asList("org.apache.aries.cdi.container.test.beans.Bar"), at.serviceClasses);
 			}
 
@@ -124,7 +128,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 			assertEquals("barService", ct.name);
 			assertEquals(Maps.of(), ct.properties);
 			assertEquals(0, ct.references.size());
-			assertEquals(ComponentTemplateDTO.Type.FACTORY, ct.type);
+			assertEquals(ComponentType.FACTORY, ct.type);
 		}
 
 		{
@@ -135,7 +139,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 			assertEquals("foo", ct.name);
 			assertEquals(Maps.of(), ct.properties);
 			assertEquals(8, ct.references.size());
-			assertEquals(ComponentTemplateDTO.Type.CONTAINER, ct.type);
+			assertEquals(ComponentType.CONTAINER, ct.type);
 		}
 
 		{
@@ -145,7 +149,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 			{
 				ActivationTemplateDTO at = ct.activations.get(0);
 				assertEquals(Maps.of(), at.properties);
-				assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
+				assertEquals(ServiceScope.SINGLETON, at.scope);
 				assertEquals(Arrays.asList("org.apache.aries.cdi.container.test.beans.Foo"), at.serviceClasses);
 			}
 
@@ -154,7 +158,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 			assertEquals("foo.annotated", ct.name);
 			assertEquals(Maps.of("service.ranking", 12), ct.properties);
 			assertEquals(3, ct.references.size());
-			assertEquals(ComponentTemplateDTO.Type.SINGLE, ct.type);
+			assertEquals(ComponentType.SINGLE, ct.type);
 		}
 	}
 
@@ -171,7 +175,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 						0).getRequirement().getAttributes()
 		).thenReturn(attributes);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, null);
 
 		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
@@ -190,7 +194,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 			{
 				ActivationTemplateDTO at = ct.activations.get(0);
 				assertEquals(Maps.of(), at.properties);
-				assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
+				assertEquals(ServiceScope.SINGLETON, at.scope);
 				assertEquals(Arrays.asList("org.apache.aries.cdi.container.test.beans.Bar"), at.serviceClasses);
 			}
 
@@ -200,7 +204,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 			assertEquals("barService", ct.name);
 			assertEquals(Maps.of(), ct.properties);
 			assertEquals(0, ct.references.size());
-			assertEquals(ComponentTemplateDTO.Type.FACTORY, ct.type);
+			assertEquals(ComponentType.FACTORY, ct.type);
 
 			{ // configuration "barService"
 				ConfigurationTemplateDTO configurationTemplateDTO = ct.configurations.get(0);
@@ -219,21 +223,21 @@ public class TemplatesTests extends BaseCDIBundleTest {
 			{
 				ActivationTemplateDTO at = ct.activations.get(0);
 				assertEquals(Maps.of("jaxrs.resource", true), at.properties);
-				assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
+				assertEquals(ServiceScope.SINGLETON, at.scope);
 				assertEquals(Arrays.asList(Baz.class.getName()), at.serviceClasses);
 			}
 
 			{
 				ActivationTemplateDTO at = ct.activations.get(1);
 				assertEquals(Maps.of(Constants.SERVICE_RANKING, 100), at.properties);
-				assertEquals(ActivationTemplateDTO.Scope.BUNDLE, at.scope);
+				assertEquals(ServiceScope.BUNDLE, at.scope);
 				assertEquals(Arrays.asList(Integer.class.getName()), at.serviceClasses);
 			}
 
 			{
 				ActivationTemplateDTO at = ct.activations.get(2);
 				assertEquals(Maps.of(), at.properties);
-				assertEquals(ActivationTemplateDTO.Scope.SINGLETON, at.scope);
+				assertEquals(ServiceScope.SINGLETON, at.scope);
 				assertEquals(Arrays.asList(Bar.class.getName()), at.serviceClasses);
 			}
 
@@ -248,7 +252,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 			assertEquals("foo", ct.name);
 			assertEquals(Maps.of(), ct.properties);
 			assertEquals(8, ct.references.size());
-			assertEquals(ComponentTemplateDTO.Type.CONTAINER, ct.type);
+			assertEquals(ComponentType.CONTAINER, ct.type);
 
 			{ // configuration "osgi.cdi.foo"
 				ConfigurationTemplateDTO configurationTemplateDTO = ct.configurations.get(0);
@@ -273,8 +277,8 @@ public class TemplatesTests extends BaseCDIBundleTest {
 				assertEquals(MaximumCardinality.MANY, ref.maximumCardinality);
 				assertEquals(0, ref.minimumCardinality);
 				assertEquals("org.apache.aries.cdi.container.test.beans.BarAnnotated.dynamicFoos", ref.name);
-				assertEquals(ReferenceTemplateDTO.Policy.DYNAMIC, ref.policy);
-				assertEquals(ReferenceTemplateDTO.PolicyOption.RELUCTANT, ref.policyOption);
+				assertEquals(ReferencePolicy.DYNAMIC, ref.policy);
+				assertEquals(ReferencePolicyOption.RELUCTANT, ref.policyOption);
 				assertEquals("org.apache.aries.cdi.container.test.beans.Foo", ref.serviceType);
 				assertEquals("", ref.targetFilter);
 			}
@@ -284,8 +288,8 @@ public class TemplatesTests extends BaseCDIBundleTest {
 				assertEquals(MaximumCardinality.ONE, ref.maximumCardinality);
 				assertEquals(1, ref.minimumCardinality);
 				assertEquals("org.apache.aries.cdi.container.test.beans.BarAnnotated.foo", ref.name);
-				assertEquals(ReferenceTemplateDTO.Policy.STATIC, ref.policy);
-				assertEquals(ReferenceTemplateDTO.PolicyOption.GREEDY, ref.policyOption);
+				assertEquals(ReferencePolicy.STATIC, ref.policy);
+				assertEquals(ReferencePolicyOption.GREEDY, ref.policyOption);
 				assertEquals("org.apache.aries.cdi.container.test.beans.Foo", ref.serviceType);
 				assertEquals("", ref.targetFilter);
 			}
@@ -295,8 +299,8 @@ public class TemplatesTests extends BaseCDIBundleTest {
 				assertEquals(MaximumCardinality.ONE, ref.maximumCardinality);
 				assertEquals(0, ref.minimumCardinality);
 				assertEquals("org.apache.aries.cdi.container.test.beans.BarAnnotated.fooOptional", ref.name);
-				assertEquals(ReferenceTemplateDTO.Policy.STATIC, ref.policy);
-				assertEquals(ReferenceTemplateDTO.PolicyOption.RELUCTANT, ref.policyOption);
+				assertEquals(ReferencePolicy.STATIC, ref.policy);
+				assertEquals(ReferencePolicyOption.RELUCTANT, ref.policyOption);
 				assertEquals("org.apache.aries.cdi.container.test.beans.Foo", ref.serviceType);
 				assertEquals("", ref.targetFilter);
 			}
@@ -306,8 +310,8 @@ public class TemplatesTests extends BaseCDIBundleTest {
 				assertEquals(MaximumCardinality.MANY, ref.maximumCardinality);
 				assertEquals(0, ref.minimumCardinality);
 				assertEquals("org.apache.aries.cdi.container.test.beans.BarAnnotated.propertiesFoos", ref.name);
-				assertEquals(ReferenceTemplateDTO.Policy.STATIC, ref.policy);
-				assertEquals(ReferenceTemplateDTO.PolicyOption.RELUCTANT, ref.policyOption);
+				assertEquals(ReferencePolicy.STATIC, ref.policy);
+				assertEquals(ReferencePolicyOption.RELUCTANT, ref.policyOption);
 				assertEquals("org.apache.aries.cdi.container.test.beans.Foo", ref.serviceType);
 				assertEquals("", ref.targetFilter);
 			}
@@ -317,8 +321,8 @@ public class TemplatesTests extends BaseCDIBundleTest {
 				assertEquals(MaximumCardinality.MANY, ref.maximumCardinality);
 				assertEquals(0, ref.minimumCardinality);
 				assertEquals("org.apache.aries.cdi.container.test.beans.BarAnnotated.serviceReferencesFoos", ref.name);
-				assertEquals(ReferenceTemplateDTO.Policy.STATIC, ref.policy);
-				assertEquals(ReferenceTemplateDTO.PolicyOption.RELUCTANT, ref.policyOption);
+				assertEquals(ReferencePolicy.STATIC, ref.policy);
+				assertEquals(ReferencePolicyOption.RELUCTANT, ref.policyOption);
 				assertEquals("org.apache.aries.cdi.container.test.beans.Foo", ref.serviceType);
 				assertEquals("(service.scope=prototype)", ref.targetFilter);
 			}
@@ -328,8 +332,8 @@ public class TemplatesTests extends BaseCDIBundleTest {
 				assertEquals(MaximumCardinality.MANY, ref.maximumCardinality);
 				assertEquals(0, ref.minimumCardinality);
 				assertEquals("org.apache.aries.cdi.container.test.beans.BarAnnotated.tupleIntegers", ref.name);
-				assertEquals(ReferenceTemplateDTO.Policy.STATIC, ref.policy);
-				assertEquals(ReferenceTemplateDTO.PolicyOption.RELUCTANT, ref.policyOption);
+				assertEquals(ReferencePolicy.STATIC, ref.policy);
+				assertEquals(ReferencePolicyOption.RELUCTANT, ref.policyOption);
 				assertEquals("java.lang.Integer", ref.serviceType);
 				assertEquals("", ref.targetFilter);
 			}
@@ -339,8 +343,8 @@ public class TemplatesTests extends BaseCDIBundleTest {
 				assertEquals(MaximumCardinality.ONE, ref.maximumCardinality);
 				assertEquals(1, ref.minimumCardinality);
 				assertEquals("org.apache.aries.cdi.container.test.beans.BarProducer.getBar0", ref.name);
-				assertEquals(ReferenceTemplateDTO.Policy.STATIC, ref.policy);
-				assertEquals(ReferenceTemplateDTO.PolicyOption.RELUCTANT, ref.policyOption);
+				assertEquals(ReferencePolicy.STATIC, ref.policy);
+				assertEquals(ReferencePolicyOption.RELUCTANT, ref.policyOption);
 				assertEquals("org.apache.aries.cdi.container.test.beans.Bar", ref.serviceType);
 				assertEquals("", ref.targetFilter);
 			}
@@ -350,8 +354,8 @@ public class TemplatesTests extends BaseCDIBundleTest {
 				assertEquals(MaximumCardinality.MANY, ref.maximumCardinality);
 				assertEquals(0, ref.minimumCardinality);
 				assertEquals("org.apache.aries.cdi.container.test.beans.ObserverFoo.foos0", ref.name);
-				assertEquals(ReferenceTemplateDTO.Policy.DYNAMIC, ref.policy);
-				assertEquals(ReferenceTemplateDTO.PolicyOption.GREEDY, ref.policyOption);
+				assertEquals(ReferencePolicy.DYNAMIC, ref.policy);
+				assertEquals(ReferencePolicyOption.GREEDY, ref.policyOption);
 				assertEquals("org.apache.aries.cdi.container.test.beans.Foo", ref.serviceType);
 				assertEquals("", ref.targetFilter);
 			}
@@ -366,7 +370,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 			assertEquals("foo.annotated", ct.name);
 			assertEquals(Maps.of("service.ranking", 12), ct.properties);
 			assertEquals(3, ct.references.size());
-			assertEquals(ComponentTemplateDTO.Type.SINGLE, ct.type);
+			assertEquals(ComponentType.SINGLE, ct.type);
 
 			{ // configuration "foo.annotated"
 				ConfigurationTemplateDTO configurationTemplateDTO = ct.configurations.get(0);
@@ -391,7 +395,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 						0).getRequirement().getAttributes()
 		).thenReturn(attributes);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, null);
 
 		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);

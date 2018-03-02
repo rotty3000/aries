@@ -1,33 +1,45 @@
 package org.apache.aries.cdi.container.internal.model;
 
-import java.util.concurrent.Callable;
-
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
+import org.apache.aries.cdi.container.internal.phase.Phase;
 
-public class SingleActivator extends ComponentInstanceActivator {
+public class SingleActivator extends InstanceActivator {
 
-	public SingleActivator(ContainerState containerState) {
-		super(containerState);
+	public static class Builder extends InstanceActivator.Builder<Builder> {
+
+		public Builder(ContainerState containerState, Phase next) {
+			super(containerState, next);
+		}
+
+		@Override
+		public SingleActivator build() {
+			return new SingleActivator(this);
+		}
+
+	}
+
+	private SingleActivator(Builder builder) {
+		super(builder);
 	}
 
 	@Override
-	public Callable<?> activate(ExtendedComponentInstanceDTO componentInstanceDTO) {
-		return null;
+	public boolean open() {
+		return true;
 	}
 
 	@Override
-	public Op activateOp() {
+	public Op openOp() {
 		return Op.SINGLE_INSTANCE_ACTIVATE;
 	}
 
 	@Override
-	public Callable<?> deactivate(ExtendedComponentInstanceDTO componentInstanceDTO) {
-		return null;
+	public boolean close() {
+		return true;
 	}
 
 	@Override
-	public Op deactivateOp() {
+	public Op closeOp() {
 		return Op.SINGLE_INSTANCE_DEACTIVATE;
 	}
 

@@ -1,3 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
 /**
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,28 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+-->
 
-package org.apache.aries.cdi.container.internal.container;
-
-import javax.enterprise.util.AnnotationLiteral;
-
-public class CdiMarkLiteral extends AnnotationLiteral<CdiMark> implements CdiMark {
-
-	private static final long serialVersionUID = 1L;
-
-	public static CdiMark from(int i) {
-		return new CdiMarkLiteral(i);
-	}
-
-	public CdiMarkLiteral(int i) {
-		_value = i;
-	}
-
-	@Override
-	public int value() {
-		return _value;
-	}
-
-	private final int _value;
-
-}
+<cdi:bean
+	xmlns:cdi="http://www.osgi.org/xmlns/cdi/v1.0.0"
+	class="org.apache.aries.cdi.container.test.beans.Reference_S_R_M_U_Service"
+/>

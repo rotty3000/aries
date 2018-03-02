@@ -143,6 +143,11 @@ public class MockServiceReference<S> implements ServiceReference<S> {
 		return dto;
 	}
 
+	@Override
+	public String toString() {
+		return toDTO().toString();
+	}
+
 	public static final AtomicLong _serviceIds = new AtomicLong();
 
 	private static final Integer _ZERO = new Integer(0);

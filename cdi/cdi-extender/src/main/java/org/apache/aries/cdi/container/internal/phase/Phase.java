@@ -19,7 +19,6 @@ import java.util.concurrent.Callable;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
-import org.apache.aries.cdi.container.internal.util.Throw;
 import org.osgi.framework.Bundle;
 import org.osgi.util.promise.Promise;
 
@@ -37,7 +36,7 @@ public abstract class Phase {
 	}
 
 	public final void error(Throwable t) {
-		containerState.containerDTO().errors.add(Throw.asString(t));
+		containerState.error(t);
 	}
 
 	public abstract boolean open();

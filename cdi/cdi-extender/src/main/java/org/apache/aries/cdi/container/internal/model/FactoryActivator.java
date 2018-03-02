@@ -1,34 +1,46 @@
 package org.apache.aries.cdi.container.internal.model;
 
-import java.util.concurrent.Callable;
-
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
+import org.apache.aries.cdi.container.internal.phase.Phase;
 
-public class FactoryActivator extends ComponentInstanceActivator {
+public class FactoryActivator extends InstanceActivator {
 
-	public FactoryActivator(ContainerState containerState) {
-		super(containerState);
+	public static class Builder extends InstanceActivator.Builder<Builder> {
+
+		public Builder(ContainerState containerState, Phase next) {
+			super(containerState, next);
+		}
+
+		@Override
+		public FactoryActivator build() {
+			return new FactoryActivator(this);
+		}
+
+	}
+
+	private FactoryActivator(Builder builder) {
+		super(builder);
 	}
 
 	@Override
-	public Callable<?> activate(ExtendedComponentInstanceDTO componentInstanceDTO) {
-		return null;
+	public boolean close() {
+		return false;
 	}
 
 	@Override
-	public Op activateOp() {
-		return Op.FACTORY_INSTANCE_ACTIVATE;
-	}
-
-	@Override
-	public Callable<?> deactivate(ExtendedComponentInstanceDTO componentInstanceDTO) {
-		return null;
-	}
-
-	@Override
-	public Op deactivateOp() {
+	public Op closeOp() {
 		return Op.FACTORY_INSTANCE_DEACTIVATE;
+	}
+
+	@Override
+	public boolean open() {
+		return true;
+	}
+
+	@Override
+	public Op openOp() {
+		return Op.FACTORY_INSTANCE_ACTIVATE;
 	}
 
 }

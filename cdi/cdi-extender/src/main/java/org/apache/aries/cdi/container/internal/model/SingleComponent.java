@@ -11,9 +11,15 @@ import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 
-public class SingleComponent implements Component {
+public class SingleComponent extends Component {
 
-	public SingleComponent(ContainerState containerState, ComponentTemplateDTO template) {
+	public SingleComponent(
+		ContainerState containerState,
+		ComponentTemplateDTO template,
+		InstanceActivator activator) {
+
+		super(containerState, null);
+
 		_containerState = containerState;
 		_template = template;
 
@@ -29,11 +35,21 @@ public class SingleComponent implements Component {
 		_instanceDTO.properties = null;
 		_instanceDTO.references = new CopyOnWriteArrayList<>();
 		_instanceDTO.template = template;
-		_instanceDTO.activator = new SingleActivator(_containerState);
+		//_instanceDTO.activator = new SingleActivator(_containerState);
 
 		_snapshot.instances.add(_instanceDTO);
 
 		_containerState.containerDTO().components.add(_snapshot);
+	}
+
+	@Override
+	public boolean close() {
+		return _instanceDTO.stop();
+	}
+
+	@Override
+	public Op closeOp() {
+		return Op.SINGLE_COMPONENT_STOP;
 	}
 
 	@Override
@@ -52,23 +68,13 @@ public class SingleComponent implements Component {
 	}
 
 	@Override
-	public Op startOp() {
-		return Op.SINGLE_COMPONENT_START;
-	}
-
-	@Override
-	public boolean start() {
+	public boolean open() {
 		return _instanceDTO.start();
 	}
 
 	@Override
-	public Op stopOp() {
-		return Op.SINGLE_COMPONENT_STOP;
-	}
-
-	@Override
-	public boolean stop() {
-		return _instanceDTO.stop();
+	public Op openOp() {
+		return Op.SINGLE_COMPONENT_START;
 	}
 
 	@Override

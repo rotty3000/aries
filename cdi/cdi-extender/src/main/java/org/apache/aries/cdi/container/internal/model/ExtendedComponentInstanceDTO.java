@@ -7,21 +7,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.aries.cdi.container.internal.bean.ReferenceBean;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.container.ReferenceSync;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.osgi.framework.Constants;
-import org.osgi.framework.ServiceReference;
+import org.osgi.service.cdi.ConfigurationPolicy;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.ConfigurationDTO;
 import org.osgi.service.cdi.runtime.dto.ReferenceDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
-import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO;
 import org.osgi.service.log.Logger;
@@ -29,47 +28,13 @@ import org.osgi.util.tracker.ServiceTracker;
 
 public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 
-	public void activate(ServiceReference<Object> reference) {
-		if (referencesResolved()) {
-			_log.debug(l -> l.debug("CCR Begin component instance activate on {}", this));
-
-			containerState.submit(
-				activator.deactivateOp(),
-				activator.deactivate(this)
-			).then(
-				s -> {
-					return containerState.submit(
-						activator.activateOp(), activator.activate(this)
-					).then(
-						s2 -> s2,
-						f -> {
-							_log.error(l -> l.error("CCR Failure in component instance activate on {}", this, f.getFailure()));
-						}
-					);
-				},
-				f -> {
-					_log.error(l -> l.error("CCR Failure in component instance deactivate on {}", this, f.getFailure()));
-				}
-			);
-		}
-	}
-
-	public void deactivate(ServiceReference<Object> reference) {
-		_log.debug(l -> l.debug("CCR Begin component instance deactivate on {}", this));
-
-		containerState.submit(
-			activator.deactivateOp(), activator.deactivate(this)
-		).then(
-			s -> {
-				_log.debug(l -> l.debug("CCR Ended component instance deactivate on {}", this));
-
-				return s;
-			},
-			f -> {
-				_log.error(l -> l.error("CCR Failed component instance deactivate on {}", this, f.getFailure()));
-			}
-		);
-	}
+	public boolean active;
+	public InstanceActivator.Builder<?> builder;
+	public Long componentId = _componentIds.incrementAndGet();
+	public ContainerState containerState;
+	public String pid;
+	public ComponentTemplateDTO template;
+	public List<ReferenceBean> _referenceBeans = new CopyOnWriteArrayList<>();
 
 	/**
 	 * @return true when all the configuration templates are resolved, otherwise false
@@ -99,6 +64,7 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 				// find a reference snapshot or not resolved
 				boolean found = false;
 				for (ReferenceDTO snapshot : references) {
+					if (!snapshot.template.equals(template)) continue;
 					ExtendedReferenceDTO extended = (ExtendedReferenceDTO)snapshot;
 					if (extended.matches.size() >= extended.minimumCardinality) {
 						found = true;
@@ -146,16 +112,24 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 
 				referenceDTO.matches = new CopyOnWriteArrayList<>();
 				referenceDTO.minimumCardinality = minimumCardinality(t.name, t.minimumCardinality);
-				referenceDTO.references = new ConcurrentSkipListSet<>();
 				referenceDTO.targetFilter = targetFilter(t.serviceType, t.name, t.targetFilter);
 				referenceDTO.template = t;
 				referenceDTO.serviceTracker = new ServiceTracker<>(
 					containerState.bundleContext(),
 					asFilter(referenceDTO.targetFilter),
-					new ReferenceSync(referenceDTO, this));
+					new ReferenceSync(referenceDTO, this, builder));
 
 				references.add(referenceDTO);
-				referenceDTO.serviceTracker.open();
+			}
+		);
+
+		containerState.submit(
+			Op.CONTAINER_REFERENCES_OPEN,
+			() -> {
+				references.stream().map(
+					r -> (ExtendedReferenceDTO)r).forEach(r -> r.serviceTracker.open()
+				);
+				return null;
 			}
 		);
 
@@ -195,17 +169,23 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 	}
 
 	public boolean stop() {
-		references.removeIf(
-			r -> {
-				ExtendedReferenceDTO referenceDTO = (ExtendedReferenceDTO)r;
+		properties = null;
 
-				referenceDTO.serviceTracker.close();
-
-				return true;
+		containerState.submit(
+			Op.CONTAINER_REFERENCES_CLOSE,
+			() -> references.removeIf(
+				r -> {
+					ExtendedReferenceDTO referenceDTO = (ExtendedReferenceDTO)r;
+					referenceDTO.serviceTracker.close();
+					return true;
+				}
+			)
+		).then(
+			null,
+			f -> {
+				_log.error(l -> l.error("CCR Error in component instance stop on {}", this, f.getFailure()));
 			}
 		);
-
-		properties = null;
 
 		return true;
 	}
@@ -236,12 +216,5 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 
 	private static Logger _log = Logs.getLogger(ExtendedComponentInstanceDTO.class);
 	private static final AtomicLong _componentIds = new AtomicLong();
-
-	public ComponentInstanceActivator activator;
-	public Long componentId = _componentIds.incrementAndGet();
-	public ContainerState containerState;
-	public String pid;
-	public ComponentTemplateDTO template;
-	public List<ReferenceBean> _referenceBeans = new CopyOnWriteArrayList<>();
 
 }

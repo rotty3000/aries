@@ -55,16 +55,17 @@ import org.osgi.framework.wiring.BundleCapability;
 import org.osgi.framework.wiring.BundleRequirement;
 import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
+import org.osgi.service.cdi.ComponentType;
+import org.osgi.service.cdi.ConfigurationPolicy;
+import org.osgi.service.cdi.MaximumCardinality;
 import org.osgi.service.cdi.reference.ReferenceEvent;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
-import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO.Type;
-import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
 import org.osgi.service.cdi.runtime.dto.template.ContainerTemplateDTO;
-import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.log.Logger;
+import org.osgi.service.log.LoggerFactory;
 import org.osgi.util.promise.Deferred;
 import org.osgi.util.promise.Promise;
 import org.osgi.util.promise.PromiseFactory;
@@ -82,7 +83,8 @@ public class ContainerState {
 		Bundle extenderBundle,
 		ChangeCount ccrChangeCount,
 		PromiseFactory promiseFactory,
-		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker) {
+		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker,
+		ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker) {
 
 		_bundle = bundle;
 		_extenderBundle = extenderBundle;
@@ -92,6 +94,7 @@ public class ContainerState {
 
 		_promiseFactory = promiseFactory;
 		_caTracker = caTracker;
+		_loggerTracker = loggerTracker;
 
 		BundleWiring bundleWiring = _bundle.adapt(BundleWiring.class);
 
@@ -153,7 +156,7 @@ public class ContainerState {
 		componentTemplate.name = _containerDTO.template.id;
 		componentTemplate.properties = Collections.emptyMap();
 		componentTemplate.references = new CopyOnWriteArrayList<>();
-		componentTemplate.type = Type.CONTAINER;
+		componentTemplate.type = ComponentType.CONTAINER;
 
 		ExtendedConfigurationTemplateDTO configurationTemplate = new ExtendedConfigurationTemplateDTO();
 		configurationTemplate.componentConfiguration = true;
@@ -185,9 +188,9 @@ public class ContainerState {
 			new ContainerDiscovery(this);
 		}
 		catch (Exception e) {
-			_containerDTO.errors.add(Throw.asString(e));
-
 			_log.error(l -> l.error("CCR Discovery resulted in errors on {}", bundle, e));
+
+			_containerDTO.errors.add(Throw.asString(e));
 		}
 	}
 
@@ -228,8 +231,6 @@ public class ContainerState {
 
 	public void error(Throwable t) {
 		containerDTO().errors.add(Throw.asString(t));
-
-		_log.error(l -> l.error(t.getMessage(), t));
 	}
 
 	public Bundle extenderBundle() {
@@ -270,6 +271,10 @@ public class ContainerState {
 	@SuppressWarnings("unchecked")
 	public <T extends ResourceLoader & ProxyServices> T loader() {
 		return (T)new BundleResourcesLoader(_bundle, _extenderBundle);
+	}
+
+	public ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker() {
+		return _loggerTracker;
 	}
 
 	public Map<Component, Map<String, ReferenceCallback>> referenceCallbacks() {
@@ -342,6 +347,7 @@ public class ContainerState {
 	private final ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> _caTracker;
 	private final ContainerDTO _containerDTO;
 	private final Bundle _extenderBundle;
+	private final ServiceTracker<LoggerFactory, LoggerFactory> _loggerTracker;
 	private final PromiseFactory _promiseFactory;
 	private final Map<Component, Map<String, ReferenceCallback>> _referenceCallbacksMap = new ConcurrentHashMap<>();
 	private final Map<Component, Map<String, ObserverMethod<ReferenceEvent<?>>>> _referenceObserversMap = new ConcurrentHashMap<>();

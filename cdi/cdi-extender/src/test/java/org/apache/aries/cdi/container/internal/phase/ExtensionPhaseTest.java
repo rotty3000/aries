@@ -42,7 +42,7 @@ public class ExtensionPhaseTest extends BaseCDIBundleTest {
 						0).getRequirement().getAttributes()
 		).thenReturn(attributes);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, null);
 
 		CDIBundle cdiBundle = new CDIBundle(
 			ccr, containerState,

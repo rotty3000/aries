@@ -19,12 +19,34 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+import javax.enterprise.util.AnnotationLiteral;
 import javax.inject.Qualifier;
 
 @Qualifier
 @Target(value = {ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE})
 @Retention(value = RetentionPolicy.RUNTIME)
-public @interface CdiMark {
+public @interface Mark {
+
+	public class Literal extends AnnotationLiteral<Mark> implements Mark {
+
+		private static final long serialVersionUID = 1L;
+
+		public static Literal from(int i) {
+			return new Literal(i);
+		}
+
+		public Literal(int i) {
+			_value = i;
+		}
+
+		@Override
+		public int value() {
+			return _value;
+		}
+
+		private final int _value;
+
+	}
 
 	int value();
 

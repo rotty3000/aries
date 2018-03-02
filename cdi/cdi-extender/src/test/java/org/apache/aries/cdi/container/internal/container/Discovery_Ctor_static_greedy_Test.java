@@ -32,8 +32,10 @@ import org.apache.aries.cdi.container.test.beans.ctorstaticgreedy.CtorFooFooName
 import org.apache.aries.cdi.container.test.beans.ctorstaticgreedy.CtorFooOptional;
 import org.apache.aries.cdi.container.test.beans.ctorstaticgreedy.CtorListFoo;
 import org.junit.Test;
+import org.osgi.service.cdi.MaximumCardinality;
+import org.osgi.service.cdi.ReferencePolicy;
+import org.osgi.service.cdi.ReferencePolicyOption;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
-import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO;
 
 public class Discovery_Ctor_static_greedy_Test {
@@ -64,9 +66,9 @@ public class Discovery_Ctor_static_greedy_Test {
 			assertEquals(MaximumCardinality.MANY, referenceTemplateDTO.maximumCardinality);
 			assertEquals(0, referenceTemplateDTO.minimumCardinality);
 			assertEquals(CtorListFoo.class.getName() + ".new0", referenceTemplateDTO.name);
-			assertEquals(ReferenceTemplateDTO.Policy.STATIC, referenceTemplateDTO.policy);
+			assertEquals(ReferencePolicy.STATIC, referenceTemplateDTO.policy);
 			assertEquals(
-				ReferenceTemplateDTO.PolicyOption.GREEDY, referenceTemplateDTO.policyOption);
+				ReferencePolicyOption.GREEDY, referenceTemplateDTO.policyOption);
 			assertEquals(Foo.class.getName(), referenceTemplateDTO.serviceType);
 			assertEquals("", referenceTemplateDTO.targetFilter);
 		}
@@ -97,9 +99,9 @@ public class Discovery_Ctor_static_greedy_Test {
 			assertEquals(MaximumCardinality.MANY, referenceTemplateDTO.maximumCardinality);
 			assertEquals(0, referenceTemplateDTO.minimumCardinality);
 			assertEquals(CtorCollectionFoo.class.getName() + ".new0", referenceTemplateDTO.name);
-			assertEquals(ReferenceTemplateDTO.Policy.STATIC, referenceTemplateDTO.policy);
+			assertEquals(ReferencePolicy.STATIC, referenceTemplateDTO.policy);
 			assertEquals(
-				ReferenceTemplateDTO.PolicyOption.GREEDY, referenceTemplateDTO.policyOption);
+				ReferencePolicyOption.GREEDY, referenceTemplateDTO.policyOption);
 			assertEquals(Foo.class.getName(), referenceTemplateDTO.serviceType);
 			assertEquals("", referenceTemplateDTO.targetFilter);
 		}
@@ -130,9 +132,9 @@ public class Discovery_Ctor_static_greedy_Test {
 			assertEquals(MaximumCardinality.ONE, referenceTemplateDTO.maximumCardinality);
 			assertEquals(1, referenceTemplateDTO.minimumCardinality);
 			assertEquals(CtorFooFoo.class.getName() + ".new0", referenceTemplateDTO.name);
-			assertEquals(ReferenceTemplateDTO.Policy.STATIC, referenceTemplateDTO.policy);
+			assertEquals(ReferencePolicy.STATIC, referenceTemplateDTO.policy);
 			assertEquals(
-				ReferenceTemplateDTO.PolicyOption.GREEDY, referenceTemplateDTO.policyOption);
+				ReferencePolicyOption.GREEDY, referenceTemplateDTO.policyOption);
 			assertEquals(Foo.class.getName(), referenceTemplateDTO.serviceType);
 			assertEquals("", referenceTemplateDTO.targetFilter);
 
@@ -141,9 +143,9 @@ public class Discovery_Ctor_static_greedy_Test {
 			assertEquals(MaximumCardinality.ONE, referenceTemplateDTO.maximumCardinality);
 			assertEquals(1, referenceTemplateDTO.minimumCardinality);
 			assertEquals(CtorFooFoo.class.getName() + ".new1", referenceTemplateDTO.name);
-			assertEquals(ReferenceTemplateDTO.Policy.STATIC, referenceTemplateDTO.policy);
+			assertEquals(ReferencePolicy.STATIC, referenceTemplateDTO.policy);
 			assertEquals(
-				ReferenceTemplateDTO.PolicyOption.GREEDY, referenceTemplateDTO.policyOption);
+				ReferencePolicyOption.GREEDY, referenceTemplateDTO.policyOption);
 			assertEquals(Foo.class.getName(), referenceTemplateDTO.serviceType);
 			assertEquals("", referenceTemplateDTO.targetFilter);
 		}
@@ -174,9 +176,9 @@ public class Discovery_Ctor_static_greedy_Test {
 			assertEquals(MaximumCardinality.ONE, referenceTemplateDTO.maximumCardinality);
 			assertEquals(1, referenceTemplateDTO.minimumCardinality);
 			assertEquals(CtorFoo.class.getName() + ".new0", referenceTemplateDTO.name);
-			assertEquals(ReferenceTemplateDTO.Policy.STATIC, referenceTemplateDTO.policy);
+			assertEquals(ReferencePolicy.STATIC, referenceTemplateDTO.policy);
 			assertEquals(
-				ReferenceTemplateDTO.PolicyOption.GREEDY, referenceTemplateDTO.policyOption);
+				ReferencePolicyOption.GREEDY, referenceTemplateDTO.policyOption);
 			assertEquals(Foo.class.getName(), referenceTemplateDTO.serviceType);
 			assertEquals("", referenceTemplateDTO.targetFilter);
 		}
@@ -207,9 +209,9 @@ public class Discovery_Ctor_static_greedy_Test {
 			assertEquals(MaximumCardinality.ONE, referenceTemplateDTO.maximumCardinality);
 			assertEquals(1, referenceTemplateDTO.minimumCardinality);
 			assertEquals(CtorFooBar.class.getName() + ".new0", referenceTemplateDTO.name);
-			assertEquals(ReferenceTemplateDTO.Policy.STATIC, referenceTemplateDTO.policy);
+			assertEquals(ReferencePolicy.STATIC, referenceTemplateDTO.policy);
 			assertEquals(
-				ReferenceTemplateDTO.PolicyOption.GREEDY, referenceTemplateDTO.policyOption);
+				ReferencePolicyOption.GREEDY, referenceTemplateDTO.policyOption);
 			assertEquals(Foo.class.getName(), referenceTemplateDTO.serviceType);
 			assertEquals("", referenceTemplateDTO.targetFilter);
 
@@ -218,9 +220,9 @@ public class Discovery_Ctor_static_greedy_Test {
 			assertEquals(MaximumCardinality.ONE, referenceTemplateDTO.maximumCardinality);
 			assertEquals(1, referenceTemplateDTO.minimumCardinality);
 			assertEquals(CtorFooBar.class.getName() + ".new1", referenceTemplateDTO.name);
-			assertEquals(ReferenceTemplateDTO.Policy.STATIC, referenceTemplateDTO.policy);
+			assertEquals(ReferencePolicy.STATIC, referenceTemplateDTO.policy);
 			assertEquals(
-				ReferenceTemplateDTO.PolicyOption.GREEDY, referenceTemplateDTO.policyOption);
+				ReferencePolicyOption.GREEDY, referenceTemplateDTO.policyOption);
 			assertEquals(Bar.class.getName(), referenceTemplateDTO.serviceType);
 			assertEquals("", referenceTemplateDTO.targetFilter);
 		}
@@ -251,9 +253,9 @@ public class Discovery_Ctor_static_greedy_Test {
 			assertEquals(MaximumCardinality.ONE, referenceTemplateDTO.maximumCardinality);
 			assertEquals(1, referenceTemplateDTO.minimumCardinality);
 			assertEquals("foo_a", referenceTemplateDTO.name);
-			assertEquals(ReferenceTemplateDTO.Policy.STATIC, referenceTemplateDTO.policy);
+			assertEquals(ReferencePolicy.STATIC, referenceTemplateDTO.policy);
 			assertEquals(
-				ReferenceTemplateDTO.PolicyOption.GREEDY, referenceTemplateDTO.policyOption);
+				ReferencePolicyOption.GREEDY, referenceTemplateDTO.policyOption);
 			assertEquals(Foo.class.getName(), referenceTemplateDTO.serviceType);
 			assertEquals("", referenceTemplateDTO.targetFilter);
 
@@ -262,9 +264,9 @@ public class Discovery_Ctor_static_greedy_Test {
 			assertEquals(MaximumCardinality.ONE, referenceTemplateDTO.maximumCardinality);
 			assertEquals(1, referenceTemplateDTO.minimumCardinality);
 			assertEquals("foo_b", referenceTemplateDTO.name);
-			assertEquals(ReferenceTemplateDTO.Policy.STATIC, referenceTemplateDTO.policy);
+			assertEquals(ReferencePolicy.STATIC, referenceTemplateDTO.policy);
 			assertEquals(
-				ReferenceTemplateDTO.PolicyOption.GREEDY, referenceTemplateDTO.policyOption);
+				ReferencePolicyOption.GREEDY, referenceTemplateDTO.policyOption);
 			assertEquals(Foo.class.getName(), referenceTemplateDTO.serviceType);
 			assertEquals("", referenceTemplateDTO.targetFilter);
 		}
@@ -295,9 +297,9 @@ public class Discovery_Ctor_static_greedy_Test {
 			assertEquals(MaximumCardinality.ONE, referenceTemplateDTO.maximumCardinality);
 			assertEquals(0, referenceTemplateDTO.minimumCardinality);
 			assertEquals(CtorFooOptional.class.getName() + ".new0", referenceTemplateDTO.name);
-			assertEquals(ReferenceTemplateDTO.Policy.STATIC, referenceTemplateDTO.policy);
+			assertEquals(ReferencePolicy.STATIC, referenceTemplateDTO.policy);
 			assertEquals(
-				ReferenceTemplateDTO.PolicyOption.GREEDY, referenceTemplateDTO.policyOption);
+				ReferencePolicyOption.GREEDY, referenceTemplateDTO.policyOption);
 			assertEquals(Foo.class.getName(), referenceTemplateDTO.serviceType);
 			assertEquals("", referenceTemplateDTO.targetFilter);
 		}

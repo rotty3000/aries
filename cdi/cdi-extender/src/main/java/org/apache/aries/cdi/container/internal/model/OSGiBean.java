@@ -55,7 +55,8 @@ public class OSGiBean implements Comparable<OSGiBean> {
 				_configurationsQueue.add(dto);
 			}
 			else {
-				((ExtendedConfigurationTemplateDTO)dto).bean = new ConfigurationBean();
+				((ExtendedConfigurationTemplateDTO)dto).bean = new ConfigurationBean(
+					_componentTemplate, (ExtendedConfigurationTemplateDTO)dto);
 
 				_componentTemplate.configurations.add(dto);
 			}
@@ -111,7 +112,8 @@ public class OSGiBean implements Comparable<OSGiBean> {
 			_componentTemplate = componentTemplate;
 			_configurationsQueue.removeIf(
 				dto -> {
-					((ExtendedConfigurationTemplateDTO)dto).bean = new ConfigurationBean();
+					((ExtendedConfigurationTemplateDTO)dto).bean = new ConfigurationBean(
+						_componentTemplate, (ExtendedConfigurationTemplateDTO)dto);
 
 					_componentTemplate.configurations.add(dto);
 					return true;

@@ -17,9 +17,11 @@ package org.apache.aries.cdi.container.internal.container;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Parameter;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -58,21 +60,20 @@ import org.apache.aries.cdi.container.internal.model.ReferenceModel;
 import org.apache.aries.cdi.container.internal.model.ReferenceModel.Builder;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.internal.util.Types;
+import org.osgi.service.cdi.ComponentType;
+import org.osgi.service.cdi.ConfigurationPolicy;
+import org.osgi.service.cdi.MaximumCardinality;
+import org.osgi.service.cdi.ServiceScope;
 import org.osgi.service.cdi.annotations.Bundle;
 import org.osgi.service.cdi.annotations.ComponentScoped;
 import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.FactoryComponent;
 import org.osgi.service.cdi.annotations.PID;
-import org.osgi.service.cdi.annotations.PID.Policy;
 import org.osgi.service.cdi.annotations.Prototype;
 import org.osgi.service.cdi.annotations.Reference;
 import org.osgi.service.cdi.annotations.SingleComponent;
 import org.osgi.service.cdi.reference.ReferenceEvent;
-import org.osgi.service.cdi.runtime.dto.template.ActivationTemplateDTO.Scope;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
-import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO.Type;
-import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
-import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 
 public class DiscoveryExtension implements Extension {
 
@@ -82,9 +83,74 @@ public class DiscoveryExtension implements Extension {
 		_containerTemplate = _containerState.containerDTO().template.components.get(0);
 	}
 
+	static Entry<Class<?>, Annotated> getBeanClassAndAnnotated(ProcessBean<?> pb) {
+		Annotated annotated = null;
+		Class<?> annotatedClass = null;
+
+		if (pb instanceof ProcessManagedBean) {
+			ProcessManagedBean<?> bean = (ProcessManagedBean<?>)pb;
+
+			annotated = bean.getAnnotated();
+			annotatedClass = bean.getAnnotatedBeanClass().getJavaClass();
+		}
+		else if (pb instanceof ProcessSessionBean) {
+			ProcessSessionBean<?> bean = (ProcessSessionBean<?>)pb;
+
+			annotated = bean.getAnnotated();
+			annotatedClass = bean.getAnnotatedBeanClass().getJavaClass();
+		}
+		else if (pb instanceof ProcessProducerMethod) {
+			ProcessProducerMethod<?, ?> producer = (ProcessProducerMethod<?, ?>)pb;
+
+			annotated = producer.getAnnotated();
+			annotatedClass = producer.getAnnotatedProducerMethod().getDeclaringType().getJavaClass();
+		}
+		else if (pb instanceof ProcessProducerField) {
+			ProcessProducerField<?, ?> producer = (ProcessProducerField<?, ?>)pb;
+
+			annotated = producer.getAnnotated();
+			annotatedClass = producer.getAnnotatedProducerField().getDeclaringType().getJavaClass();
+		}
+		else if (pb instanceof ProcessSyntheticBean) {
+			ProcessSyntheticBean<?> synthetic = (ProcessSyntheticBean<?>)pb;
+
+			annotated = synthetic.getAnnotated();
+			annotatedClass = synthetic.getBean().getBeanClass();
+		}
+		else {
+			annotated = pb.getAnnotated();
+			annotatedClass = pb.getBean().getBeanClass();
+		}
+
+		return new SimpleEntry<>(annotatedClass, annotated);
+	}
+
+	static Class<?> getDeclaringClass(InjectionPoint injectionPoint) {
+		Annotated annotated = injectionPoint.getAnnotated();
+
+		Class<?> declaringClass = null;
+
+		if (annotated instanceof AnnotatedParameter) {
+			AnnotatedParameter<?> ap = (AnnotatedParameter<?>)annotated;
+
+			Parameter javaParameter = ap.getJavaParameter();
+
+			Executable executable = javaParameter.getDeclaringExecutable();
+
+			declaringClass = executable.getDeclaringClass();
+		}
+		else {
+			AnnotatedField<?> af = (AnnotatedField<?>)annotated;
+
+			declaringClass = af.getDeclaringType().getJavaClass();
+		}
+
+		return declaringClass;
+	}
+
 	void afterBeanDiscovery(@Observes AfterBeanDiscovery abd, BeanManager beanManager) {
 		_containerState.containerDTO().template.components.stream().filter(
-			template -> template.type != Type.CONTAINER
+			template -> template.type != ComponentType.CONTAINER
 		).map(
 			template -> (ExtendedComponentTemplateDTO)template
 		).forEach(
@@ -124,44 +190,9 @@ public class DiscoveryExtension implements Extension {
 	}
 
 	void processBean(@Observes ProcessBean<?> pb) {
-		Annotated annotated = null;
-		Class<?> annotatedClass = null;
+		Entry<Class<?>, Annotated> beanClassAndAnnotated = getBeanClassAndAnnotated(pb);
 
-		if (pb instanceof ProcessManagedBean) {
-			ProcessManagedBean<?> bean = (ProcessManagedBean<?>)pb;
-
-			annotated = bean.getAnnotated();
-			annotatedClass = bean.getAnnotatedBeanClass().getJavaClass();
-		}
-		else if (pb instanceof ProcessSessionBean) {
-			ProcessSessionBean<?> bean = (ProcessSessionBean<?>)pb;
-
-			annotated = bean.getAnnotated();
-			annotatedClass = bean.getAnnotatedBeanClass().getJavaClass();
-		}
-		else if (pb instanceof ProcessProducerMethod) {
-			ProcessProducerMethod<?, ?> producer = (ProcessProducerMethod<?, ?>)pb;
-
-			annotated = producer.getAnnotated();
-			annotatedClass = producer.getAnnotatedProducerMethod().getDeclaringType().getJavaClass();
-		}
-		else if (pb instanceof ProcessProducerField) {
-			ProcessProducerField<?, ?> producer = (ProcessProducerField<?, ?>)pb;
-
-			annotated = producer.getAnnotated();
-			annotatedClass = producer.getAnnotatedProducerField().getDeclaringType().getJavaClass();
-		}
-		else if (pb instanceof ProcessSyntheticBean) {
-			ProcessSyntheticBean<?> synthetic = (ProcessSyntheticBean<?>)pb;
-
-			annotated = synthetic.getAnnotated();
-			annotatedClass = synthetic.getBean().getBeanClass();
-		}
-		else {
-			return;
-		}
-
-		final Class<?> annotatedClassFinal = annotatedClass;
+		final Class<?> annotatedClass = beanClassAndAnnotated.getKey();
 
 		String className = annotatedClass.getName();
 
@@ -172,6 +203,8 @@ public class DiscoveryExtension implements Extension {
 		}
 
 		osgiBean.found(true);
+
+		final Annotated annotated = beanClassAndAnnotated.getValue();
 
 		try {
 			List<Class<?>> serviceTypes = Types.collectServiceTypes(annotated);
@@ -201,14 +234,14 @@ public class DiscoveryExtension implements Extension {
 				componentTemplate.name = pb.getBean().getName();
 				componentTemplate.properties = Maps.componentProperties(annotated);
 				componentTemplate.references = new CopyOnWriteArrayList<>();
-				componentTemplate.type = ComponentTemplateDTO.Type.SINGLE;
+				componentTemplate.type = ComponentType.SINGLE;
 
 				annotated.getAnnotations(PID.class).stream().forEach(
 					PID -> {
 						ExtendedConfigurationTemplateDTO configurationTemplate = new ExtendedConfigurationTemplateDTO();
 
 						configurationTemplate.componentConfiguration = true;
-						configurationTemplate.declaringClass = annotatedClassFinal;
+						configurationTemplate.declaringClass = annotatedClass;
 						configurationTemplate.maximumCardinality = MaximumCardinality.ONE;
 						configurationTemplate.pid = Optional.of(PID.value()).map(
 							s -> {
@@ -226,10 +259,7 @@ public class DiscoveryExtension implements Extension {
 							configurationTemplate.pid = PID.value();
 						}
 
-						configurationTemplate.policy =
-							PID.policy() == Policy.REQUIRED ?
-								ConfigurationPolicy.REQUIRED :
-								ConfigurationPolicy.OPTIONAL;
+						configurationTemplate.policy = PID.policy();
 
 						componentTemplate.configurations.add(configurationTemplate);
 					}
@@ -278,14 +308,14 @@ public class DiscoveryExtension implements Extension {
 				componentTemplate.name = pb.getBean().getName();
 				componentTemplate.properties = Maps.componentProperties(annotated);
 				componentTemplate.references = new CopyOnWriteArrayList<>();
-				componentTemplate.type = ComponentTemplateDTO.Type.FACTORY;
+				componentTemplate.type = ComponentType.FACTORY;
 
 				annotated.getAnnotations(PID.class).stream().forEach(
 					PID -> {
 						ExtendedConfigurationTemplateDTO configurationTemplate = new ExtendedConfigurationTemplateDTO();
 
 						configurationTemplate.componentConfiguration = true;
-						configurationTemplate.declaringClass = annotatedClassFinal;
+						configurationTemplate.declaringClass = annotatedClass;
 						configurationTemplate.maximumCardinality = MaximumCardinality.ONE;
 						configurationTemplate.pid = Optional.of(PID.value()).map(
 							s -> {
@@ -296,10 +326,7 @@ public class DiscoveryExtension implements Extension {
 							}
 						).orElse(componentTemplate.name);
 
-						configurationTemplate.policy =
-							PID.policy() == Policy.REQUIRED ?
-								ConfigurationPolicy.REQUIRED :
-								ConfigurationPolicy.OPTIONAL;
+						configurationTemplate.policy = PID.policy();
 
 						componentTemplate.configurations.add(configurationTemplate);
 					}
@@ -359,11 +386,7 @@ public class DiscoveryExtension implements Extension {
 	}
 
 	void processInjectionPoint(@Observes ProcessInjectionPoint<?, ?> pip) {
-		processInjectionPoint(pip.getInjectionPoint());
-	}
-
-	OSGiBean processInjectionPoint(final InjectionPoint injectionPoint) {
-		Annotated annotated = injectionPoint.getAnnotated();
+		InjectionPoint injectionPoint = pip.getInjectionPoint();
 
 		Class<?> declaringClass = getDeclaringClass(injectionPoint);
 
@@ -372,9 +395,10 @@ public class DiscoveryExtension implements Extension {
 		OSGiBean osgiBean = _beansModel.getOSGiBean(className);
 
 		if (osgiBean == null) {
-			return null;
+			return;
 		}
 
+		Annotated annotated = injectionPoint.getAnnotated();
 		Reference reference = annotated.getAnnotation(Reference.class);
 		Configuration configuration = annotated.getAnnotation(Configuration.class);
 
@@ -387,7 +411,7 @@ public class DiscoveryExtension implements Extension {
 							injectionPoint))
 				);
 
-				return null;
+				return;
 			}
 
 			Builder builder = null;
@@ -424,8 +448,6 @@ public class DiscoveryExtension implements Extension {
 				_containerState.error(e);
 			}
 		}
-
-		return osgiBean;
 	}
 
 	void processObserverMethod(@Observes ProcessObserverMethod<ReferenceEvent<?>, ?> pom) {
@@ -475,7 +497,7 @@ public class DiscoveryExtension implements Extension {
 		}
 	}
 
-	Scope getScope(Annotated annotated) {
+	ServiceScope getScope(Annotated annotated) {
 		Prototype prototype = annotated.getAnnotation(Prototype.class);
 		Bundle bundle = annotated.getAnnotation(Bundle.class);
 
@@ -487,14 +509,14 @@ public class DiscoveryExtension implements Extension {
 						annotated));
 			}
 
-			return Scope.PROTOTYPE;
+			return ServiceScope.PROTOTYPE;
 		}
 
 		if (bundle != null) {
-			return Scope.BUNDLE;
+			return ServiceScope.BUNDLE;
 		}
 
-		return Scope.SINGLETON;
+		return ServiceScope.SINGLETON;
 	}
 
 	void scanComponentBean(
@@ -541,35 +563,12 @@ public class DiscoveryExtension implements Extension {
 
 			Bean<?> next = beanManager.resolve(beans);
 
-			if (next.getScope() != ComponentScoped.class) {
+			if ((next == null) || next.getScope() != ComponentScoped.class) {
 				continue;
 			}
 
 			scanComponentBean(template, next, beanManager, visited);
 		}
-	}
-
-	private Class<?> getDeclaringClass(final InjectionPoint injectionPoint) {
-		Annotated annotated = injectionPoint.getAnnotated();
-
-		Class<?> declaringClass = null;
-
-		if (annotated instanceof AnnotatedParameter) {
-			AnnotatedParameter<?> ap = (AnnotatedParameter<?>)annotated;
-
-			Parameter javaParameter = ap.getJavaParameter();
-
-			Executable executable = javaParameter.getDeclaringExecutable();
-
-			declaringClass = executable.getDeclaringClass();
-		}
-		else {
-			AnnotatedField<?> af = (AnnotatedField<?>)annotated;
-
-			declaringClass = af.getDeclaringType().getJavaClass();
-		}
-
-		return declaringClass;
 	}
 
 	private final BeansModel _beansModel;

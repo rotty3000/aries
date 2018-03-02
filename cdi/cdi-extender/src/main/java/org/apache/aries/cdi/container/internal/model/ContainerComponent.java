@@ -11,10 +11,15 @@ import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 
-public class ContainerComponent implements Component {
+public class ContainerComponent extends Component {
 
-	public ContainerComponent(ContainerState containerState, ComponentTemplateDTO template) {
-		_containerState = containerState;
+	public ContainerComponent(
+		ContainerState containerState,
+		ComponentTemplateDTO template,
+		InstanceActivator.Builder<?> builder) {
+
+		super(containerState, null);
+
 		_template = template;
 
 		_snapshot = new ComponentDTO();
@@ -24,25 +29,26 @@ public class ContainerComponent implements Component {
 		_instanceDTO = new ExtendedComponentInstanceDTO();
 		_instanceDTO.activations = new CopyOnWriteArrayList<>();
 		_instanceDTO.configurations = new CopyOnWriteArrayList<>();
-		_instanceDTO.containerState = _containerState;
+		_instanceDTO.containerState = containerState;
 		_instanceDTO.pid = _template.configurations.get(0).pid;
 		_instanceDTO.properties = null;
 		_instanceDTO.references = new CopyOnWriteArrayList<>();
 		_instanceDTO.template = template;
-		_instanceDTO.activator = new ContainerActivator(_containerState);
+		_instanceDTO.builder = builder;
 
 		_snapshot.instances.add(_instanceDTO);
 
-		_containerState.containerDTO().components.add(_snapshot);
+		containerState.containerDTO().components.add(_snapshot);
+	}
+
+	@Override
+	public boolean close() {
+		return _instanceDTO.stop();
 	}
 
 	@Override
 	public List<ConfigurationTemplateDTO> configurationTemplates() {
 		return _template.configurations;
-	}
-
-	public ContainerState containerState() {
-		return _containerState;
 	}
 
 	@Override
@@ -51,28 +57,23 @@ public class ContainerComponent implements Component {
 	}
 
 	@Override
+	public boolean open() {
+		return _instanceDTO.start();
+	}
+
+	@Override
 	public ComponentDTO snapshot() {
 		return _snapshot;
 	}
 
 	@Override
-	public Op startOp() {
+	public Op openOp() {
 		return Op.CONTAINER_COMPONENT_START;
 	}
 
 	@Override
-	public boolean start() {
-		return _instanceDTO.start();
-	}
-
-	@Override
-	public Op stopOp() {
+	public Op closeOp() {
 		return Op.CONTAINER_COMPONENT_STOP;
-	}
-
-	@Override
-	public boolean stop() {
-		return _instanceDTO.stop();
 	}
 
 	@Override
@@ -80,7 +81,6 @@ public class ContainerComponent implements Component {
 		return _template;
 	}
 
-	private final ContainerState _containerState;
 	private final ExtendedComponentInstanceDTO _instanceDTO;
 	private final ComponentDTO _snapshot;
 	private final ComponentTemplateDTO _template;

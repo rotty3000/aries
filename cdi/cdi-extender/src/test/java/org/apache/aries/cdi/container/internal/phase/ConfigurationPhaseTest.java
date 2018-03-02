@@ -24,6 +24,7 @@ import org.apache.aries.cdi.container.internal.container.CheckedCallback;
 import org.apache.aries.cdi.container.internal.container.ConfigurationListener;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
+import org.apache.aries.cdi.container.internal.model.ContainerActivator;
 import org.apache.aries.cdi.container.internal.model.ContainerComponent;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.test.BaseCDIBundleTest;
@@ -36,6 +37,7 @@ import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.cm.ConfigurationEvent;
+import org.osgi.service.log.LoggerFactory;
 import org.osgi.util.promise.Promise;
 import org.osgi.util.tracker.ServiceTracker;
 
@@ -44,6 +46,7 @@ public class ConfigurationPhaseTest extends BaseCDIBundleTest {
 	@Test
 	public void configuration_tracking() throws Exception {
 		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = TestUtil.mockCaSt(bundle);
+		ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker = TestUtil.mockLoggerFactory(bundle);
 
 		MockConfiguration mockConfiguration = new MockConfiguration("foo.config", null);
 		mockConfiguration.update(Maps.dict("fiz", "buz"));
@@ -53,11 +56,13 @@ public class ConfigurationPhaseTest extends BaseCDIBundleTest {
 		mockConfiguration.update(Maps.dict("foo", "bar"));
 		TestUtil.configurations.add(mockConfiguration);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, loggerTracker);
 
 		ComponentTemplateDTO containerTemplate = containerState.containerDTO().template.components.get(0);
 
-		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate);
+		ContainerActivator.Builder builder = new ContainerActivator.Builder(containerState, null);
+
+		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate, builder);
 
 		ConfigurationListener configurationListener = new ConfigurationListener(containerState, containerComponent);
 

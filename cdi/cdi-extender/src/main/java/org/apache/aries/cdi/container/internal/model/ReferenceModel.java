@@ -43,14 +43,14 @@ import javax.inject.Qualifier;
 
 import org.osgi.framework.Constants;
 import org.osgi.framework.ServiceReference;
+import org.osgi.service.cdi.MaximumCardinality;
+import org.osgi.service.cdi.ReferencePolicy;
+import org.osgi.service.cdi.ReferencePolicyOption;
 import org.osgi.service.cdi.annotations.Greedy;
 import org.osgi.service.cdi.annotations.Prototype;
 import org.osgi.service.cdi.annotations.Reference;
 import org.osgi.service.cdi.reference.ReferenceEvent;
 import org.osgi.service.cdi.reference.ReferenceServiceObjects;
-import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
-import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO.Policy;
-import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO.PolicyOption;
 
 public class ReferenceModel {
 
@@ -227,8 +227,9 @@ public class ReferenceModel {
 		dto.maximumCardinality = _multiplicity;
 		dto.minimumCardinality = (_multiplicity == MaximumCardinality.ONE) ? (_optional?0:1) : (0);
 		dto.name = _name;
-		dto.policy = (_dynamic) ? Policy.DYNAMIC : Policy.STATIC;
-		dto.policyOption = (_greedy) ? PolicyOption.GREEDY: PolicyOption.RELUCTANT;
+		dto.policy = (_dynamic) ? ReferencePolicy.DYNAMIC : ReferencePolicy.STATIC;
+		dto.policyOption = (_greedy) ? ReferencePolicyOption.GREEDY: ReferencePolicyOption.RELUCTANT;
+		dto.serviceClass = _serviceType;
 		dto.serviceType = _serviceType.getName();
 		dto.targetFilter = _targetFilter;
 

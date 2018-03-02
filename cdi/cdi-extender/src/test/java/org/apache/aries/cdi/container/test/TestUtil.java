@@ -41,6 +41,7 @@ import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.model.AbstractModelBuilder;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
 import org.apache.aries.cdi.container.internal.util.Filters;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.jboss.weld.resources.spi.ResourceLoader;
 import org.jboss.weld.serialization.spi.ProxyServices;
 import org.mockito.stubbing.Answer;
@@ -63,6 +64,8 @@ import org.osgi.namespace.extender.ExtenderNamespace;
 import org.osgi.service.cdi.CDIConstants;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
+import org.osgi.service.log.Logger;
+import org.osgi.service.log.LoggerFactory;
 import org.osgi.util.promise.PromiseFactory;
 import org.osgi.util.tracker.ServiceTracker;
 
@@ -161,7 +164,12 @@ public class TestUtil {
 		ConfigurationAdmin ca = mock(ConfigurationAdmin.class);
 		bundle.getBundleContext().registerService(ConfigurationAdmin.class, ca, null);
 
-		return new ContainerState(bundle, ccrBundle, new ChangeCount(), new PromiseFactory(Executors.newFixedThreadPool(1)), caTracker) {
+		ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker = new ServiceTracker<>(bundle.getBundleContext(), LoggerFactory.class, null);
+		loggerTracker.open();
+		LoggerFactory lf = mock(LoggerFactory.class);
+		bundle.getBundleContext().registerService(LoggerFactory.class, lf, null);
+
+		return new ContainerState(bundle, ccrBundle, new ChangeCount(), new PromiseFactory(Executors.newFixedThreadPool(1)), caTracker, loggerTracker) {
 
 			@Override
 			public BeansModel beansModel() {
@@ -263,6 +271,39 @@ public class TestUtil {
 		extra.accept(bundle);
 
 		return bundle;
+	}
+
+	public static ServiceTracker<LoggerFactory, LoggerFactory> mockLoggerFactory(Bundle bundle) throws Exception {
+		ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker = new ServiceTracker<>(bundle.getBundleContext(), LoggerFactory.class, null);
+		loggerTracker.open();
+		LoggerFactory lf = mock(LoggerFactory.class);
+		bundle.getBundleContext().registerService(LoggerFactory.class, lf, null);
+
+		when(lf.getLogger((Class<?>)any())).then(
+			(Answer<Logger>) getLogger -> {
+				Class<?> clazz = getLogger.getArgument(0);
+
+				return Logs.getLogger(clazz);
+			}
+		);
+
+		when(lf.getLogger((Class<?>)any(), any())).then(
+			(Answer<Logger>) getLogger -> {
+				Class<?> clazz = getLogger.getArgument(0);
+
+				return Logs.getLogger(clazz);
+			}
+		);
+
+		when(lf.getLogger(any(), anyString(), any())).then(
+			(Answer<Logger>) getLogger -> {
+				Class<?> clazz = getLogger.getArgument(2);
+
+				return Logs.getLogger(clazz);
+			}
+		);
+
+		return loggerTracker;
 	}
 
 	public static ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> mockCaSt(Bundle bundle) throws Exception {

@@ -8,44 +8,40 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.aries.cdi.container.internal.model.Component;
 import org.apache.aries.cdi.container.internal.model.ExtendedComponentInstanceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationDTO;
-import org.apache.aries.cdi.container.internal.model.FactoryActivator;
 import org.apache.aries.cdi.container.internal.phase.Phase;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.osgi.framework.ServiceRegistration;
+import org.osgi.service.cdi.MaximumCardinality;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
-import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 import org.osgi.service.cm.ConfigurationEvent;
 import org.osgi.service.log.Logger;
 
 public class ConfigurationListener extends Phase implements org.osgi.service.cm.ConfigurationListener {
 
-	public ConfigurationListener(ContainerState containerState, Component component) {
-		super(containerState, null);
+	public ConfigurationListener(
+		ContainerState containerState,
+		Component component) {
 
-		_component = component;
+		super(containerState, component);
 	}
 
 	@Override
 	public boolean close() {
-		_log.debug(l -> l.debug("CCR Begin configuration listener close on {}", _component));
-
 		if (_listenerService != null) {
 			_listenerService.unregister();
 		}
 
-		submit(_component.stopOp(), _component::stop).then(
-			s -> {
-				_log.debug(l -> l.debug("CCR Ended configuration listener close on {}", _component));
+		next.map(next -> (Component)next).ifPresent(
+			next -> submit(next.closeOp(), next::close).then(
+				null,
+				f -> {
+					_log.error(l -> l.error("CCR Failure in configuration listener close on {}", next, f.getFailure()));
 
-				return s;
-			},
-			f -> {
-				_log.error(l -> l.error("CCR Failure in configuration listener close on {}", _component, f.getFailure()));
-
-				error(f.getFailure());
-			}
+					error(f.getFailure());
+				}
+			)
 		);
 
 		return true;
@@ -53,16 +49,18 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 
 	@Override
 	public void configurationEvent(ConfigurationEvent event) {
-		_component.configurationTemplates().stream().filter(
-			t -> {
-				if (((t.maximumCardinality == MaximumCardinality.MANY) && t.pid.equals(event.getFactoryPid())) ||
-					((t.maximumCardinality == MaximumCardinality.ONE) && t.pid.equals(event.getPid()))) {
-					return true;
+		next.map(next -> (Component)next).ifPresent(
+			next -> next.configurationTemplates().stream().filter(
+				t -> {
+					if (((t.maximumCardinality == MaximumCardinality.MANY) && t.pid.equals(event.getFactoryPid())) ||
+							((t.maximumCardinality == MaximumCardinality.ONE) && t.pid.equals(event.getPid()))) {
+						return true;
+					}
+					return false;
 				}
-				return false;
-			}
-		).findFirst().ifPresent(
-			t -> processEvent(t, event)
+			).findFirst().ifPresent(
+				t -> processEvent(next, t, event)
+			)
 		);
 	}
 
@@ -71,49 +69,45 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 		_listenerService = containerState.bundleContext().registerService(
 			ConfigurationListener.class, this, null);
 
-//		AtomicBoolean hasMandatoryConfigurations = new AtomicBoolean(false);
-
-		for (ConfigurationTemplateDTO template : _component.configurationTemplates()) {
-//			if (template.policy == ConfigurationPolicy.REQUIRED) {
-//				hasMandatoryConfigurations.set(true);
-//			}
-
-			if (template.maximumCardinality == MaximumCardinality.ONE) {
-				containerState.findConfig(template.pid).ifPresent(
-					c -> processEvent(
-							template,
-							new ConfigurationEvent(
-								containerState.caTracker().getServiceReference(),
-								ConfigurationEvent.CM_UPDATED,
-								null,
-								c.getPid()))
-				);
+		next.map(next -> (Component)next).ifPresent(
+			next -> {
+				for (ConfigurationTemplateDTO template : next.configurationTemplates()) {
+					if (template.maximumCardinality == MaximumCardinality.ONE) {
+						containerState.findConfig(template.pid).ifPresent(
+							c -> processEvent(
+									next,
+									template,
+									new ConfigurationEvent(
+										containerState.caTracker().getServiceReference(),
+										ConfigurationEvent.CM_UPDATED,
+										null,
+										c.getPid()))
+						);
+					}
+					else {
+						containerState.findConfigs(template.pid, true).ifPresent(
+							arr -> Arrays.stream(arr).forEach(
+								c -> processEvent(
+										next,
+										template,
+										new ConfigurationEvent(
+											containerState.caTracker().getServiceReference(),
+											ConfigurationEvent.CM_UPDATED,
+											c.getFactoryPid(),
+											c.getPid())))
+						);
+					}
+				}
 			}
-			else {
-				containerState.findConfigs(template.pid, true).ifPresent(
-					arr -> Arrays.stream(arr).forEach(
-						c -> processEvent(
-								template,
-								new ConfigurationEvent(
-									containerState.caTracker().getServiceReference(),
-									ConfigurationEvent.CM_UPDATED,
-									c.getFactoryPid(),
-									c.getPid())))
-				);
-			}
-		}
-
-//		if (!hasMandatoryConfigurations.get()) {
-//			startComponent();
-//		}
+		);
 
 		return true;
 	}
 
-	private void processEvent(ConfigurationTemplateDTO t, ConfigurationEvent event) {
+	private void processEvent(Component component, ConfigurationTemplateDTO t, ConfigurationEvent event) {
 		final AtomicBoolean needToRefresh = new AtomicBoolean(false);
 
-		List<ComponentInstanceDTO> instances = _component.instances();
+		List<ComponentInstanceDTO> instances = component.instances();
 
 		instances.stream().forEach(
 			instance -> instance.configurations.stream().filter(
@@ -158,8 +152,8 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 					instanceDTO.pid = event.getPid();
 					instanceDTO.properties = null;
 					instanceDTO.references = new CopyOnWriteArrayList<>();
-					instanceDTO.template = _component.template();
-					instanceDTO.activator = new FactoryActivator(containerState);
+					instanceDTO.template = component.template();
+					//instanceDTO.activator = new FactoryActivator(containerState);
 
 					if (instances.add(instanceDTO)) {
 						instanceDTO.start();
@@ -187,30 +181,24 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 		}
 
 		if (needToRefresh.get()) {
-			startComponent();
+			startComponent(component);
 		}
 	}
 
-	private void startComponent() {
-		_log.debug(l -> l.debug("CCR Begin configuration refresh on {}", _component));
-
-		submit(_component.stopOp(), _component::stop).then(
+	private void startComponent(Component component) {
+		submit(component.closeOp(), component::close).then(
 			s -> {
-				return submit(_component.startOp(), _component::start).then(
-						s2 -> {
-							_log.debug(l -> l.debug("CCR Ended configuration start on {}", _component));
+				return submit(component.openOp(), component::open).then(
+					null,
+					f -> {
+						_log.error(l -> l.error("CCR Failure during configuration start on {}", component, f.getFailure()));
 
-							return s2;
-						},
-						f -> {
-							_log.error(l -> l.error("CCR Failure during configuration start on {}", _component, f.getFailure()));
-
-							error(f.getFailure());
-						}
-						);
+						error(f.getFailure());
+					}
+				);
 			},
 			f -> {
-				_log.error(l -> l.error("CCR Failure during component refresh {}", _component, f.getFailure()));
+				_log.error(l -> l.error("CCR Failure during component refresh {}", component, f.getFailure()));
 
 				error(f.getFailure());
 			}
@@ -219,7 +207,6 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 
 	private static final Logger _log = Logs.getLogger(ConfigurationListener.class);
 
-	private final Component _component;
 	private volatile ServiceRegistration<ConfigurationListener> _listenerService;
 
 }

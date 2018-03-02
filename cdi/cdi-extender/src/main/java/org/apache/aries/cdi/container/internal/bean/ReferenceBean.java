@@ -25,23 +25,28 @@ import javax.enterprise.inject.Default;
 import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.InjectionPoint;
 
+import org.apache.aries.cdi.container.internal.container.Mark;
 import org.apache.aries.cdi.container.internal.model.CollectionType;
+import org.apache.aries.cdi.container.internal.model.ExtendedReferenceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceTemplateDTO;
 import org.apache.aries.cdi.container.internal.util.Sets;
+import org.osgi.service.cdi.ComponentType;
+import org.osgi.service.cdi.MaximumCardinality;
+import org.osgi.service.cdi.ReferencePolicy;
 import org.osgi.service.cdi.annotations.ComponentScoped;
+import org.osgi.service.cdi.annotations.Reference;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
-import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
-import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO.Policy;
 
 public class ReferenceBean implements Bean<Object> {
 
 	public ReferenceBean(
-		ComponentTemplateDTO componentTemplateDTO,
-		ExtendedReferenceTemplateDTO templateDTO) {
+		ComponentTemplateDTO component,
+		ExtendedReferenceTemplateDTO template) {
 
-		_componentTemplateDTO = componentTemplateDTO;
-		_template = templateDTO;
+		_component = component;
+		_template = template;
 
+		_qualifiers = Sets.hashSet(Reference.Literal.of(Object.class, ""), Default.Literal.INSTANCE);
 		_types = Sets.hashSet(_template.injectionPointType, Object.class);
 	}
 
@@ -49,7 +54,7 @@ public class ReferenceBean implements Bean<Object> {
 	public Object create(CreationalContext<Object> creationalContext) {
 		if (_template.maximumCardinality == MaximumCardinality.MANY) {
 			// Collection, Iterable, List
-			if (_template.policy == Policy.DYNAMIC) {
+			if (_template.policy == ReferencePolicy.DYNAMIC) {
 				// Provider
 				// PolicyOption.GREEDY is IGNORED
 				if (_template.collectionType == CollectionType.OBSERVER) {
@@ -110,17 +115,17 @@ public class ReferenceBean implements Bean<Object> {
 
 	@Override
 	public String getName() {
-		return _template.name;
+		return null;//_template.name;
 	}
 
 	@Override
 	public Set<Annotation> getQualifiers() {
-		return Collections.singleton(Default.Literal.INSTANCE);
+		return _qualifiers;
 	}
 
 	@Override
 	public Class<? extends Annotation> getScope() {
-		if (_componentTemplateDTO.type == ComponentTemplateDTO.Type.CONTAINER) {
+		if (_component.type == ComponentType.CONTAINER) {
 			return ApplicationScoped.class;
 		}
 		return ComponentScoped.class;
@@ -146,13 +151,27 @@ public class ReferenceBean implements Bean<Object> {
 		return false;
 	}
 
-	@Override
-	public String toString() {
-		return "ReferenceBean[" + _template.name + "]";
+	public void setMark(Mark mark) {
+		_qualifiers.add(mark);
 	}
 
-	private final ComponentTemplateDTO _componentTemplateDTO;
+	public void setSnapshot(ExtendedReferenceDTO snapshot) {
+		_snapshot = snapshot;
+	}
+
+	@Override
+	public String toString() {
+		if (_string == null) {
+			_string =  "ReferenceBean[" + _template.name + "]";
+		}
+		return _string;
+	}
+
+	private final ComponentTemplateDTO _component;
+	private final Set<Annotation> _qualifiers;
 	private final ExtendedReferenceTemplateDTO _template;
 	private final Set<Type> _types;
+	private volatile ExtendedReferenceDTO _snapshot;
+	private volatile String _string;
 
 }

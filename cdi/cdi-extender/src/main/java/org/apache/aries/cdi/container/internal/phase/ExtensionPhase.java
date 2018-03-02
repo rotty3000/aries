@@ -45,25 +45,17 @@ public class ExtensionPhase extends Phase {
 
 	@Override
 	public boolean close() {
-		_log.debug(l -> l.debug("CCR Begin extension CLOSE on {}", bundle()));
-
 		if (!templates().isEmpty()) {
 			if (_extensionTracker != null) {
 				_extensionTracker.close();
 
 				_extensionTracker = null;
 			}
-
-			_log.debug(l -> l.debug("CCR Ended extension CLOSE on {}", bundle()));
 		}
 		else {
 			next.ifPresent(
 				next -> submit(Op.CONFIGURATION_CLOSE, next::close).then(
-					s -> {
-						_log.debug(l -> l.debug("CCR Ended extension CLOSE on {}", bundle()));
-
-						return s;
-					},
+					null,
 					f -> {
 						_log.error(l -> l.error("CCR Error in extension CLOSE on {}", bundle(), f.getFailure()));
 
@@ -78,8 +70,6 @@ public class ExtensionPhase extends Phase {
 
 	@Override
 	public boolean open() {
-		_log.debug(l -> l.debug("CCR Begin extension OPEN on {}", bundle()));
-
 		if (!templates().isEmpty()) {
 			_extensionTracker = new ServiceTracker<>(
 				containerState.bundleContext(), createExtensionFilter(), new ExtensionPhaseCustomizer());
@@ -89,11 +79,7 @@ public class ExtensionPhase extends Phase {
 		else {
 			next.ifPresent(
 				next -> submit(Op.CONFIGURATION_OPEN, next::open).then(
-					s -> {
-						_log.debug(l -> l.debug("CCR Ended extension OPEN on {}", bundle()));
-
-						return s;
-					},
+					null,
 					f -> {
 						_log.error(l -> l.error("CCR Error in extension OPEN on {}", bundle(), f.getFailure()));
 
@@ -182,11 +168,7 @@ public class ExtensionPhase extends Phase {
 					next -> submit(Op.CONFIGURATION_CLOSE, next::close).then(
 						s -> {
 							return submit(Op.CONFIGURATION_OPEN, next::open).then(
-								s2 -> {
-									_log.debug(l -> l.debug("CCR Extension open TRACKING {} on {}", reference, bundle()));
-
-									return s2;
-								},
+								null,
 								f -> {
 									_log.error(l -> l.error("CCR Error in extension open TRACKING {} on {}", reference, bundle()));
 
@@ -237,11 +219,7 @@ public class ExtensionPhase extends Phase {
 					s -> {
 						if (snapshots().size() == templates().size()) {
 							return submit(Op.CONFIGURATION_OPEN, next::open).then(
-								s2 -> {
-									_log.debug(l -> l.debug("CCR Extension open TRACKING {} on {}", reference, bundle()));
-
-									return s2;
-								},
+								null,
 								f -> {
 									_log.error(l -> l.error("CCR Error in extension open TRACKING {} on {}", reference, bundle()));
 

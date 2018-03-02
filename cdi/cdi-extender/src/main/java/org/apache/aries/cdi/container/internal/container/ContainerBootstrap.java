@@ -17,11 +17,13 @@ package org.apache.aries.cdi.container.internal.container;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.Extension;
 
 import org.apache.aries.cdi.container.internal.model.BeansModel;
+import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
 import org.jboss.weld.bootstrap.WeldBootstrap;
 import org.jboss.weld.bootstrap.spi.BeanDeploymentArchive;
 import org.jboss.weld.bootstrap.spi.Deployment;
@@ -31,11 +33,14 @@ import org.jboss.weld.util.ServiceLoader;
 public class ContainerBootstrap {
 
 	public ContainerBootstrap(
-		ContainerState containerState,
-		Collection<Metadata<Extension>> externalExtensions) {
+		ContainerState containerState) {
 
 		_containerState = containerState;
-		_externalExtensions = externalExtensions;
+		_externalExtensions = _containerState.containerDTO().extensions.stream().map(
+			e -> (ExtendedExtensionDTO)e
+		).map(
+			e -> new ExtensionMetadata(e.extension, e.template.serviceFilter)
+		).collect(Collectors.toList());
 
 		BeansModel beansModel = _containerState.beansModel();
 
@@ -46,10 +51,14 @@ public class ContainerBootstrap {
 			new ExtensionMetadata(
 				new BundleContextExtension(_containerState.bundleContext()),
 				_containerState.id()));
-//		extensions.add(
-//			new ExtensionMetadata(
-//				new ComponentRuntimeExtension(_containerState),
-//				_containerState.id()));
+		extensions.add(
+			new ExtensionMetadata(
+				new RuntimeExtension(_containerState),
+				_containerState.id()));
+		extensions.add(
+			new ExtensionMetadata(
+				new LoggerExtension(_containerState),
+				_containerState.id()));
 
 		// Add extensions found from the bundle's classloader, such as those in the Bundle-ClassPath
 		for (Metadata<Extension> meta : ServiceLoader.load(Extension.class, _containerState.classLoader())) {

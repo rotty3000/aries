@@ -43,8 +43,6 @@ public class CCR implements CDIComponentRuntime {
 
 	public void add(Bundle bundle, ContainerState containerState) {
 		_states.put(bundle, containerState);
-
-		_log.debug(log -> log.debug("CCR CCR Added {}", bundle));
 	}
 
 	@Override
@@ -97,8 +95,6 @@ public class CCR implements CDIComponentRuntime {
 
 	public void remove(Bundle bundle) {
 		_states.remove(bundle);
-
-		_log.debug(log -> log.debug("CCR CCR Removed {}", bundle));
 	}
 
 	public <R> R call(Callable<R> callable) {

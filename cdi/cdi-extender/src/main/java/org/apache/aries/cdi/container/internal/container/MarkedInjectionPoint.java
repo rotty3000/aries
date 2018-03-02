@@ -16,6 +16,7 @@ package org.apache.aries.cdi.container.internal.container;
 
 import java.lang.annotation.Annotation;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.enterprise.inject.spi.InjectionPoint;
 
@@ -24,10 +25,10 @@ import org.jboss.weld.injection.ForwardingInjectionPoint;
 
 public class MarkedInjectionPoint extends ForwardingInjectionPoint {
 
-	public MarkedInjectionPoint(InjectionPoint injectionPoint, Annotation annotation, int mark) {
+	public MarkedInjectionPoint(InjectionPoint injectionPoint) {
 		_delegate = injectionPoint;
-		_mark = mark;
-		_qualifiers = Sets.hashSet(injectionPoint.getQualifiers(), annotation, CdiMarkLiteral.from(_mark));
+		_mark = Mark.Literal.from(counter.incrementAndGet());
+		_qualifiers = Sets.hashSet(injectionPoint.getQualifiers(), _mark);
 	}
 
 	@Override
@@ -39,7 +40,7 @@ public class MarkedInjectionPoint extends ForwardingInjectionPoint {
 		return delegate();
 	}
 
-	public int getMark() {
+	public Mark getMark() {
 		return _mark;
 	}
 
@@ -48,8 +49,10 @@ public class MarkedInjectionPoint extends ForwardingInjectionPoint {
 		return _qualifiers;
 	}
 
+	private static final AtomicInteger counter = new AtomicInteger();
+
 	private final InjectionPoint _delegate;
-	private final int _mark;
+	private final Mark _mark;
 	private final Set<Annotation> _qualifiers;
 
 }

@@ -25,10 +25,10 @@ import java.util.Set;
 
 import javax.enterprise.inject.spi.InjectionPoint;
 
+import org.osgi.service.cdi.ConfigurationPolicy;
+import org.osgi.service.cdi.MaximumCardinality;
 import org.osgi.service.cdi.annotations.PID;
-import org.osgi.service.cdi.runtime.dto.template.ConfigurationPolicy;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
-import org.osgi.service.cdi.runtime.dto.template.MaximumCardinality;
 
 public class ConfigurationModel {
 
@@ -116,8 +116,7 @@ public class ConfigurationModel {
 			dto.componentConfiguration = true;
 		}
 
-		dto.policy = ((_pid != null) && _pid.policy().toString().equals(ConfigurationPolicy.REQUIRED.toString()))
-			? ConfigurationPolicy.REQUIRED : ConfigurationPolicy.OPTIONAL;
+		dto.policy = (_pid != null) ? _pid.policy() : ConfigurationPolicy.OPTIONAL;
 
 		return dto;
 	}
