@@ -31,6 +31,7 @@ import javax.enterprise.inject.spi.CDI;
 import org.apache.aries.cdi.container.internal.command.CDICommand;
 import org.apache.aries.cdi.container.internal.container.CDIBundle;
 import org.apache.aries.cdi.container.internal.container.ConfigurationListener;
+import org.apache.aries.cdi.container.internal.container.ContainerBootstrap;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.model.ContainerActivator;
 import org.apache.aries.cdi.container.internal.model.ContainerComponent;
@@ -140,7 +141,9 @@ public class Activator extends AbstractExtender {
 
 		ComponentTemplateDTO containerTemplate = containerState.containerDTO().template.components.get(0);
 
-		ContainerActivator.Builder builder = new ContainerActivator.Builder(containerState, null);
+		ContainerBootstrap cb = new ContainerBootstrap(containerState);
+
+		ContainerActivator.Builder builder = new ContainerActivator.Builder(containerState, cb);
 
 		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate, builder);
 

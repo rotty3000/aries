@@ -18,11 +18,9 @@ import javax.enterprise.event.Observes;
 import javax.enterprise.inject.spi.AfterBeanDiscovery;
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.Extension;
+import javax.enterprise.inject.spi.configurator.BeanConfigurator;
 
-import org.apache.aries.cdi.container.internal.bean.BundleContextBean;
-import org.apache.aries.cdi.container.internal.util.Logs;
 import org.osgi.framework.BundleContext;
-import org.osgi.service.log.Logger;
 
 public class BundleContextExtension implements Extension {
 
@@ -31,18 +29,11 @@ public class BundleContextExtension implements Extension {
 	}
 
 	void afterBeanDiscovery(@Observes AfterBeanDiscovery abd, BeanManager manager) {
-		if (_log.isDebugEnabled()) {
-			_log.debug("CCR Adding BundleContext {}", _bundleContext);
-		}
-
-		abd.addBean(new BundleContextBean(_bundleContext));
-
-		if (_log.isDebugEnabled()) {
-			_log.debug("CCR BundleContext added {}", _bundleContext);
-		}
+		BeanConfigurator<BundleContext> bean = abd.addBean();
+		bean.addType(BundleContext.class);
+		bean.createWith(c -> _bundleContext);
 	}
 
-	private static final Logger _log = Logs.getLogger(BundleContextExtension.class);
-
 	private final BundleContext _bundleContext;
+
 }

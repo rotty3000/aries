@@ -24,6 +24,7 @@ import org.apache.aries.cdi.container.internal.model.ContainerComponent;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceTemplateDTO;
 import org.apache.aries.cdi.container.internal.util.Maps;
+import org.apache.aries.cdi.container.internal.util.SRs;
 import org.apache.aries.cdi.container.test.BaseCDIBundleTest;
 import org.apache.aries.cdi.container.test.MockConfiguration;
 import org.apache.aries.cdi.container.test.TestUtil;
@@ -106,11 +107,11 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 
 		Promise<Boolean> p1 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_ACTIVATE;
+				return cc == Op.CONTAINER_INSTANCE_OPEN;
 			}
 		);
 
-		assertNotNull(p1.timeout(500).getFailure());
+		assertNotNull(p1.timeout(200).getFailure());
 
 		List<ReferenceDTO> references = TestUtil.sort(
 			componentInstanceDTO.references, (a, b) -> a.template.name.compareTo(b.template.name));
@@ -231,7 +232,7 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 	}
 
 	@Test
-	public void checkUnresolvedReferences() throws Exception {
+	public void test_S_R_M_U_Service() throws Exception {
 		Map<String, Object> attributes = new HashMap<>();
 
 		attributes.put(CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE, Arrays.asList("OSGI-INF/cdi/org.apache.aries.cdi.container.test.beans.Reference_S_R_M_U_Service.xml"));
@@ -272,7 +273,7 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		assertTrue(containerDTO.errors + "", containerDTO.errors.isEmpty());
 		assertNotNull(containerDTO.template);
 
-		assertNull(p0.timeout(500).getValue());
+		assertNull(p0.timeout(200).getValue());
 
 		ComponentInstanceDTO containerComponentInstance = containerDTO.components.get(0).instances.get(0);
 
@@ -307,61 +308,202 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 
 		p0 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_ACTIVATE;
+				return cc == Op.CONTAINER_INSTANCE_OPEN;
 			}
 		);
 
 		ServiceRegistration<Foo> sr1 = serviceBundle.getBundleContext().registerService(
 			Foo.class, new Foo() {}, Maps.dict("sr1", "sr1"));
 
-		assertTrue(p0.timeout(500).getValue());
+		assertTrue(p0.timeout(200).getValue());
 
 		assertEquals(1, extendedReferenceDTO.matches.size());
 
 		p0 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_DEACTIVATE;
+				return cc == Op.CONTAINER_INSTANCE_CLOSE;
 			}
 		);
 
-		ServiceRegistration<Foo> sr2 = serviceBundle.getBundleContext().registerService(
+		serviceBundle.getBundleContext().registerService(
 			Foo.class, new Foo() {}, Maps.dict("sr2", "sr2"));
 
-		assertTrue("should be a TimeoutException", TimeoutException.class.equals(p0.timeout(500).getFailure().getClass()));
+		assertTrue("should be a TimeoutException", TimeoutException.class.equals(p0.timeout(200).getFailure().getClass()));
 
 		assertEquals(2, extendedReferenceDTO.matches.size());
 
 		p0 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_DEACTIVATE;
+				return cc == Op.CONTAINER_INSTANCE_CLOSE;
 			}
 		);
 
-		ServiceRegistration<Foo> sr3 = serviceBundle.getBundleContext().registerService(
-			Foo.class, new Foo() {}, Maps.dict("sr3", "sr3", Constants.SERVICE_RANKING, 100));
+		Foo foo = new Foo() {};
 
-		assertTrue("should be a TimeoutException", TimeoutException.class.equals(p0.timeout(500).getFailure().getClass()));
+		ServiceRegistration<Foo> sr3 = serviceBundle.getBundleContext().registerService(
+			Foo.class, foo, Maps.dict("sr3", "sr3", Constants.SERVICE_RANKING, 100));
+
+		assertTrue("should be a TimeoutException", TimeoutException.class.equals(p0.timeout(200).getFailure().getClass()));
 
 		assertEquals(3, extendedReferenceDTO.matches.size());
 
 		p0 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_DEACTIVATE;
+				return cc == Op.CONTAINER_INSTANCE_CLOSE;
 			}
 		);
 		Promise<Boolean> p1 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_ACTIVATE;
+				return cc == Op.CONTAINER_INSTANCE_OPEN;
 			}
 		);
 
 		sr1.unregister();
 
-		assertNull(p0.timeout(500).getFailure());
+		assertNull(p0.timeout(200).getFailure());
+
+		assertEquals(2, extendedReferenceDTO.matches.size());
+		assertEquals(SRs.id(sr3.getReference()), SRs.id(extendedReferenceDTO.serviceTracker.getServiceReference()));
+		assertEquals(foo, extendedReferenceDTO.serviceTracker.getService());
+
+		assertTrue(p1.timeout(200).getValue());
+	}
+
+	@Test
+	public void test_D_R_M_U_Service() throws Exception {
+		Map<String, Object> attributes = new HashMap<>();
+
+		attributes.put(CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE, Arrays.asList("OSGI-INF/cdi/org.apache.aries.cdi.container.test.beans.Reference_D_R_M_U_Service.xml"));
+
+		when(
+			bundle.adapt(
+				BundleWiring.class).getRequiredWires(
+					ExtenderNamespace.EXTENDER_NAMESPACE).get(
+						0).getRequirement().getAttributes()
+		).thenReturn(attributes);
+
+		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = TestUtil.mockCaSt(bundle);
+		ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker = TestUtil.mockLoggerFactory(bundle);
+
+		MockConfiguration mockConfiguration = new MockConfiguration("foo.config", null);
+		mockConfiguration.update(Maps.dict("fiz", "buz"));
+		TestUtil.configurations.add(mockConfiguration);
+
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, loggerTracker);
+
+		ComponentTemplateDTO containerTemplate = containerState.containerDTO().template.components.get(0);
+
+		ContainerActivator.Builder builder = new ContainerActivator.Builder(containerState, null);
+
+		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate, builder);
+
+		Promise<Boolean> p0 = containerState.addCallback(
+			(CheckedCallback<Boolean, Boolean>) cc -> {
+				return cc == Op.CONTAINER_REFERENCES_OPEN;
+			}
+		);
+
+		containerComponent.open();
+
+		ContainerDTO containerDTO = containerState.containerDTO();
+		assertNotNull(containerDTO);
+		assertEquals(1, containerDTO.changeCount);
+		assertTrue(containerDTO.errors + "", containerDTO.errors.isEmpty());
+		assertNotNull(containerDTO.template);
+
+		assertNull(p0.timeout(200).getValue());
+
+		ComponentInstanceDTO containerComponentInstance = containerDTO.components.get(0).instances.get(0);
+
+		List<ExtendedReferenceDTO> unresolvedReferences = containerComponentInstance.references.stream().map(
+			r -> (ExtendedReferenceDTO)r
+		).filter(
+			r -> r.matches.size() < r.minimumCardinality
+		).collect(Collectors.toList());
+
+		assertEquals(1, unresolvedReferences.size());
+
+		ExtendedReferenceDTO extendedReferenceDTO = unresolvedReferences.get(0);
+
+		assertTrue(extendedReferenceDTO.matches.isEmpty());
+		assertEquals(1, extendedReferenceDTO.minimumCardinality);
+		assertNotNull(extendedReferenceDTO.serviceTracker);
+		assertEquals("(objectClass=org.apache.aries.cdi.container.test.beans.Foo)", extendedReferenceDTO.targetFilter);
+		assertNotNull(extendedReferenceDTO.template);
+		assertEquals(MaximumCardinality.ONE, extendedReferenceDTO.template.maximumCardinality);
+		assertEquals(1, extendedReferenceDTO.template.minimumCardinality);
+		assertEquals("org.apache.aries.cdi.container.test.beans.Reference_D_R_M_U_Service.foo", extendedReferenceDTO.template.name);
+		assertEquals(ReferencePolicy.DYNAMIC, extendedReferenceDTO.template.policy);
+		assertEquals(ReferencePolicyOption.RELUCTANT, extendedReferenceDTO.template.policyOption);
+		assertEquals(Foo.class.getName(), extendedReferenceDTO.template.serviceType);
+		assertEquals("", extendedReferenceDTO.template.targetFilter);
+
+		// first test publishing a service targeting one of the optional references
+
+		BundleDTO serviceBundleDTO = new BundleDTO();
+
+		Bundle serviceBundle = TestUtil.mockBundle(serviceBundleDTO, b -> {});
+
+		p0 = containerState.addCallback(
+			(CheckedCallback<Boolean, Boolean>) cc -> {
+				return cc == Op.CONTAINER_INSTANCE_OPEN;
+			}
+		);
+
+		ServiceRegistration<Foo> sr1 = serviceBundle.getBundleContext().registerService(
+			Foo.class, new Foo() {}, Maps.dict("sr1", "sr1"));
+
+		assertTrue(p0.timeout(200).getValue());
+
+		assertEquals(1, extendedReferenceDTO.matches.size());
+
+		p0 = containerState.addCallback(
+			(CheckedCallback<Boolean, Boolean>) cc -> {
+				return cc == Op.CONTAINER_INSTANCE_CLOSE;
+			}
+		);
+
+		serviceBundle.getBundleContext().registerService(
+			Foo.class, new Foo() {}, Maps.dict("sr2", "sr2"));
+
+		p0.timeout(200).getValue();
 
 		assertEquals(2, extendedReferenceDTO.matches.size());
 
-		assertTrue(p1.timeout(500).getValue());
-	}
+		p0 = containerState.addCallback(
+			(CheckedCallback<Boolean, Boolean>) cc -> {
+				return cc == Op.CONTAINER_INSTANCE_CLOSE;
+			}
+		);
 
+		Foo foo = new Foo() {};
+
+		ServiceRegistration<Foo> sr3 = serviceBundle.getBundleContext().registerService(
+			Foo.class, foo, Maps.dict("sr3", "sr3", Constants.SERVICE_RANKING, 100));
+
+		p0.timeout(200).getValue();
+
+		assertEquals(3, extendedReferenceDTO.matches.size());
+
+		p0 = containerState.addCallback(
+			(CheckedCallback<Boolean, Boolean>) cc -> {
+				return cc == Op.CONTAINER_INSTANCE_CLOSE;
+			}
+		);
+		Promise<Boolean> p1 = containerState.addCallback(
+			(CheckedCallback<Boolean, Boolean>) cc -> {
+				return cc == Op.CONTAINER_INSTANCE_OPEN;
+			}
+		);
+
+		sr1.unregister();
+
+		p0.timeout(200).getFailure();
+
+		assertEquals(2, extendedReferenceDTO.matches.size());
+		assertEquals(SRs.id(sr3.getReference()), SRs.id(extendedReferenceDTO.serviceTracker.getServiceReference()));
+		assertEquals(foo, extendedReferenceDTO.serviceTracker.getService());
+
+		p1.timeout(200).getFailure();
+	}
 }

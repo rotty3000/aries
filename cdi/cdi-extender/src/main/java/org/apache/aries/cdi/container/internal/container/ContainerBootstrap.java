@@ -22,70 +22,80 @@ import java.util.stream.Collectors;
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.Extension;
 
-import org.apache.aries.cdi.container.internal.model.BeansModel;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
+import org.apache.aries.cdi.container.internal.phase.Phase;
 import org.jboss.weld.bootstrap.WeldBootstrap;
 import org.jboss.weld.bootstrap.spi.BeanDeploymentArchive;
 import org.jboss.weld.bootstrap.spi.Deployment;
 import org.jboss.weld.bootstrap.spi.Metadata;
 import org.jboss.weld.util.ServiceLoader;
 
-public class ContainerBootstrap {
+public class ContainerBootstrap extends Phase {
 
-	public ContainerBootstrap(
-		ContainerState containerState) {
+	public ContainerBootstrap(ContainerState containerState) {
+		super(containerState, null);
+	}
 
-		_containerState = containerState;
-		_externalExtensions = _containerState.containerDTO().extensions.stream().map(
+	@Override
+	public boolean close() {
+		if (_bootstrap != null) {
+			_bootstrap.shutdown();
+		}
+
+		return true;
+	}
+
+	@Override
+	public boolean open() {
+		_externalExtensions = containerState.containerDTO().extensions.stream().map(
 			e -> (ExtendedExtensionDTO)e
 		).map(
 			e -> new ExtensionMetadata(e.extension, e.template.serviceFilter)
 		).collect(Collectors.toList());
 
-		BeansModel beansModel = _containerState.beansModel();
-
-		List<Metadata<Extension>> extensions = new CopyOnWriteArrayList<>();
-
 		// Add the internal extensions
-		extensions.add(
+		_extensions.add(
 			new ExtensionMetadata(
-				new BundleContextExtension(_containerState.bundleContext()),
-				_containerState.id()));
-		extensions.add(
+				new BundleContextExtension(containerState.bundleContext()),
+				containerState.id()));
+		_extensions.add(
 			new ExtensionMetadata(
-				new RuntimeExtension(_containerState),
-				_containerState.id()));
-		extensions.add(
+				new RuntimeExtension(containerState),
+				containerState.id()));
+		_extensions.add(
 			new ExtensionMetadata(
-				new LoggerExtension(_containerState),
-				_containerState.id()));
+				new LoggerExtension(containerState),
+				containerState.id()));
 
 		// Add extensions found from the bundle's classloader, such as those in the Bundle-ClassPath
-		for (Metadata<Extension> meta : ServiceLoader.load(Extension.class, _containerState.classLoader())) {
-			extensions.add(meta);
+		for (Metadata<Extension> meta : ServiceLoader.load(Extension.class, containerState.classLoader())) {
+			_extensions.add(meta);
 		}
 
 		// Add external extensions
 		for (Metadata<Extension> meta : _externalExtensions) {
-			extensions.add(meta);
+			_extensions.add(meta);
 		}
-
-		BeanDeploymentArchive beanDeploymentArchive = new ContainerDeploymentArchive(
-			_containerState.loader(), _containerState.id(), beansModel.getBeanClassNames(),
-			beansModel.getBeansXml());
-
-		Deployment deployment = new ContainerDeployment(extensions, beanDeploymentArchive);
 
 		_bootstrap = new WeldBootstrap();
 
-		_bootstrap.startExtensions(extensions);
-		_bootstrap.startContainer(_containerState.id(), new ContainerEnvironment(), deployment);
+		BeanDeploymentArchive beanDeploymentArchive = new ContainerDeploymentArchive(
+			containerState.loader(),
+			containerState.id(),
+			containerState.beansModel().getBeanClassNames(),
+			containerState.beansModel().getBeansXml());
+
+		Deployment deployment = new ContainerDeployment(_extensions, beanDeploymentArchive);
+
+		_bootstrap.startExtensions(_extensions);
+		_bootstrap.startContainer(containerState.id(), new ContainerEnvironment(), deployment);
 
 		_beanManager = _bootstrap.getManager(beanDeploymentArchive);
-//		_containerState.setBeanManager(_beanManager);
 
 		_bootstrap.startInitialization();
 		_bootstrap.deployBeans();
+
+		return true;
 	}
 
 	public BeanManager getBeanManager() {
@@ -96,13 +106,9 @@ public class ContainerBootstrap {
 		return _bootstrap;
 	}
 
-	public void shutdown() {
-		_bootstrap.shutdown();
-	}
-
-	private final BeanManager _beanManager;
-	private final WeldBootstrap _bootstrap;
-	private final ContainerState _containerState;
-	private final Collection<Metadata<Extension>> _externalExtensions;
+	private volatile BeanManager _beanManager;
+	private volatile WeldBootstrap _bootstrap;
+	private final List<Metadata<Extension>> _extensions = new CopyOnWriteArrayList<>();
+	private volatile Collection<Metadata<Extension>> _externalExtensions;
 
 }

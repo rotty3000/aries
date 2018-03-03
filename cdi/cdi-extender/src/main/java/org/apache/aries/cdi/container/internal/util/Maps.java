@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -67,6 +68,16 @@ public class Maps {
 		}
 
 		return map;
+	}
+
+	public static Dictionary<String, ?> dict(Map<String, Object> map) {
+		Dictionary<String, Object> dict = new Hashtable<>();
+
+		for (Entry<String, Object> entry : map.entrySet()) {
+			dict.put(entry.getKey(), entry.getValue());
+		}
+
+		return dict;
 	}
 
 	public static Dictionary<String, ?> dict(Object... args) {

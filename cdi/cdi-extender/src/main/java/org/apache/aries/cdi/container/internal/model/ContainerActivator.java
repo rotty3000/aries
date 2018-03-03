@@ -3,16 +3,17 @@ package org.apache.aries.cdi.container.internal.model;
 import org.apache.aries.cdi.container.internal.container.ContainerBootstrap;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
-import org.apache.aries.cdi.container.internal.phase.Phase;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.jboss.weld.bootstrap.WeldBootstrap;
+import org.osgi.service.cdi.MaximumCardinality;
+import org.osgi.service.cdi.ReferencePolicy;
 import org.osgi.service.log.Logger;
 
 public class ContainerActivator extends InstanceActivator {
 
 	public static class Builder extends InstanceActivator.Builder<Builder> {
 
-		public Builder(ContainerState containerState, Phase next) {
+		public Builder(ContainerState containerState, ContainerBootstrap next) {
 			super(containerState, next);
 		}
 
@@ -29,20 +30,21 @@ public class ContainerActivator extends InstanceActivator {
 
 	@Override
 	public Op openOp() {
-		return Op.CONTAINER_INSTANCE_ACTIVATE;
+		return Op.CONTAINER_INSTANCE_OPEN;
 	}
 
 	@Override
 	public Op closeOp() {
-		return Op.CONTAINER_INSTANCE_DEACTIVATE;
+		return Op.CONTAINER_INSTANCE_CLOSE;
 	}
 
 	@Override
 	public boolean close() {
-		if (_cb != null) {
-			_cb.shutdown();
-			_cb = null;
-		}
+		next.map(next -> (ContainerBootstrap)next).ifPresent(
+			next -> {
+				next.close();
+			}
+		);
 
 		instance.active = false;
 
@@ -51,12 +53,21 @@ public class ContainerActivator extends InstanceActivator {
 
 	@Override
 	public boolean open() {
-		_cb = new ContainerBootstrap(containerState);
+		next.map(next -> (ContainerBootstrap)next).ifPresent(
+			next -> {
+				next.open();
 
-		WeldBootstrap bootstrap = _cb.getBootstrap();
+				WeldBootstrap bootstrap = next.getBootstrap();
 
-		bootstrap.validateBeans();
-		bootstrap.endInitialization();
+				bootstrap.validateBeans();
+				bootstrap.endInitialization();
+
+				if (referenceDTO.template.policy == ReferencePolicy.DYNAMIC) {
+					if (referenceDTO.template.maximumCardinality == MaximumCardinality.MANY) {
+					}
+				}
+			}
+		);
 
 		instance.active = true;
 
@@ -64,7 +75,5 @@ public class ContainerActivator extends InstanceActivator {
 	}
 
 	private static final Logger _log = Logs.getLogger(ContainerActivator.class);
-
-	private volatile ContainerBootstrap _cb;
 
 }

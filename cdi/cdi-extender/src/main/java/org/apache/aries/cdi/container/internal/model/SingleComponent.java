@@ -16,7 +16,7 @@ public class SingleComponent extends Component {
 	public SingleComponent(
 		ContainerState containerState,
 		ComponentTemplateDTO template,
-		InstanceActivator activator) {
+		InstanceActivator.Builder<?> builder) {
 
 		super(containerState, null);
 
@@ -35,7 +35,7 @@ public class SingleComponent extends Component {
 		_instanceDTO.properties = null;
 		_instanceDTO.references = new CopyOnWriteArrayList<>();
 		_instanceDTO.template = template;
-		//_instanceDTO.activator = new SingleActivator(_containerState);
+		_instanceDTO.builder = builder;
 
 		_snapshot.instances.add(_instanceDTO);
 

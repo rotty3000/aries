@@ -14,7 +14,6 @@ import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 
 public class FactoryComponent extends Component {
 
-	private ContainerState _containerState;
 	public FactoryComponent(
 		ContainerState containerState,
 		ComponentTemplateDTO template,
@@ -22,32 +21,30 @@ public class FactoryComponent extends Component {
 
 		super(containerState, null);
 
-		_containerState = containerState;
 		_template = template;
-		_builder = builder;
 
 		_snapshot = new ComponentDTO();
 		_snapshot.instances = new CopyOnWriteArrayList<>();
 		_snapshot.template = _template;
 
-		_containerState.containerDTO().components.add(_snapshot);
+		containerState.containerDTO().components.add(_snapshot);
 
 		configurationTemplates().stream().filter(
 			t -> t.maximumCardinality == MaximumCardinality.MANY
 		).forEach(
 			t -> {
-				_containerState.findConfigs(t.pid, true).ifPresent(
+				containerState.findConfigs(t.pid, true).ifPresent(
 					arr -> Arrays.stream(arr).forEach(
 						c -> {
 							ExtendedComponentInstanceDTO instanceDTO = new ExtendedComponentInstanceDTO();
 							instanceDTO.activations = new CopyOnWriteArrayList<>();
 							instanceDTO.configurations = new CopyOnWriteArrayList<>();
-							instanceDTO.containerState = _containerState;
+							instanceDTO.containerState = containerState;
 							instanceDTO.pid = c.getPid();
 							instanceDTO.properties = null;
 							instanceDTO.references = new CopyOnWriteArrayList<>();
 							instanceDTO.template = template;
-							instanceDTO.builder = _builder;
+							instanceDTO.builder = builder;
 
 							_snapshot.instances.add(instanceDTO);
 						}
@@ -109,7 +106,6 @@ public class FactoryComponent extends Component {
 		return _template;
 	}
 
-	private final InstanceActivator.Builder<?> _builder;
 	private final ComponentDTO _snapshot;
 	private final ComponentTemplateDTO _template;
 

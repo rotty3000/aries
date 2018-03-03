@@ -10,9 +10,9 @@ import org.osgi.framework.Constants;
 import org.osgi.framework.ServiceReference;
 import org.osgi.framework.dto.ServiceReferenceDTO;
 
-public class DTOs {
+public class SRs {
 
-	private DTOs() {
+	private SRs() {
 		// no instances
 	}
 
@@ -43,7 +43,7 @@ public class DTOs {
 		).collect(Collectors.toList());
 	}
 
-	static <T> long id(ServiceReference<T> reference) {
+	public static <T> long id(ServiceReference<T> reference) {
 		return (Long)reference.getProperty(Constants.SERVICE_ID);
 	}
 

@@ -14,18 +14,28 @@
 
 package org.apache.aries.cdi.container.internal.container;
 
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+import javax.enterprise.context.spi.Context;
 import javax.enterprise.event.Observes;
+import javax.enterprise.inject.Any;
 import javax.enterprise.inject.spi.AfterBeanDiscovery;
+import javax.enterprise.inject.spi.AfterDeploymentValidation;
 import javax.enterprise.inject.spi.Annotated;
 import javax.enterprise.inject.spi.AnnotatedField;
 import javax.enterprise.inject.spi.AnnotatedMethod;
 import javax.enterprise.inject.spi.AnnotatedParameter;
+import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
+import javax.enterprise.inject.spi.BeforeShutdown;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.enterprise.inject.spi.ProcessInjectionPoint;
 
 import org.apache.aries.cdi.container.internal.model.ConfigurationModel;
+import org.apache.aries.cdi.container.internal.model.ExtendedActivationTemplateDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedComponentInstanceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationTemplateDTO;
@@ -33,8 +43,13 @@ import org.apache.aries.cdi.container.internal.model.ExtendedReferenceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceTemplateDTO;
 import org.apache.aries.cdi.container.internal.model.OSGiBean;
 import org.apache.aries.cdi.container.internal.model.ReferenceModel;
+import org.apache.aries.cdi.container.internal.util.Maps;
+import org.apache.aries.cdi.container.internal.util.SRs;
+import org.osgi.framework.ServiceRegistration;
+import org.osgi.service.cdi.ComponentType;
 import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.Reference;
+import org.osgi.service.cdi.runtime.dto.ActivationDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO;
 
@@ -44,7 +59,7 @@ public class RuntimeExtension implements Extension {
 		_containerState = containerState;
 	}
 
-	void afterBeanDiscovery(@Observes AfterBeanDiscovery abd) {
+	void afterBeanDiscovery(@Observes AfterBeanDiscovery abd, BeanManager bm) {
 		_containerState.containerDTO().components.stream().flatMap(
 			c -> c.instances.stream()
 		).map(
@@ -56,6 +71,7 @@ public class RuntimeExtension implements Extension {
 				).forEach(
 					r -> {
 						ExtendedReferenceTemplateDTO template = (ExtendedReferenceTemplateDTO)r.template;
+						template.bean.setBeanManager(bm);
 						template.bean.setSnapshot(r);
 						abd.addBean(template.bean);
 					}
@@ -76,6 +92,59 @@ public class RuntimeExtension implements Extension {
 						}
 					}
 				);
+			}
+		);
+	}
+
+	void afterDeploymentValidation(@Observes AfterDeploymentValidation adv, BeanManager bm) {
+		// TODO create & publish service activations
+		_containerState.containerDTO().components.stream().filter(
+			c -> c.template.type == ComponentType.CONTAINER
+		).findFirst().ifPresent(
+			c -> {
+				ExtendedComponentInstanceDTO instance = (ExtendedComponentInstanceDTO)c.instances.get(0);
+				c.template.activations.stream().map(
+					a -> (ExtendedActivationTemplateDTO)a
+				).forEach(
+					a -> {
+						Context context = bm.getContext(a.cdiScope);
+						Set<Bean<?>> beans = bm.getBeans(a.declaringClass, Any.Literal.INSTANCE);
+						Bean<?> bean = bm.resolve(beans);
+						Object object = context.get(bean);
+
+						ServiceRegistration<?> serviceRegistration = _containerState.bundleContext().registerService(
+							a.serviceClasses.toArray(new String[0]),
+							object,
+							Maps.dict(instance.properties));
+
+						ActivationDTO activationDTO = new ActivationDTO();
+						activationDTO.errors = new CopyOnWriteArrayList<>();
+						activationDTO.service = SRs.from(serviceRegistration.getReference());
+						activationDTO.template = a;
+						instance.activations.add(activationDTO);
+
+						_registrations.add(serviceRegistration);
+					}
+				);
+			}
+		);
+	}
+
+	void beforeShutdown(@Observes BeforeShutdown bs) {
+		_containerState.containerDTO().components.stream().filter(
+			c -> c.template.type == ComponentType.CONTAINER
+		).findFirst().ifPresent(
+			c -> {
+				ExtendedComponentInstanceDTO instance = (ExtendedComponentInstanceDTO)c.instances.get(0);
+
+				instance.activations.clear();
+			}
+		);
+
+		_registrations.removeIf(
+			r -> {
+				r.unregister();
+				return true;
 			}
 		);
 	}
@@ -305,9 +374,8 @@ public class RuntimeExtension implements Extension {
 			matchConfiguration(osgiBean, configuration, pip);
 		}
 	}
+
 	/*
-
-
 	void processObserverMethod(@Observes ProcessObserverMethod<ServiceEvent<?>, ?> pom) {
 		ObserverMethod<ServiceEvent<?>> observerMethod = pom.getObserverMethod();
 
@@ -337,5 +405,6 @@ public class RuntimeExtension implements Extension {
 	 */
 
 	private final ContainerState _containerState;
+	private final List<ServiceRegistration<?>> _registrations = new CopyOnWriteArrayList<>();
 
 }

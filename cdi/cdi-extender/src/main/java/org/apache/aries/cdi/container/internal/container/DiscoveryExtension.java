@@ -27,6 +27,8 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
+import javax.enterprise.context.ApplicationScoped;
+import javax.enterprise.context.Dependent;
 import javax.enterprise.event.Observes;
 import javax.enterprise.inject.spi.AfterBeanDiscovery;
 import javax.enterprise.inject.spi.Annotated;
@@ -366,7 +368,20 @@ public class DiscoveryExtension implements Extension {
 				}
 
 				if (!serviceTypes.isEmpty()) {
+					Class<? extends Annotation> scope = pb.getBean().getScope();
+					if (!scope.equals(ApplicationScoped.class) &&
+						!scope.equals(Dependent.class)) {
+
+						pb.addDefinitionError(
+							new IllegalStateException(
+								String.format(
+									"@Service can only be used on @ApplicationScoped, @Dependent, @SingleComponent, and @FactoryComponent: %s",
+									pb.getBean())));
+						return;
+					}
+
 					ExtendedActivationTemplateDTO activationTemplate = new ExtendedActivationTemplateDTO();
+					activationTemplate.cdiScope = scope;
 					activationTemplate.declaringClass = annotatedClass;
 					activationTemplate.properties = Maps.componentProperties(annotated);
 					activationTemplate.scope = getScope(annotated);

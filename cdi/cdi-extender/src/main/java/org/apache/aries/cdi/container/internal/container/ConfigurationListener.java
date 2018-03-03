@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.aries.cdi.container.internal.model.Component;
 import org.apache.aries.cdi.container.internal.model.ExtendedComponentInstanceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationDTO;
+import org.apache.aries.cdi.container.internal.model.FactoryActivator;
 import org.apache.aries.cdi.container.internal.phase.Phase;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
@@ -71,33 +72,35 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 
 		next.map(next -> (Component)next).ifPresent(
 			next -> {
-				for (ConfigurationTemplateDTO template : next.configurationTemplates()) {
-					if (template.maximumCardinality == MaximumCardinality.ONE) {
-						containerState.findConfig(template.pid).ifPresent(
-							c -> processEvent(
-									next,
-									template,
-									new ConfigurationEvent(
-										containerState.caTracker().getServiceReference(),
-										ConfigurationEvent.CM_UPDATED,
-										null,
-										c.getPid()))
-						);
-					}
-					else {
-						containerState.findConfigs(template.pid, true).ifPresent(
-							arr -> Arrays.stream(arr).forEach(
+				next.configurationTemplates().stream().forEach(
+					template -> {
+						if (template.maximumCardinality == MaximumCardinality.ONE) {
+							containerState.findConfig(template.pid).ifPresent(
 								c -> processEvent(
 										next,
 										template,
 										new ConfigurationEvent(
 											containerState.caTracker().getServiceReference(),
 											ConfigurationEvent.CM_UPDATED,
-											c.getFactoryPid(),
-											c.getPid())))
-						);
+											null,
+											c.getPid()))
+							);
+						}
+						else {
+							containerState.findConfigs(template.pid, true).ifPresent(
+								arr -> Arrays.stream(arr).forEach(
+									c -> processEvent(
+											next,
+											template,
+											new ConfigurationEvent(
+												containerState.caTracker().getServiceReference(),
+												ConfigurationEvent.CM_UPDATED,
+												c.getFactoryPid(),
+												c.getPid())))
+							);
+						}
 					}
-				}
+				);
 			}
 		);
 
@@ -153,7 +156,7 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 					instanceDTO.properties = null;
 					instanceDTO.references = new CopyOnWriteArrayList<>();
 					instanceDTO.template = component.template();
-					//instanceDTO.activator = new FactoryActivator(containerState);
+					instanceDTO.builder = new FactoryActivator.Builder(containerState, null);
 
 					if (instances.add(instanceDTO)) {
 						instanceDTO.start();

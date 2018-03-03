@@ -27,7 +27,7 @@ import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionTemplateDTO;
-import org.apache.aries.cdi.container.internal.util.DTOs;
+import org.apache.aries.cdi.container.internal.util.SRs;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.osgi.framework.Filter;
 import org.osgi.framework.ServiceReference;
@@ -156,7 +156,7 @@ public class ExtensionPhase extends Phase {
 			ExtendedExtensionDTO extensionDTO = new ExtendedExtensionDTO();
 
 			extensionDTO.extension = containerState.bundleContext().getService(reference);
-			extensionDTO.service = DTOs.from(reference);
+			extensionDTO.service = SRs.from(reference);
 			extensionDTO.serviceReference = reference;
 			extensionDTO.template = template;
 
