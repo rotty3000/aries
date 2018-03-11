@@ -15,25 +15,27 @@
 package org.apache.aries.cdi.container.internal.container;
 
 import java.util.List;
-import java.util.Set;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import javax.enterprise.context.ApplicationScoped;
+import javax.enterprise.context.BeforeDestroyed;
+import javax.enterprise.context.Initialized;
 import javax.enterprise.context.spi.Context;
 import javax.enterprise.event.Observes;
 import javax.enterprise.inject.Any;
 import javax.enterprise.inject.spi.AfterBeanDiscovery;
-import javax.enterprise.inject.spi.AfterDeploymentValidation;
 import javax.enterprise.inject.spi.Annotated;
 import javax.enterprise.inject.spi.AnnotatedField;
 import javax.enterprise.inject.spi.AnnotatedMethod;
 import javax.enterprise.inject.spi.AnnotatedParameter;
 import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
-import javax.enterprise.inject.spi.BeforeShutdown;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.enterprise.inject.spi.ProcessInjectionPoint;
 
+import org.apache.aries.cdi.container.internal.model.CollectionType;
 import org.apache.aries.cdi.container.internal.model.ConfigurationModel;
 import org.apache.aries.cdi.container.internal.model.ExtendedActivationTemplateDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedComponentInstanceDTO;
@@ -45,13 +47,17 @@ import org.apache.aries.cdi.container.internal.model.OSGiBean;
 import org.apache.aries.cdi.container.internal.model.ReferenceModel;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.internal.util.SRs;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.PrototypeServiceFactory;
+import org.osgi.framework.ServiceFactory;
 import org.osgi.framework.ServiceRegistration;
 import org.osgi.service.cdi.ComponentType;
+import org.osgi.service.cdi.ServiceScope;
 import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.Reference;
 import org.osgi.service.cdi.runtime.dto.ActivationDTO;
+import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
-import org.osgi.service.cdi.runtime.dto.template.ReferenceTemplateDTO;
 
 public class RuntimeExtension implements Extension {
 
@@ -65,72 +71,19 @@ public class RuntimeExtension implements Extension {
 		).map(
 			c -> (ExtendedComponentInstanceDTO)c
 		).forEach(
-			comp -> {
-				comp.references.stream().map(
-					r -> (ExtendedReferenceDTO)r
-				).forEach(
-					r -> {
-						ExtendedReferenceTemplateDTO template = (ExtendedReferenceTemplateDTO)r.template;
-						template.bean.setBeanManager(bm);
-						template.bean.setSnapshot(r);
-						abd.addBean(template.bean);
-					}
-				);
-				comp.configurations.stream().map(
-					c -> (ExtendedConfigurationDTO)c
-				).forEach(
-					c -> {
-						ExtendedConfigurationTemplateDTO template = (ExtendedConfigurationTemplateDTO)c.template;
-						if (template.injectionPointType != null) {
-							if (template.pid == null) {
-								template.bean.setProperties(comp.properties);
-							}
-							else {
-								template.bean.setProperties(c.properties);
-							}
-							abd.addBean(template.bean);
-						}
-					}
-				);
-			}
+			comp -> addBeans(comp, abd, bm)
 		);
 	}
 
-	void afterDeploymentValidation(@Observes AfterDeploymentValidation adv, BeanManager bm) {
-		// TODO create & publish service activations
+	void applicationScopedInitialized(@Observes @Initialized(ApplicationScoped.class) Object o, BeanManager bm) {
 		_containerState.containerDTO().components.stream().filter(
 			c -> c.template.type == ComponentType.CONTAINER
 		).findFirst().ifPresent(
-			c -> {
-				ExtendedComponentInstanceDTO instance = (ExtendedComponentInstanceDTO)c.instances.get(0);
-				c.template.activations.stream().map(
-					a -> (ExtendedActivationTemplateDTO)a
-				).forEach(
-					a -> {
-						Context context = bm.getContext(a.cdiScope);
-						Set<Bean<?>> beans = bm.getBeans(a.declaringClass, Any.Literal.INSTANCE);
-						Bean<?> bean = bm.resolve(beans);
-						Object object = context.get(bean);
-
-						ServiceRegistration<?> serviceRegistration = _containerState.bundleContext().registerService(
-							a.serviceClasses.toArray(new String[0]),
-							object,
-							Maps.dict(instance.properties));
-
-						ActivationDTO activationDTO = new ActivationDTO();
-						activationDTO.errors = new CopyOnWriteArrayList<>();
-						activationDTO.service = SRs.from(serviceRegistration.getReference());
-						activationDTO.template = a;
-						instance.activations.add(activationDTO);
-
-						_registrations.add(serviceRegistration);
-					}
-				);
-			}
+			c -> fireEventsAndRegisterServices(c, (ExtendedComponentInstanceDTO)c.instances.get(0), bm)
 		);
 	}
 
-	void beforeShutdown(@Observes BeforeShutdown bs) {
+	void applicationScopedBeforeDestroyed(@Observes @BeforeDestroyed(ApplicationScoped.class) Object o) {
 		_containerState.containerDTO().components.stream().filter(
 			c -> c.template.type == ComponentType.CONTAINER
 		).findFirst().ifPresent(
@@ -148,206 +101,6 @@ public class RuntimeExtension implements Extension {
 			}
 		);
 	}
-
-	boolean matchConfiguration(OSGiBean osgiBean, Configuration configuration, ProcessInjectionPoint<?, ?> pip) {
-		InjectionPoint injectionPoint = pip.getInjectionPoint();
-
-		Class<?> declaringClass = DiscoveryExtension.getDeclaringClass(injectionPoint);
-
-		ConfigurationTemplateDTO current = new ConfigurationModel.Builder(injectionPoint.getType()).declaringClass(
-			declaringClass
-		).injectionPoint(
-			injectionPoint
-		).build().toDTO();
-
-		for (ConfigurationTemplateDTO t : osgiBean.getComponent().configurations) {
-			ExtendedConfigurationTemplateDTO template = (ExtendedConfigurationTemplateDTO)t;
-
-			if (current.equals(template)) {
-				MarkedInjectionPoint markedInjectionPoint = new MarkedInjectionPoint(injectionPoint);
-
-				pip.setInjectionPoint(markedInjectionPoint);
-
-				template.bean.setMark(markedInjectionPoint.getMark());
-
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	boolean matchReference(OSGiBean osgiBean, Reference reference, ProcessInjectionPoint<?, ?> pip) {
-		InjectionPoint injectionPoint = pip.getInjectionPoint();
-
-		Annotated annotated = injectionPoint.getAnnotated();
-
-		ReferenceModel.Builder builder = null;
-
-		if (annotated instanceof AnnotatedField) {
-			builder = new ReferenceModel.Builder((AnnotatedField<?>)annotated);
-		}
-		else if (annotated instanceof AnnotatedMethod) {
-			builder = new ReferenceModel.Builder((AnnotatedMethod<?>)annotated);
-		}
-		else {
-			builder = new ReferenceModel.Builder((AnnotatedParameter<?>)annotated);
-		}
-
-		ReferenceModel referenceModel = builder.injectionPoint(injectionPoint).build();
-
-		ExtendedReferenceTemplateDTO current = referenceModel.toDTO();
-
-		for (ReferenceTemplateDTO t : osgiBean.getComponent().references) {
-			ExtendedReferenceTemplateDTO template = (ExtendedReferenceTemplateDTO)t;
-
-			if (current.equals(template)) {
-				MarkedInjectionPoint markedInjectionPoint = new MarkedInjectionPoint(injectionPoint);
-
-				pip.setInjectionPoint(markedInjectionPoint);
-
-				template.bean.setMark(markedInjectionPoint.getMark());
-
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	/*
-	ReferenceModel matchReference(ComponentModel componentModel, ProcessObserverMethod<ServiceEvent<?>, ?> pom) {
-		ObserverMethod<ServiceEvent<?>> observerMethod = pom.getObserverMethod();
-
-		Annotated annotated = new ObserverMethodAnnotated(observerMethod);
-
-		for (ReferenceModel referenceModel : componentModel.getReferences()) {
-			ReferenceModel tempModel = new ReferenceModel.Builder(
-				observerMethod.getObservedQualifiers()
-			).annotated(
-				annotated
-			).policy(
-				ReferencePolicy.DYNAMIC
-			).build();
-
-			if (referenceModel.equals(tempModel)) {
-				return referenceModel;
-			}
-		}
-
-		return null;
-	}
-
-
-	 * discover if an annotated class is a component
-
-	<X> void processAnnotatedType(@Observes ProcessAnnotatedType<X> pat, BeanManager beanManager) {
-		final AnnotatedType<X> at = pat.getAnnotatedType();
-
-		Class<X> annotatedClass = at.getJavaClass();
-
-		ComponentModel componentModel = _containerState.beansModel().getComponentModel(annotatedClass.getName());
-
-		// Is it one of the CDI Bundle's defined beans?
-
-		if (componentModel == null) {
-
-			// No it's not!
-
-			return;
-		}
-
-		// If the class is already annotated with @Component, skip it!
-
-		if (at.isAnnotationPresent(Component.class)) {
-			return;
-		}
-
-		// Since it's not, add @Component to the metadata for completeness.
-
-		AnnotatedType<X> wrapped = new AnnotatedType<X>() {
-
-			// Create an impl of @Component
-
-			private final ComponentLiteral componentLiteral = new ComponentLiteral(
-				componentModel.getName(),
-				Types.types(componentModel, annotatedClass, _containerState.classLoader()),
-				componentModel.getProperties(),
-				componentModel.getServiceScope());
-
-			@Override
-			public Set<AnnotatedConstructor<X>> getConstructors() {
-				return at.getConstructors();
-			}
-
-			@Override
-			public Set<AnnotatedField<? super X>> getFields() {
-				return at.getFields();
-			}
-
-			@Override
-			public Class<X> getJavaClass() {
-				return at.getJavaClass();
-			}
-
-			@Override
-			public Set<AnnotatedMethod<? super X>> getMethods() {
-				return at.getMethods();
-			}
-
-			@Override
-			@SuppressWarnings("unchecked")
-			public <T extends Annotation> T getAnnotation(final Class<T> annType) {
-				if (Component.class.equals(annType)) {
-					return (T)componentLiteral;
-				}
-				return at.getAnnotation(annType);
-			}
-
-			@Override
-			public Set<Annotation> getAnnotations() {
-				return Sets.hashSet(at.getAnnotations(), componentLiteral);
-			}
-
-			@Override
-			public Type getBaseType() {
-				return at.getBaseType();
-			}
-
-			@Override
-			public Set<Type> getTypeClosure() {
-				return at.getTypeClosure();
-			}
-
-			@Override
-			public boolean isAnnotationPresent(Class<? extends Annotation> annType) {
-				if (Component.class.equals(annType)) {
-					return true;
-				}
-				return at.isAnnotationPresent(annType);
-			}
-
-		};
-
-		pat.setAnnotatedType(wrapped);
-	}
-*/
-
-//	void processBean(@Observes ProcessBean<?> pb, BeanManager beanManager) {
-//		Entry<Class<?>, Annotated> beanClassAndAnnotated = DiscoveryExtension.getBeanClassAndAnnotated(pb);
-//
-//		final Class<?> annotatedClass = beanClassAndAnnotated.getKey();
-//
-//		String className = annotatedClass.getName();
-//
-//		OSGiBean osgiBean = _containerState.beansModel().getOSGiBean(className);
-//
-//		if (osgiBean == null) {
-//			return;
-//		}
-//
-//		Annotated annotated = beanClassAndAnnotated.getValue();
-//	}
 
 	void processInjectionPoint(@Observes ProcessInjectionPoint<?, ?> pip, BeanManager beanManager) {
 		InjectionPoint injectionPoint = pip.getInjectionPoint();
@@ -375,34 +128,178 @@ public class RuntimeExtension implements Extension {
 		}
 	}
 
-	/*
-	void processObserverMethod(@Observes ProcessObserverMethod<ServiceEvent<?>, ?> pom) {
-		ObserverMethod<ServiceEvent<?>> observerMethod = pom.getObserverMethod();
-
-		if (_log.isDebugEnabled()) {
-			_log.debug("CCR Processing observer method {}", observerMethod);
-		}
-
-		Class<?> beanClass = observerMethod.getBeanClass();
-
-		final String className = beanClass.getName();
-
-		ComponentModel componentModel = _containerState.beansModel().getComponentModel(className);
-
-		if (componentModel == null) {
-			return;
-		}
-
-		ReferenceModel matchingReference = matchReference(componentModel, pom);
-
-		if (matchingReference != null) {
-			Map<String, ObserverMethod<ServiceEvent<?>>> map = _containerState.referenceObservers().computeIfAbsent(
-				componentModel, k -> new LinkedHashMap<>());
-
-			map.put(matchingReference.getName(), observerMethod);
-		}
+	private void addBeans(ExtendedComponentInstanceDTO comp, AfterBeanDiscovery abd, BeanManager bm) {
+		comp.references.stream().map(
+			r -> (ExtendedReferenceDTO)r
+		).forEach(
+			r -> {
+				ExtendedReferenceTemplateDTO template = (ExtendedReferenceTemplateDTO)r.template;
+				template.bean.prepare(r, bm);
+				if (template.collectionType != CollectionType.OBSERVER) {
+					abd.addBean(template.bean);
+				}
+			}
+		);
+		comp.configurations.stream().map(
+			c -> (ExtendedConfigurationDTO)c
+		).filter(
+			c -> Objects.nonNull(((ExtendedConfigurationTemplateDTO)c.template).injectionPointType)
+		).forEach(
+			c -> {
+				ExtendedConfigurationTemplateDTO template = (ExtendedConfigurationTemplateDTO)c.template;
+				if (comp.template.type == ComponentType.CONTAINER) {
+					if (template.pid == null) {
+						template.bean.setProperties(comp.properties);
+					}
+					else {
+						template.bean.setProperties(c.properties);
+					}
+				}
+				abd.addBean(template.bean);
+			}
+		);
 	}
-	 */
+
+	private void fireEventsAndRegisterServices(ComponentDTO c, ExtendedComponentInstanceDTO instance, BeanManager bm) {
+		instance.references.stream().map(
+			r -> (ExtendedReferenceDTO)r
+		).filter(
+			r -> ((ExtendedReferenceTemplateDTO)r.template).collectionType == CollectionType.OBSERVER
+		).map(
+			r -> (ExtendedReferenceTemplateDTO)r.template
+		).forEach(
+			t -> t.bean.fireEvents()
+		);
+
+		c.template.activations.stream().map(
+			a -> (ExtendedActivationTemplateDTO)a
+		).forEach(
+			a -> registerServices(instance, a, bm)
+		);
+	}
+
+	private boolean matchConfiguration(OSGiBean osgiBean, Configuration configuration, ProcessInjectionPoint<?, ?> pip) {
+		InjectionPoint injectionPoint = pip.getInjectionPoint();
+
+		Class<?> declaringClass = DiscoveryExtension.getDeclaringClass(injectionPoint);
+
+		ConfigurationTemplateDTO current = new ConfigurationModel.Builder(injectionPoint.getType()).declaringClass(
+			declaringClass
+		).injectionPoint(
+			injectionPoint
+		).build().toDTO();
+
+		return osgiBean.getComponent().configurations.stream().map(
+			t -> (ExtendedConfigurationTemplateDTO)t
+		).filter(
+			t -> current.equals(t)
+		).findFirst().map(
+			t -> {
+				MarkedInjectionPoint markedInjectionPoint = new MarkedInjectionPoint(injectionPoint);
+
+				pip.setInjectionPoint(markedInjectionPoint);
+
+				t.bean.setMark(markedInjectionPoint.getMark());
+
+				return true;
+			}
+		).orElse(false);
+	}
+
+	private boolean matchReference(OSGiBean osgiBean, Reference reference, ProcessInjectionPoint<?, ?> pip) {
+		InjectionPoint injectionPoint = pip.getInjectionPoint();
+
+		Annotated annotated = injectionPoint.getAnnotated();
+
+		ReferenceModel.Builder builder = null;
+
+		if (annotated instanceof AnnotatedField) {
+			builder = new ReferenceModel.Builder((AnnotatedField<?>)annotated);
+		}
+		else if (annotated instanceof AnnotatedMethod) {
+			builder = new ReferenceModel.Builder((AnnotatedMethod<?>)annotated);
+		}
+		else {
+			builder = new ReferenceModel.Builder((AnnotatedParameter<?>)annotated);
+		}
+
+		ReferenceModel referenceModel = builder.injectionPoint(injectionPoint).build();
+
+		ExtendedReferenceTemplateDTO current = referenceModel.toDTO();
+
+		return osgiBean.getComponent().references.stream().map(
+			t -> (ExtendedReferenceTemplateDTO)t
+		).filter(
+			t -> current.equals(t)
+		).findFirst().map(
+			t -> {
+				MarkedInjectionPoint markedInjectionPoint = new MarkedInjectionPoint(injectionPoint);
+
+				pip.setInjectionPoint(markedInjectionPoint);
+
+				t.bean.setMark(markedInjectionPoint.getMark());
+
+				return true;
+			}
+		).orElse(false);
+	}
+
+	private void registerServices(
+		ExtendedComponentInstanceDTO componentInstance,
+		ExtendedActivationTemplateDTO activationTemplate,
+		BeanManager bm) {
+
+		ServiceScope scope = activationTemplate.scope;
+
+		if (activationTemplate.cdiScope == ApplicationScoped.class) {
+			scope = ServiceScope.SINGLETON;
+		}
+
+		final Context context = bm.getContext(activationTemplate.cdiScope);
+		final Bean<?> bean = bm.resolve(bm.getBeans(activationTemplate.declaringClass, Any.Literal.INSTANCE));
+		Object serviceObject;
+
+		if (scope == ServiceScope.PROTOTYPE) {
+			serviceObject = new PrototypeServiceFactory<Object>() {
+				@Override
+				public Object getService(Bundle bundle, ServiceRegistration<Object> registration) {
+					return context.get(bean);
+				}
+
+				@Override
+				public void ungetService(Bundle bundle, ServiceRegistration<Object> registration, Object service) {
+				}
+			};
+		}
+		else if (scope == ServiceScope.BUNDLE) {
+			serviceObject = new ServiceFactory<Object>() {
+				@Override
+				public Object getService(Bundle bundle, ServiceRegistration<Object> registration) {
+					return context.get(bean);
+				}
+
+				@Override
+				public void ungetService(Bundle bundle, ServiceRegistration<Object> registration, Object service) {
+				}
+			};
+		}
+		else {
+			serviceObject = context.get(bean);
+		}
+
+		ServiceRegistration<?> serviceRegistration = _containerState.bundleContext().registerService(
+			activationTemplate.serviceClasses.toArray(new String[0]),
+			serviceObject,
+			Maps.dict(componentInstance.properties));
+
+		ActivationDTO activationDTO = new ActivationDTO();
+		activationDTO.errors = new CopyOnWriteArrayList<>();
+		activationDTO.service = SRs.from(serviceRegistration.getReference());
+		activationDTO.template = activationTemplate;
+		componentInstance.activations.add(activationDTO);
+
+		_registrations.add(serviceRegistration);
+	}
 
 	private final ContainerState _containerState;
 	private final List<ServiceRegistration<?>> _registrations = new CopyOnWriteArrayList<>();

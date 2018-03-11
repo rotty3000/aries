@@ -14,128 +14,341 @@
 
 package org.apache.aries.cdi.container.internal.model;
 
+import java.util.AbstractMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
+import org.apache.aries.cdi.container.internal.container.ReferenceServiceObjectsImpl;
+import org.apache.aries.cdi.container.internal.util.Logs;
+import org.apache.aries.cdi.container.internal.util.Maps;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.reference.ReferenceEvent;
 import org.osgi.service.cdi.reference.ReferenceServiceObjects;
+import org.osgi.service.log.Logger;
 
 public class ReferenceEventImpl<T> implements ReferenceEvent<T> {
 
-	private final ServiceReference<T> _reference;
 	private final BundleContext _bundleContext;
+	private final List<ServiceReference<T>> _queue = new CopyOnWriteArrayList<>();
+	private final AtomicBoolean _enqueue = new AtomicBoolean(true);
+	private List<Consumer<T>> onAdding = new CopyOnWriteArrayList<>();
+	private List<Consumer<ServiceReference<T>>> onAddingServiceReference = new CopyOnWriteArrayList<>();
+	private List<Consumer<ReferenceServiceObjects<T>>> onAddingServiceObjects = new CopyOnWriteArrayList<>();
+	private List<Consumer<Map<String, ?>>> onAddingProperties = new CopyOnWriteArrayList<>();
+	private List<Consumer<Entry<Map<String, ?>, T>>> onAddingTuple = new CopyOnWriteArrayList<>();
+	private List<Consumer<T>> onUpdate = new CopyOnWriteArrayList<>();
+	private List<Consumer<ServiceReference<T>>> onUpdateServiceReference = new CopyOnWriteArrayList<>();
+	private List<Consumer<ReferenceServiceObjects<T>>> onUpdateServiceObjects = new CopyOnWriteArrayList<>();
+	private List<Consumer<Map<String, ?>>> onUpdateProperties = new CopyOnWriteArrayList<>();
+	private List<Consumer<Entry<Map<String, ?>, T>>> onUpdateTuple = new CopyOnWriteArrayList<>();
+	private List<Consumer<T>> onRemove = new CopyOnWriteArrayList<>();
+	private List<Consumer<ServiceReference<T>>> onRemoveServiceReference = new CopyOnWriteArrayList<>();
+	private List<Consumer<ReferenceServiceObjects<T>>> onRemoveServiceObjects = new CopyOnWriteArrayList<>();
+	private List<Consumer<Map<String, ?>>> onRemoveProperties = new CopyOnWriteArrayList<>();
+	private List<Consumer<Entry<Map<String, ?>, T>>> onRemoveTuple = new CopyOnWriteArrayList<>();
 
-	public ReferenceEventImpl(ServiceReference<T> reference, BundleContext bundleContext) {
-		_reference = reference;
+	private volatile T service;
+	private volatile ReferenceServiceObjects<T> serviceObjects;
+
+	public ReferenceEventImpl(BundleContext bundleContext) {
 		_bundleContext = bundleContext;
 	}
 
-	public ReferenceEventImpl addingService() {
-		// TODO fire this sometime
+	public ReferenceEventImpl<T> addingService(ServiceReference<T> reference) {
+		if (_enqueue.get()) {
+			_queue.add(reference);
+			return this;
+		}
+
+		service = _bundleContext.getService(reference);
+		serviceObjects = new ReferenceServiceObjectsImpl<T>(_bundleContext.getServiceObjects(reference));
+		Map<String, Object> map = Maps.of(reference.getProperties());
+		Entry<Map<String, ?>, T> tuple = new AbstractMap.SimpleImmutableEntry<>(map, service);
+
+		onAdding.removeIf(
+			c -> {
+				try {
+					c.accept(service);
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR error in {}", this, t));
+				}
+				return true;
+			}
+		);
+		onAddingServiceReference.removeIf(
+			c -> {
+				try {
+					c.accept(reference);
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR error in {}", this, t));
+				}
+				return true;
+			}
+		);
+		onAddingServiceObjects.removeIf(
+			c -> {
+				try {
+					c.accept(serviceObjects);
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR error in {}", this, t));
+				}
+				return true;
+			}
+		);
+		onAddingProperties.removeIf(
+			c -> {
+				try {
+					c.accept(map);
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR error in {}", this, t));
+				}
+				return true;
+			}
+		);
+		onAddingTuple.removeIf(
+			c -> {
+				try {
+					c.accept(tuple);
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR error in {}", this, t));
+				}
+				return true;
+			}
+		);
+
 		return this;
 	}
 
-	public ReferenceEventImpl modifiedService() {
-		// TODO fire this sometime
+	public ReferenceEventImpl<T> modifiedService(ServiceReference<T> reference) {
+		if (_enqueue.get()) {
+			return this; // i.e. do nothing
+		}
+
+		Map<String, Object> map = Maps.of(reference.getProperties());
+		Entry<Map<String, ?>, T> tuple = new AbstractMap.SimpleImmutableEntry<>(map, service);
+
+		onUpdate.removeIf(
+			c -> {
+				try {
+					c.accept(service);
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR error in {}", this, t));
+				}
+				return true;
+			}
+		);
+		onUpdateServiceReference.removeIf(
+			c -> {
+				try {
+					c.accept(reference);
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR error in {}", this, t));
+				}
+				return true;
+			}
+		);
+		onUpdateServiceObjects.removeIf(
+			c -> {
+				try {
+					c.accept(serviceObjects);
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR error in {}", this, t));
+				}
+				return true;
+			}
+		);
+		onUpdateProperties.removeIf(
+			c -> {
+				try {
+					c.accept(map);
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR error in {}", this, t));
+				}
+				return true;
+			}
+		);
+		onUpdateTuple.removeIf(
+			c -> {
+				try {
+					c.accept(tuple);
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR error in {}", this, t));
+				}
+				return true;
+			}
+		);
+
 		return this;
 	}
 
-	public ReferenceEventImpl removedService() {
-		// TODO fire this sometime
+	public ReferenceEventImpl<T> removedService(ServiceReference<T> reference) {
+		if (_enqueue.get()) {
+			_queue.remove(reference);
+			return this;
+		}
+
+		Map<String, Object> map = Maps.of(reference.getProperties());
+		Entry<Map<String, ?>, T> tuple = new AbstractMap.SimpleImmutableEntry<>(map, service);
+
+		onRemove.removeIf(
+			c -> {
+				try {
+					c.accept(service);
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR error in {}", this, t));
+				}
+				return true;
+			}
+		);
+		onRemoveServiceReference.removeIf(
+			c -> {
+				try {
+					c.accept(reference);
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR error in {}", this, t));
+				}
+				return true;
+			}
+		);
+		onRemoveServiceObjects.removeIf(
+			c -> {
+				try {
+					c.accept(serviceObjects);
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR error in {}", this, t));
+				}
+				return true;
+			}
+		);
+		onRemoveProperties.removeIf(
+			c -> {
+				try {
+					c.accept(map);
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR error in {}", this, t));
+				}
+				return true;
+			}
+		);
+		onRemoveTuple.removeIf(
+			c -> {
+				try {
+					c.accept(tuple);
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR error in {}", this, t));
+				}
+				return true;
+			}
+		);
+
 		return this;
+	}
+
+	public void flush() {
+		_enqueue.set(false);
+		_queue.removeIf(
+			reference -> {
+				addingService(reference);
+				return true;
+			}
+		);
 	}
 
 	@Override
 	public void onAdding(Consumer<T> action) {
-		// TODO Auto-generated method stub
-
+		onAdding.add(action);
 	}
 
 	@Override
 	public void onAddingServiceReference(Consumer<ServiceReference<T>> consumer) {
-		// TODO Auto-generated method stub
-
+		onAddingServiceReference.add(consumer);
 	}
 
 	@Override
 	public void onAddingServiceObjects(Consumer<ReferenceServiceObjects<T>> consumer) {
-		// TODO Auto-generated method stub
-
+		onAddingServiceObjects.add(consumer);
 	}
 
 	@Override
 	public void onAddingProperties(Consumer<Map<String, ?>> consumer) {
-		// TODO Auto-generated method stub
-
+		onAddingProperties.add(consumer);
 	}
 
 	@Override
 	public void onAddingTuple(Consumer<Entry<Map<String, ?>, T>> consumer) {
-		// TODO Auto-generated method stub
-
+		onAddingTuple.add(consumer);
 	}
 
 	@Override
-	public void onUpdate(Consumer<T> action) {
-		// TODO Auto-generated method stub
-
+	public void onUpdate(Consumer<T> consumer) {
+		onUpdate.add(consumer);
 	}
 
 	@Override
 	public void onUpdateServiceReference(Consumer<ServiceReference<T>> consumer) {
-		// TODO Auto-generated method stub
-
+		onUpdateServiceReference.add(consumer);
 	}
 
 	@Override
 	public void onUpdateServiceObjects(Consumer<ReferenceServiceObjects<T>> consumer) {
-		// TODO Auto-generated method stub
-
+		onUpdateServiceObjects.add(consumer);
 	}
 
 	@Override
 	public void onUpdateProperties(Consumer<Map<String, ?>> consumer) {
-		// TODO Auto-generated method stub
-
+		onUpdateProperties.add(consumer);
 	}
 
 	@Override
 	public void onUpdateTuple(Consumer<Entry<Map<String, ?>, T>> consumer) {
-		// TODO Auto-generated method stub
-
+		onUpdateTuple.add(consumer);
 	}
 
 	@Override
 	public void onRemove(Consumer<T> consumer) {
-		// TODO Auto-generated method stub
-
+		onRemove.add(consumer);
 	}
 
 	@Override
 	public void onRemoveServiceReference(Consumer<ServiceReference<T>> consumer) {
-		// TODO Auto-generated method stub
-
+		onRemoveServiceReference.add(consumer);
 	}
 
 	@Override
 	public void onRemoveServiceObjects(Consumer<ReferenceServiceObjects<T>> consumer) {
-		// TODO Auto-generated method stub
-
+		onRemoveServiceObjects.add(consumer);
 	}
 
 	@Override
 	public void onRemoveProperties(Consumer<Map<String, ?>> consumer) {
-		// TODO Auto-generated method stub
-
+		onRemoveProperties.add(consumer);
 	}
 
 	@Override
 	public void onRemoveTuple(Consumer<Entry<Map<String, ?>, T>> consumer) {
-		// TODO Auto-generated method stub
-
+		onRemoveTuple.add(consumer);
 	}
+
+	private static final Logger _log = Logs.getLogger(ReferenceEventImpl.class);
 
 }

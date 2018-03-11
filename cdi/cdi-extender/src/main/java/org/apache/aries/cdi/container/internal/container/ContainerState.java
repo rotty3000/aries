@@ -42,7 +42,6 @@ import org.apache.aries.cdi.container.internal.model.Component;
 import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationTemplateDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionTemplateDTO;
 import org.apache.aries.cdi.container.internal.reference.ReferenceCallback;
-import org.apache.aries.cdi.container.internal.service.ServiceDeclaration;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Throw;
 import org.jboss.weld.resources.spi.ResourceLoader;
@@ -285,10 +284,6 @@ public class ContainerState {
 		return _referenceObserversMap;
 	}
 
-	public Map<Component, ServiceDeclaration> serviceComponents() {
-		return _serviceComponents;
-	}
-
 	@SuppressWarnings("unchecked")
 	public <T, R> Promise<T> submit(Op op, Callable<T> task) {
 		Promise<T> promise = _promiseFactory.submit(task);
@@ -351,6 +346,5 @@ public class ContainerState {
 	private final PromiseFactory _promiseFactory;
 	private final Map<Component, Map<String, ReferenceCallback>> _referenceCallbacksMap = new ConcurrentHashMap<>();
 	private final Map<Component, Map<String, ObserverMethod<ReferenceEvent<?>>>> _referenceObserversMap = new ConcurrentHashMap<>();
-	private final Map<Component, ServiceDeclaration> _serviceComponents = new ConcurrentHashMap<>();
 
 }

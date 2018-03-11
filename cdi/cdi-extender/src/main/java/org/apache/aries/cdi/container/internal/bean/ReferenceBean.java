@@ -34,8 +34,10 @@ import javax.enterprise.inject.spi.InjectionPoint;
 import javax.inject.Provider;
 
 import org.apache.aries.cdi.container.internal.container.Mark;
+import org.apache.aries.cdi.container.internal.model.CollectionType;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceTemplateDTO;
+import org.apache.aries.cdi.container.internal.model.ReferenceEventImpl;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Sets;
 import org.jboss.weld.bean.builtin.BeanManagerProxy;
@@ -66,6 +68,8 @@ public class ReferenceBean implements Bean<Object> {
 
 	@Override
 	public Object create(CreationalContext<Object> c) {
+		if (_template.collectionType != CollectionType.OBSERVER) return null;
+
 		Objects.requireNonNull(_bm);
 		Objects.requireNonNull(_snapshot);
 
@@ -147,6 +151,29 @@ public class ReferenceBean implements Bean<Object> {
 	public void destroy(Object instance, CreationalContext<Object> creationalContext) {
 	}
 
+	public void fireEvents() {
+		if (_template.collectionType != CollectionType.OBSERVER) return;
+
+		Arrays.stream(
+			_snapshot.serviceTracker.getServices()
+		).map(
+			o -> (ReferenceEventImpl<?>)o
+		).forEach(
+			event -> {
+				try {
+					_bm.getEvent().select(
+						Reference.Literal.of(_template.serviceClass, _template.targetFilter)
+					).fire(event);
+				}
+				catch (Exception e) {
+					_log.error(l -> l.error("CCR observer method error on {}", _snapshot, e));
+				}
+
+				event.flush();
+			}
+		);
+	}
+
 	@Override
 	public Class<?> getBeanClass() {
 		return _template.beanClass;
@@ -195,16 +222,13 @@ public class ReferenceBean implements Bean<Object> {
 		return false;
 	}
 
-	public void setBeanManager(BeanManager bm) {
-		_bm = bm;
-	}
-
 	public void setMark(Mark mark) {
 		_qualifiers.add(mark);
 	}
 
-	public void setSnapshot(ExtendedReferenceDTO snapshot) {
+	public void prepare(ExtendedReferenceDTO snapshot, BeanManager bm) {
 		_snapshot = snapshot;
+		_bm = bm;
 	}
 
 	@Override
