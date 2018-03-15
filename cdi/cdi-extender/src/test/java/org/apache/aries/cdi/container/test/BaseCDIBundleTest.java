@@ -3,12 +3,13 @@ package org.apache.aries.cdi.container.test;
 import static org.mockito.Mockito.*;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.concurrent.Executors;
 
 import org.apache.aries.cdi.container.internal.CCR;
 import org.apache.aries.cdi.container.internal.ChangeCount;
+import org.apache.aries.cdi.container.internal.util.Maps;
 import org.junit.Before;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.dto.BundleDTO;
@@ -76,7 +77,16 @@ public class BaseCDIBundleTest {
 				when(extenderWire.getCapability()).thenReturn(extenderCapability);
 				when(extenderCapability.getAttributes()).thenReturn(Collections.singletonMap(ExtenderNamespace.EXTENDER_NAMESPACE, CDIConstants.CDI_CAPABILITY_NAME));
 				when(extenderWire.getRequirement()).thenReturn(extenderRequirement);
-				when(extenderRequirement.getAttributes()).thenReturn(new HashMap<>());
+				when(extenderRequirement.getAttributes()).thenReturn(
+					Maps.of(
+						"osgi.beans",
+						Arrays.asList(
+							"org.apache.aries.cdi.container.test.beans.BarAnnotated",
+							"org.apache.aries.cdi.container.test.beans.FooAnnotated",
+							"org.apache.aries.cdi.container.test.beans.FooWithReferenceAndConfig"
+						)
+					)
+				);
 			}
 		);
 	}

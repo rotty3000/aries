@@ -56,6 +56,13 @@ public class CDIBundlePhaseTest extends BaseCDIBundleTest {
 		Map<String, Object> attributes = new HashMap<>();
 
 		attributes.put(CDIConstants.REQUIREMENT_EXTENSIONS_ATTRIBUTE, Arrays.asList("(foo=name)", "(fum=bar)"));
+		attributes.put(CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE,
+			Arrays.asList(
+				"org.apache.aries.cdi.container.test.beans.BarAnnotated",
+				"org.apache.aries.cdi.container.test.beans.FooAnnotated",
+				"org.apache.aries.cdi.container.test.beans.FooWithReferenceAndConfig"
+			)
+		);
 
 		when(
 			bundle.adapt(

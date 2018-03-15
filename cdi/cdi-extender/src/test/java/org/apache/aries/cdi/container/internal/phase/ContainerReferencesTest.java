@@ -235,7 +235,12 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 	public void test_S_R_M_U_Service() throws Exception {
 		Map<String, Object> attributes = new HashMap<>();
 
-		attributes.put(CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE, Arrays.asList("OSGI-INF/cdi/org.apache.aries.cdi.container.test.beans.Reference_S_R_M_U_Service.xml"));
+		attributes.put(
+			CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE,
+			Arrays.asList(
+				"org.apache.aries.cdi.container.test.beans.Reference_S_R_M_U_Service"
+			)
+		);
 
 		when(
 			bundle.adapt(
@@ -373,7 +378,12 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 	public void test_D_R_M_U_Service() throws Exception {
 		Map<String, Object> attributes = new HashMap<>();
 
-		attributes.put(CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE, Arrays.asList("OSGI-INF/cdi/org.apache.aries.cdi.container.test.beans.Reference_D_R_M_U_Service.xml"));
+		attributes.put(
+			CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE,
+			Arrays.asList(
+				"org.apache.aries.cdi.container.test.beans.Reference_D_R_M_U_Service"
+			)
+		);
 
 		when(
 			bundle.adapt(

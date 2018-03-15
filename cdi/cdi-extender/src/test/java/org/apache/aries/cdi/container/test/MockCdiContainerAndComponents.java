@@ -37,7 +37,7 @@ public class MockCdiContainerAndComponents implements AutoCloseable {
 			beans.put(className, new OSGiBean.Builder(clazz).build());
 		}
 
-		_beansModel = new BeansModel(beans, Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
+		_beansModel = new BeansModel(beans, Collections.emptyList());
 
 		_containerState = getContainerState(_beansModel);
 

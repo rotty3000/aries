@@ -15,7 +15,6 @@
 package org.apache.aries.cdi.container.internal.container;
 
 import static org.apache.aries.cdi.container.internal.util.Filters.*;
-import static org.apache.aries.cdi.container.internal.util.Throw.*;
 import static org.osgi.namespace.extender.ExtenderNamespace.*;
 import static org.osgi.service.cdi.CDIConstants.*;
 
@@ -30,7 +29,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.enterprise.inject.Any;
-import javax.enterprise.inject.spi.ObserverMethod;
 import javax.enterprise.util.AnnotationLiteral;
 
 import org.apache.aries.cdi.container.internal.ChangeCount;
@@ -38,10 +36,8 @@ import org.apache.aries.cdi.container.internal.loader.BundleClassLoader;
 import org.apache.aries.cdi.container.internal.loader.BundleResourcesLoader;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
 import org.apache.aries.cdi.container.internal.model.BeansModelBuilder;
-import org.apache.aries.cdi.container.internal.model.Component;
 import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationTemplateDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionTemplateDTO;
-import org.apache.aries.cdi.container.internal.reference.ReferenceCallback;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Throw;
 import org.jboss.weld.resources.spi.ResourceLoader;
@@ -57,7 +53,6 @@ import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.service.cdi.ComponentType;
 import org.osgi.service.cdi.ConfigurationPolicy;
 import org.osgi.service.cdi.MaximumCardinality;
-import org.osgi.service.cdi.reference.ReferenceEvent;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ContainerTemplateDTO;
@@ -173,13 +168,7 @@ public class ContainerState {
 
 		_aggregateClassLoader = new BundleClassLoader(getBundles(_bundle, _extenderBundle));
 
-		_beansModel = new BeansModelBuilder(_aggregateClassLoader, bundleWiring, cdiAttributes).build();
-
-		_beansModel.getErrors().stream().map(
-			t -> asString(t)
-		).forEach(
-			s -> _containerDTO.errors.add(s)
-		);
+		_beansModel = new BeansModelBuilder(this, bundleWiring, cdiAttributes).build();
 
 		_bundleClassLoader = bundleWiring.getClassLoader();
 
@@ -276,14 +265,6 @@ public class ContainerState {
 		return _loggerTracker;
 	}
 
-	public Map<Component, Map<String, ReferenceCallback>> referenceCallbacks() {
-		return _referenceCallbacksMap;
-	}
-
-	public Map<Component, Map<String, ObserverMethod<ReferenceEvent<?>>>> referenceObservers() {
-		return _referenceObserversMap;
-	}
-
 	@SuppressWarnings("unchecked")
 	public <T, R> Promise<T> submit(Op op, Callable<T> task) {
 		Promise<T> promise = _promiseFactory.submit(task);
@@ -344,7 +325,5 @@ public class ContainerState {
 	private final Bundle _extenderBundle;
 	private final ServiceTracker<LoggerFactory, LoggerFactory> _loggerTracker;
 	private final PromiseFactory _promiseFactory;
-	private final Map<Component, Map<String, ReferenceCallback>> _referenceCallbacksMap = new ConcurrentHashMap<>();
-	private final Map<Component, Map<String, ObserverMethod<ReferenceEvent<?>>>> _referenceObserversMap = new ConcurrentHashMap<>();
 
 }

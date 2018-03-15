@@ -91,7 +91,17 @@ public class TemplatesTests extends BaseCDIBundleTest {
 	public void components_multiple() throws Exception {
 		Map<String, Object> attributes = new HashMap<>();
 
-		attributes.put(CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE, Arrays.asList("OSGI-INF/cdi/osgi-beans2.xml"));
+		attributes.put(
+			CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE,
+			Arrays.asList(
+				"org.apache.aries.cdi.container.test.beans.BarAnnotated",
+				"org.apache.aries.cdi.container.test.beans.BarProducer",
+				"org.apache.aries.cdi.container.test.beans.FooAnnotated",
+				"org.apache.aries.cdi.container.test.beans.FooWithReferenceAndConfig",
+				"org.apache.aries.cdi.container.test.beans.ObserverFoo",
+				"org.apache.aries.cdi.container.test.beans.BarService"
+			)
+		);
 
 		when(
 			bundle.adapt(
@@ -166,7 +176,17 @@ public class TemplatesTests extends BaseCDIBundleTest {
 	public void components_verifyContainerComponent() throws Exception {
 		Map<String, Object> attributes = new HashMap<>();
 
-		attributes.put(CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE, Arrays.asList("OSGI-INF/cdi/osgi-beans2.xml"));
+		attributes.put(
+			CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE,
+			Arrays.asList(
+				"org.apache.aries.cdi.container.test.beans.BarAnnotated",
+				"org.apache.aries.cdi.container.test.beans.BarProducer",
+				"org.apache.aries.cdi.container.test.beans.FooAnnotated",
+				"org.apache.aries.cdi.container.test.beans.FooWithReferenceAndConfig",
+				"org.apache.aries.cdi.container.test.beans.ObserverFoo",
+				"org.apache.aries.cdi.container.test.beans.BarService"
+			)
+		);
 
 		when(
 			bundle.adapt(
@@ -386,7 +406,14 @@ public class TemplatesTests extends BaseCDIBundleTest {
 	public void descriptor_missingbeanclass() throws Exception {
 		Map<String, Object> attributes = new HashMap<>();
 
-		attributes.put(CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE, Arrays.asList("OSGI-INF/cdi/osgi-beans-missing.xml"));
+		attributes.put(
+			CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE,
+			Arrays.asList(
+				"org.apache.aries.cdi.container.test.beans.BarAnnotated",
+				"org.apache.aries.cdi.container.test.beans.FooAnnotated",
+				"org.apache.aries.cdi.container.test.beans.Missing"
+			)
+		);
 
 		when(
 			bundle.adapt(
@@ -412,7 +439,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 		assertTrue(containerDTO.components + "", containerDTO.components.isEmpty());
 		assertFalse(containerDTO.errors.isEmpty());
 		String[] linesOfError = containerDTO.errors.get(0).split("\r\n|\r|\n", 4);
-		assertTrue(linesOfError[0], linesOfError[0].contains("Error loading class for <cdi:bean class=\"org.apache.aries.cdi.container.test.beans.Missing\">"));
+		assertTrue(linesOfError[0], linesOfError[0].contains("java.lang.ClassNotFoundException: org.apache.aries.cdi.container.test.beans.Missing"));
 	}
 
 }

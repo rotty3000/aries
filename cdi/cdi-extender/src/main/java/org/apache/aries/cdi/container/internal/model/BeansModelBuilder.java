@@ -14,46 +14,84 @@
 
 package org.apache.aries.cdi.container.internal.model;
 
+import static org.apache.aries.cdi.container.internal.util.Reflection.*;
+import static org.osgi.service.cdi.CDIConstants.*;
+
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.wiring.BundleWiring;
+import org.osgi.service.log.Logger;
 
-public class BeansModelBuilder extends AbstractModelBuilder {
+public class BeansModelBuilder {
 
-	public BeansModelBuilder(ClassLoader classLoader, BundleWiring bundleWiring, Map<String, Object> cdiAttributes) {
-		_classLoader = classLoader;
+	public BeansModelBuilder(ContainerState containerState, BundleWiring bundleWiring, Map<String, Object> cdiAttributes) {
+		_containerState = Optional.ofNullable(containerState);
 		_bundleWiring = bundleWiring;
 		_attributes = cdiAttributes;
 		_bundle = _bundleWiring.getBundle();
 	}
 
-	@Override
+	public BeansModel build() {
+		List<URL> beanDescriptorURLs = new ArrayList<URL>();
+		Map<String, Object> attributes = getAttributes();
+
+		List<String> beanDescriptorPaths = cast(attributes.get(REQUIREMENT_BEANS_ATTRIBUTE));
+
+		if (beanDescriptorPaths != null) {
+			for (String descriptorPath : beanDescriptorPaths) {
+				URL url = getResource(descriptorPath);
+
+				if (url != null) {
+					beanDescriptorURLs.add(url);
+				}
+			}
+		}
+
+		@SuppressWarnings("unchecked")
+		List<String> beanClassNames = Optional.ofNullable(
+			_attributes.get(REQUIREMENT_OSGI_BEANS_ATTRIBUTE)
+		).map(v -> (List<String>)v).orElse(Collections.emptyList());
+
+		Map<String, OSGiBean> beans = new HashMap<>();
+
+		for (String beanClassName : beanClassNames) {
+			try {
+				Class<?> clazz = Class.forName(beanClassName);
+
+				beans.put(beanClassName, new OSGiBean.Builder(clazz).build());
+			}
+			catch (Exception e) {
+				_log.error(l -> l.error("CCR Error loading class {}", beanClassName, e));
+
+				_containerState.ifPresent(cs -> cs.error(e));
+			}
+		}
+
+		return new BeansModel(beans, beanDescriptorURLs);
+	}
+
 	public Map<String, Object> getAttributes() {
 		return _attributes;
 	}
 
-	@Override
-	public ClassLoader getClassLoader() {
-		return _classLoader;
-	}
-
-	@Override
 	public URL getResource(String resource) {
 		return _bundle.getResource(resource);
 	}
 
-	@Override
-	public List<String> getDefaultResources() {
-		return new ArrayList<>(_bundleWiring.listResources("OSGI-INF/cdi", "*.xml", BundleWiring.LISTRESOURCES_LOCAL));
-	}
+	private final Logger _log = Logs.getLogger(BeansModelBuilder.class);
 
 	private final Map<String, Object> _attributes;
 	private final Bundle _bundle;
-	private final ClassLoader _classLoader;
 	private final BundleWiring _bundleWiring;
+	private final Optional<ContainerState> _containerState;
 
 }

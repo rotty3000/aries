@@ -92,8 +92,8 @@ public class Maps {
 		return map;
 	}
 
-	public static Map<String, ?> of(Object... args) {
-		Map<String, Object> map = new HashMap<>();
+	public static <T> Map<String, T> of(T... args) {
+		Map<String, T> map = new HashMap<>();
 
 		if ((args.length % 2) != 0) throw new IllegalArgumentException("requires even number of args");
 
