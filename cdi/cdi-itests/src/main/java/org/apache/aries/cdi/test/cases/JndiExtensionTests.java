@@ -15,21 +15,16 @@
 package org.apache.aries.cdi.test.cases;
 
 import java.util.Hashtable;
-import java.util.List;
 
 import javax.enterprise.inject.spi.BeanManager;
+import javax.enterprise.inject.spi.Extension;
 import javax.naming.InitialContext;
 
 import org.apache.aries.cdi.test.interfaces.Pojo;
 import org.osgi.framework.Bundle;
-import org.osgi.framework.BundleEvent;
-import org.osgi.framework.wiring.BundleCapability;
-import org.osgi.framework.wiring.BundleWiring;
-import org.osgi.resource.Capability;
-import org.osgi.service.cdi.PortableExtensionNamespace;
+import org.osgi.framework.Filter;
 import org.osgi.service.jndi.JNDIConstants;
-import org.osgi.util.tracker.BundleTracker;
-import org.osgi.util.tracker.BundleTrackerCustomizer;
+import org.osgi.util.tracker.ServiceTracker;
 
 public class JndiExtensionTests extends AbstractTestCase {
 
@@ -51,42 +46,17 @@ public class JndiExtensionTests extends AbstractTestCase {
 	}
 
 	public void testDisableExtensionAndCDIContainerWaits() throws Exception {
-		BundleTracker<Bundle> bt = new BundleTracker<>(
-			bundle.getBundleContext(), Bundle.RESOLVED | Bundle.ACTIVE, new BundleTrackerCustomizer<Bundle>() {
+		Filter filter = filter(
+			"(&(objectClass=%s)(osgi.cdi.extension=aries.cdi.jndi))",
+			Extension.class.getName());
+		ServiceTracker<Extension, Extension> et = new ServiceTracker<>(
+			bundleContext, filter, null);
 
-				@Override
-				public Bundle addingBundle(Bundle bundle, BundleEvent arg1) {
-					List<BundleCapability> capabilities = bundle.adapt(
-						BundleWiring.class).getCapabilities(PortableExtensionNamespace.CDI_EXTENSION_NAMESPACE);
+		et.open();
 
-					if (capabilities.isEmpty()) {
-						return null;
-					}
+		assertFalse(et.isEmpty());
 
-					for (Capability capability : capabilities) {
-						if (capability.getAttributes().containsValue("jndi")) {
-							return bundle;
-						}
-					}
-
-					return null;
-				}
-
-				@Override
-				public void modifiedBundle(Bundle bundle, BundleEvent arg1, Bundle arg2) {
-				}
-
-				@Override
-				public void removedBundle(Bundle bundle, BundleEvent arg1, Bundle arg2) {
-				}
-			}
-		);
-
-		bt.open();
-
-		assertFalse(bt.isEmpty());
-
-		Bundle extensionBundle = bt.getBundles()[0];
+		Bundle extensionBundle = et.getServiceReference().getBundle();
 
 		// TODO Check that everything is ok...
 

@@ -26,6 +26,7 @@ import javax.enterprise.inject.Any;
 import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
 
+import org.osgi.annotation.bundle.Requirement;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.Filter;
@@ -34,8 +35,10 @@ import org.osgi.framework.InvalidSyntaxException;
 import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.namespace.extender.ExtenderNamespace;
-import org.osgi.service.cdi.CdiConstants;
-import org.osgi.service.cdi.runtime.CdiRuntime;
+import org.osgi.namespace.service.ServiceNamespace;
+import org.osgi.service.cdi.CDIConstants;
+import org.osgi.service.cdi.annotations.RequireCDIExtender;
+import org.osgi.service.cdi.runtime.CDIComponentRuntime;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.util.promise.Promise;
 import org.osgi.util.promise.PromiseFactory;
@@ -43,6 +46,22 @@ import org.osgi.util.tracker.ServiceTracker;
 
 import junit.framework.TestCase;
 
+@RequireCDIExtender
+@Requirement(
+	effective = "active",
+	filter = "(&(objectClass=javax.enterprise.inject.spi.Extension)(osgi.cdi.extension=aries.cdi.http))",
+	namespace = ServiceNamespace.SERVICE_NAMESPACE
+)
+@Requirement(
+	effective = "active",
+	filter = "(&(objectClass=javax.enterprise.inject.spi.Extension)(osgi.cdi.extension=aries.cdi.jndi))",
+	namespace = ServiceNamespace.SERVICE_NAMESPACE
+)
+@Requirement(
+	effective = "active",
+	filter = "(objectClass=org.osgi.service.cm.ConfigurationAdmin)",
+	namespace = ServiceNamespace.SERVICE_NAMESPACE
+)
 public class AbstractTestCase extends TestCase {
 
 	@Override
@@ -52,7 +71,7 @@ public class AbstractTestCase extends TestCase {
 		cdiBundle = bundleContext.installBundle("basic-beans.jar" , getBundle("basic-beans.jar"));
 		cdiBundle.start();
 
-		runtimeTracker = new ServiceTracker<>(bundleContext, CdiRuntime.class, null);
+		runtimeTracker = new ServiceTracker<>(bundleContext, CDIComponentRuntime.class, null);
 		runtimeTracker.open();
 		cdiRuntime = runtimeTracker.waitForService(timeout);
 	}
@@ -96,7 +115,7 @@ public class AbstractTestCase extends TestCase {
 			Map<String, Object> attributes = wire.getCapability().getAttributes();
 			String extender = (String)attributes.get(ExtenderNamespace.EXTENDER_NAMESPACE);
 
-			if (CdiConstants.CDI_CAPABILITY_NAME.equals(extender)) {
+			if (CDIConstants.CDI_CAPABILITY_NAME.equals(extender)) {
 				return wire.getProvider().getBundle();
 			}
 		}
@@ -175,8 +194,8 @@ public class AbstractTestCase extends TestCase {
 
 	Bundle cdiBundle;
 	Bundle servicesBundle;
-	CdiRuntime cdiRuntime;
+	CDIComponentRuntime cdiRuntime;
 	Promise<ContainerDTO> containerDTO;
-	ServiceTracker<CdiRuntime, CdiRuntime> runtimeTracker;
+	ServiceTracker<CDIComponentRuntime, CDIComponentRuntime> runtimeTracker;
 
 }

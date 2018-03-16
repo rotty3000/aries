@@ -21,11 +21,11 @@ import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
 
 import org.apache.aries.cdi.test.interfaces.BeanService;
-import org.osgi.service.cdi.annotations.Component;
 import org.osgi.service.cdi.annotations.Reference;
 import org.osgi.service.cdi.annotations.Service;
+import org.osgi.service.cdi.annotations.SingleComponent;
 
-@Component
+@SingleComponent
 @Service({BeanService.class, Instance_Optional.class})
 @SuppressWarnings("rawtypes")
 public class Instance_Optional implements BeanService<Callable<String>> {
