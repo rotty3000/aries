@@ -40,7 +40,6 @@ import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.provider.CDIProvider;
 import org.apache.felix.utils.extender.AbstractExtender;
 import org.apache.felix.utils.extender.Extension;
-import org.osgi.annotation.bundle.Capability;
 import org.osgi.annotation.bundle.Header;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
@@ -49,9 +48,6 @@ import org.osgi.framework.ServiceFactory;
 import org.osgi.framework.ServiceRegistration;
 import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
-import org.osgi.namespace.extender.ExtenderNamespace;
-import org.osgi.namespace.implementation.ImplementationNamespace;
-import org.osgi.service.cdi.CDIConstants;
 import org.osgi.service.cdi.runtime.CDIComponentRuntime;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cm.ConfigurationAdmin;
@@ -60,35 +56,9 @@ import org.osgi.service.log.LoggerFactory;
 import org.osgi.util.promise.PromiseFactory;
 import org.osgi.util.tracker.ServiceTracker;
 
-@Capability(
-	name = "osgi.cdi",
-	namespace = ExtenderNamespace.EXTENDER_NAMESPACE,
-//	uses = {
-//		org.osgi.service.cdi.ServiceScope.class,
-//		org.osgi.service.cdi.annotations.Bundle.class,
-//		org.osgi.service.cdi.reference.ReferenceEvent.class,
-//		org.osgi.service.cdi.runtime.CDIComponentRuntime.class,
-//		org.osgi.service.cdi.runtime.dto.ActivationDTO.class,
-//		org.osgi.service.cdi.runtime.dto.template.ActivationTemplateDTO.class
-//	},
-	version = CDIConstants.CDI_SPECIFICATION_VERSION
-)
-@Capability(
-	name = "osgi.cdi",
-	namespace = ImplementationNamespace.IMPLEMENTATION_NAMESPACE,
-//	uses = {
-//		org.osgi.service.cdi.ServiceScope.class,
-//		org.osgi.service.cdi.annotations.Bundle.class,
-//		org.osgi.service.cdi.reference.ReferenceEvent.class,
-//		org.osgi.service.cdi.runtime.CDIComponentRuntime.class,
-//		org.osgi.service.cdi.runtime.dto.ActivationDTO.class,
-//		org.osgi.service.cdi.runtime.dto.template.ActivationTemplateDTO.class
-//	},
-	version = CDIConstants.CDI_SPECIFICATION_VERSION
-)
 @Header(
 	name = Constants.BUNDLE_ACTIVATOR,
-	value = "org.apache.aries.cdi.container.internal.Activator"
+	value = "${@class}"
 )
 public class Activator extends AbstractExtender {
 
@@ -97,7 +67,7 @@ public class Activator extends AbstractExtender {
 	}
 
 	public Activator() {
-		setSynchronous(true);
+		setSynchronous(false);
 
 		_ccr = new CCR(_promiseFactory);
 		_command = new CDICommand(_ccr);
@@ -127,8 +97,12 @@ public class Activator extends AbstractExtender {
 		properties.put(Constants.SERVICE_DESCRIPTION, "CDI Component Runtime");
 		properties.put(Constants.SERVICE_VENDOR, "Apache Aries");
 
+		ChangeObserverFactory changeObserverFactory = new ChangeObserverFactory();
+
+		_ccrChangeCount.addObserver(changeObserverFactory);
+
 		_ccrRegistration = _bundleContext.registerService(
-			CDIComponentRuntime.class, new ChangeObserverFactory(), properties);
+			CDIComponentRuntime.class, changeObserverFactory, properties);
 	}
 
 	private void registerCDICommand() {

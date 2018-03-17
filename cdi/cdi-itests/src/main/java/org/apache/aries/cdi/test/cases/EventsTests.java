@@ -30,7 +30,6 @@ public class EventsTests extends AbstractTestCase {
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
-		containerDTO = getContainerDTO(cdiBundle);
 	}
 
 	public void testEventsGetSent() throws Exception {

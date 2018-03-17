@@ -18,8 +18,8 @@ import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.Callable;
 
 import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.inject.Any;
@@ -29,34 +29,22 @@ import javax.enterprise.inject.spi.BeanManager;
 import org.osgi.annotation.bundle.Requirement;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.Constants;
 import org.osgi.framework.Filter;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.InvalidSyntaxException;
+import org.osgi.framework.ServiceReference;
 import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.namespace.extender.ExtenderNamespace;
 import org.osgi.namespace.service.ServiceNamespace;
 import org.osgi.service.cdi.CDIConstants;
-import org.osgi.service.cdi.annotations.RequireCDIExtender;
 import org.osgi.service.cdi.runtime.CDIComponentRuntime;
-import org.osgi.service.cdi.runtime.dto.ContainerDTO;
-import org.osgi.util.promise.Promise;
 import org.osgi.util.promise.PromiseFactory;
 import org.osgi.util.tracker.ServiceTracker;
 
 import junit.framework.TestCase;
 
-@RequireCDIExtender
-@Requirement(
-	effective = "active",
-	filter = "(&(objectClass=javax.enterprise.inject.spi.Extension)(osgi.cdi.extension=aries.cdi.http))",
-	namespace = ServiceNamespace.SERVICE_NAMESPACE
-)
-@Requirement(
-	effective = "active",
-	filter = "(&(objectClass=javax.enterprise.inject.spi.Extension)(osgi.cdi.extension=aries.cdi.jndi))",
-	namespace = ServiceNamespace.SERVICE_NAMESPACE
-)
 @Requirement(
 	effective = "active",
 	filter = "(objectClass=org.osgi.service.cm.ConfigurationAdmin)",
@@ -69,10 +57,12 @@ public class AbstractTestCase extends TestCase {
 		servicesBundle = bundleContext.installBundle("services-one.jar" , getBundle("services-one.jar"));
 		servicesBundle.start();
 		cdiBundle = bundleContext.installBundle("basic-beans.jar" , getBundle("basic-beans.jar"));
-		cdiBundle.start();
 
-		runtimeTracker = new ServiceTracker<>(bundleContext, CDIComponentRuntime.class, null);
+		runtimeTracker = new ServiceTracker<>(
+			bundleContext, CDIComponentRuntime.class, null);
 		runtimeTracker.open();
+
+		cdiBundle.start();
 		cdiRuntime = runtimeTracker.waitForService(timeout);
 	}
 
@@ -162,30 +152,14 @@ public class AbstractTestCase extends TestCase {
 		return serviceTracker;
 	}
 
-	Promise<ContainerDTO> getContainerDTO() throws Exception {
-		return getContainerDTO(bundle);
-	}
-
-	Promise<ContainerDTO> getContainerDTO(Bundle bundle) throws Exception {
-		final PromiseFactory factory = new PromiseFactory(
-				PromiseFactory.inlineExecutor());
-
-		Promise<ContainerDTO> promise = factory.submit(new Callable<ContainerDTO>() {
-			@Override
-			public ContainerDTO call() throws Exception {
-				while (!Thread.interrupted()) {
-					ContainerDTO containerDTO = cdiRuntime.getContainerDTO(bundle);
-					if (containerDTO == null) {
-						Thread.sleep(10);
-						continue;
-					}
-					return containerDTO;
-				}
-				return null;
-			}
-		});
-
-		return promise.timeout(timeout);
+	long getChangeCount(ServiceReference<?> reference) {
+		return Optional.ofNullable(
+			reference.getProperty(Constants.SERVICE_CHANGECOUNT)
+		).map(
+			v -> (Long)v
+		).orElse(
+			new Long(-1l)
+		).longValue();
 	}
 
 	static final Bundle bundle = FrameworkUtil.getBundle(CdiBeanTests.class);
@@ -195,7 +169,7 @@ public class AbstractTestCase extends TestCase {
 	Bundle cdiBundle;
 	Bundle servicesBundle;
 	CDIComponentRuntime cdiRuntime;
-	Promise<ContainerDTO> containerDTO;
 	ServiceTracker<CDIComponentRuntime, CDIComponentRuntime> runtimeTracker;
+	final PromiseFactory promiseFactory = new PromiseFactory(null);
 
 }

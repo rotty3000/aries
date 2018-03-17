@@ -31,6 +31,11 @@ import org.apache.aries.cdi.test.interfaces.FieldInjectedReference;
 import org.junit.Ignore;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
+import org.osgi.service.cdi.ComponentType;
+import org.osgi.service.cdi.runtime.CDIComponentRuntime;
+import org.osgi.service.cdi.runtime.dto.ComponentDTO;
+import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
+import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 
 @SuppressWarnings("rawtypes")
 public class CdiBeanTests extends AbstractTestCase {
@@ -38,7 +43,6 @@ public class CdiBeanTests extends AbstractTestCase {
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
-		containerDTO = getContainerDTO(cdiBundle);
 	}
 
 	public void testConstructorInjectedService() throws Exception {
@@ -120,6 +124,29 @@ public class CdiBeanTests extends AbstractTestCase {
 	}
 
 	public void testMethodInjectedService() throws Exception {
+		CDIComponentRuntime runtime = runtimeTracker.waitForService(5000);
+
+		assertNotNull(runtime);
+
+		ContainerDTO containerDTO = runtime.getContainerDTO(cdiBundle);
+
+		assertNotNull(containerDTO);
+
+		ComponentDTO containerComponentDTO = containerDTO.components.stream().filter(
+			c -> c.template.type == ComponentType.CONTAINER).findFirst().orElse(null);
+
+		assertNotNull(containerComponentDTO);
+
+		assertEquals(5, containerComponentDTO.template.beans.size());
+
+		// There's only one instance of the Container component
+		ComponentInstanceDTO componentInstanceDTO = containerComponentDTO.instances.get(0);
+
+		assertNotNull(componentInstanceDTO);
+
+		assertEquals(0, componentInstanceDTO.configurations.size());
+		assertNotNull("should have properties", componentInstanceDTO.properties);
+
 		Iterator<ServiceReference<BeanService>> iterator = bundleContext.getServiceReferences(
 			BeanService.class, String.format("(objectClass=*.%s)","MethodInjectedService")).iterator();
 

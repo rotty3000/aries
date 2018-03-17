@@ -14,7 +14,7 @@
 
 package org.apache.aries.cdi.test.cases;
 
-import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.*;
 
 import java.util.Dictionary;
 import java.util.Hashtable;
@@ -22,6 +22,7 @@ import java.util.concurrent.Callable;
 
 import org.apache.aries.cdi.test.interfaces.BeanService;
 import org.osgi.framework.Bundle;
+import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.util.tracker.ServiceTracker;
@@ -35,7 +36,7 @@ public class ConfigurationTests extends AbstractTestCase {
 		Configuration configurationA = null, configurationB = null;
 
 		try {
-			containerDTO = getContainerDTO();
+			ContainerDTO containerDTO = runtimeTracker.waitForService(timeout).getContainerDTO(tb3Bundle);
 
 //			assertEquals(
 //				WAITING_FOR_CONFIGURATIONS,
@@ -106,7 +107,7 @@ public class ConfigurationTests extends AbstractTestCase {
 		Configuration configurationC = null;
 
 		try {
-			containerDTO = getContainerDTO();
+			ContainerDTO containerDTO = runtimeTracker.getService().getContainerDTO(tb5Bundle);
 
 //			assertEquals(
 //				SHOULD BE OK,

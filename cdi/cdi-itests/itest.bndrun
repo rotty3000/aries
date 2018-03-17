@@ -5,6 +5,9 @@
 -standalone: target/index.xml
 
 -runrequires: \
+	osgi.identity;filter:='(osgi.identity=org.apache.aries.cdi.extender)',\
+	osgi.identity;filter:='(osgi.identity=org.apache.aries.cdi.extension.http)',\
+	osgi.identity;filter:='(osgi.identity=org.apache.aries.cdi.extension.jndi)',\
 	osgi.identity;filter:='(osgi.identity=org.apache.aries.cdi.itests)',\
 	osgi.identity;filter:='(osgi.identity=org.apache.aries.jndi.core)',\
 	osgi.identity;filter:='(osgi.identity=org.apache.felix.gogo.command)',\

@@ -168,7 +168,7 @@ public class ContainerState {
 
 		_aggregateClassLoader = new BundleClassLoader(getBundles(_bundle, _extenderBundle));
 
-		_beansModel = new BeansModelBuilder(this, bundleWiring, cdiAttributes).build();
+		_beansModel = new BeansModelBuilder(this, _aggregateClassLoader, bundleWiring, cdiAttributes).build();
 
 		_bundleClassLoader = bundleWiring.getClassLoader();
 

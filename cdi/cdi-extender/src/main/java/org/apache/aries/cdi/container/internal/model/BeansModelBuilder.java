@@ -33,8 +33,14 @@ import org.osgi.service.log.Logger;
 
 public class BeansModelBuilder {
 
-	public BeansModelBuilder(ContainerState containerState, BundleWiring bundleWiring, Map<String, Object> cdiAttributes) {
+	public BeansModelBuilder(
+		ContainerState containerState,
+		ClassLoader aggregateClassLoader,
+		BundleWiring bundleWiring,
+		Map<String, Object> cdiAttributes) {
+
 		_containerState = Optional.ofNullable(containerState);
+		_aggregateClassLoader = aggregateClassLoader;
 		_bundleWiring = bundleWiring;
 		_attributes = cdiAttributes;
 		_bundle = _bundleWiring.getBundle();
@@ -65,7 +71,7 @@ public class BeansModelBuilder {
 
 		for (String beanClassName : beanClassNames) {
 			try {
-				Class<?> clazz = Class.forName(beanClassName);
+				Class<?> clazz = _aggregateClassLoader.loadClass(beanClassName);
 
 				beans.put(beanClassName, new OSGiBean.Builder(clazz).build());
 			}
@@ -89,6 +95,7 @@ public class BeansModelBuilder {
 
 	private final Logger _log = Logs.getLogger(BeansModelBuilder.class);
 
+	private final ClassLoader _aggregateClassLoader;
 	private final Map<String, Object> _attributes;
 	private final Bundle _bundle;
 	private final BundleWiring _bundleWiring;

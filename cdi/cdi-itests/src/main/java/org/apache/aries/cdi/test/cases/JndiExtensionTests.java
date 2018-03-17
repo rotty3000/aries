@@ -31,7 +31,6 @@ public class JndiExtensionTests extends AbstractTestCase {
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
-		containerDTO = getContainerDTO(cdiBundle);
 	}
 
 	public void testGetBeanManagerThroughJNDI() throws Exception {

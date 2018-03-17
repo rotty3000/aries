@@ -15,8 +15,8 @@
 package org.apache.aries.cdi.test.beans;
 
 import java.util.Iterator;
+import java.util.List;
 
-import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
 
 import org.apache.aries.cdi.test.interfaces.BeanService;
@@ -33,21 +33,19 @@ public class Instance_ServiceReference implements BeanService<ServiceReference> 
 
 	@Override
 	public String doSomething() {
-		int count = 0;
-		for (Iterator<?> iterator = _instance.iterator();iterator.hasNext();) {
-			iterator.next();
-			count++;
-		}
-		return String.valueOf(count);
+		return String.valueOf(_instance.size());
 	}
 
 	@Override
 	public ServiceReference get() {
-		return _instance.iterator().next();
+		Iterator<ServiceReference> iterator = _instance.iterator();
+		if (iterator.hasNext())
+			return iterator.next();
+		return null;
 	}
 
 	@Inject
 	@Reference(SingletonScoped.class)
-	Instance<ServiceReference> _instance;
+	List<ServiceReference> _instance;
 
 }

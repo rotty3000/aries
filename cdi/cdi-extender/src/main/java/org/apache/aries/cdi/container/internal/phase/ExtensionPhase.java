@@ -45,7 +45,7 @@ public class ExtensionPhase extends Phase {
 
 	@Override
 	public boolean close() {
-		if (!templates().isEmpty()) {
+		if (!extensionTemplates().isEmpty()) {
 			if (_extensionTracker != null) {
 				_extensionTracker.close();
 
@@ -70,7 +70,7 @@ public class ExtensionPhase extends Phase {
 
 	@Override
 	public boolean open() {
-		if (!templates().isEmpty()) {
+		if (!extensionTemplates().isEmpty()) {
 			_extensionTracker = new ServiceTracker<>(
 				containerState.bundleContext(), createExtensionFilter(), new ExtensionPhaseCustomizer());
 
@@ -93,7 +93,7 @@ public class ExtensionPhase extends Phase {
 	}
 
 	Filter createExtensionFilter() {
-		final List<ExtensionTemplateDTO> templates = templates();
+		final List<ExtensionTemplateDTO> templates = extensionTemplates();
 
 		StringBuilder sb = new StringBuilder("(&(objectClass=" + Extension.class.getName() + ")");
 
@@ -110,7 +110,7 @@ public class ExtensionPhase extends Phase {
 		return asFilter(sb.toString());
 	}
 
-	List<ExtensionTemplateDTO> templates() {
+	List<ExtensionTemplateDTO> extensionTemplates() {
 		return containerState.containerDTO().template.extensions;
 	}
 
@@ -129,7 +129,7 @@ public class ExtensionPhase extends Phase {
 
 		@Override
 		public ExtendedExtensionDTO addingService(ServiceReference<Extension> reference) {
-			ExtendedExtensionTemplateDTO template = templates().stream().map(
+			ExtendedExtensionTemplateDTO template = extensionTemplates().stream().map(
 				t -> (ExtendedExtensionTemplateDTO)t
 			).filter(
 				t -> t.filter.match(reference)
@@ -163,7 +163,7 @@ public class ExtensionPhase extends Phase {
 			snapshots().add(extensionDTO);
 			containerState.incrementChangeCount();
 
-			if (snapshots().size() == templates().size()) {
+			if (snapshots().size() == extensionTemplates().size()) {
 				next.ifPresent(
 					next -> submit(Op.CONFIGURATION_CLOSE, next::close).then(
 						s -> {
@@ -217,7 +217,7 @@ public class ExtensionPhase extends Phase {
 			next.ifPresent(
 				next -> submit(Op.CONFIGURATION_CLOSE, next::close).then(
 					s -> {
-						if (snapshots().size() == templates().size()) {
+						if (snapshots().size() == extensionTemplates().size()) {
 							return submit(Op.CONFIGURATION_OPEN, next::open).then(
 								null,
 								f -> {
