@@ -1,2 +1,2 @@
--contract: JavaCDI, JavaServlet
+-contract: JavaAnnotation, JavaCDI, JavaServlet
 -includeresource: META-INF/=LICENSE, META-INF/=NOTICE

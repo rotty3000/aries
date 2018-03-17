@@ -12,6 +12,7 @@ import org.apache.aries.cdi.container.internal.model.FactoryActivator;
 import org.apache.aries.cdi.container.internal.phase.Phase;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
+import org.apache.aries.cdi.container.internal.util.Predicates;
 import org.osgi.framework.ServiceRegistration;
 import org.osgi.service.cdi.MaximumCardinality;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
@@ -52,13 +53,7 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 	public void configurationEvent(ConfigurationEvent event) {
 		next.map(next -> (Component)next).ifPresent(
 			next -> next.configurationTemplates().stream().filter(
-				t -> {
-					if (((t.maximumCardinality == MaximumCardinality.MANY) && t.pid.equals(event.getFactoryPid())) ||
-							((t.maximumCardinality == MaximumCardinality.ONE) && t.pid.equals(event.getPid()))) {
-						return true;
-					}
-					return false;
-				}
+				t -> Predicates.isMatchingConfiguration(event).test(t)
 			).findFirst().ifPresent(
 				t -> processEvent(next, t, event)
 			)
@@ -72,7 +67,7 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 
 		next.map(next -> (Component)next).ifPresent(
 			next -> {
-				next.configurationTemplates().stream().forEach(
+				next.configurationTemplates().forEach(
 					template -> {
 						if (template.maximumCardinality == MaximumCardinality.ONE) {
 							containerState.findConfig(template.pid).ifPresent(
@@ -103,6 +98,8 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 				);
 			}
 		);
+
+		next.ifPresent(next -> startComponent((Component)next));
 
 		return true;
 	}

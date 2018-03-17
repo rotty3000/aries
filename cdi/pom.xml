@@ -124,6 +124,9 @@
 					<groupId>biz.aQute.bnd</groupId>
 					<artifactId>bnd-resolver-maven-plugin</artifactId>
 					<version>${bnd.version}</version>
+					<configuration>
+						<includeOptional>false</includeOptional>
+					</configuration>
 					<executions>
 						<execution>
 							<id>resolve</id>

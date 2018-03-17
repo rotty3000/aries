@@ -98,7 +98,7 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 	//
 
 	public boolean start() {
-		if (!configurationsResolved()) {
+		if (!configurationsResolved() || (properties != null)) {
 			return false;
 		}
 

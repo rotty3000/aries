@@ -17,6 +17,7 @@
 	ch.qos.logback.classic;version='[1.2.3,1.2.4)',\
 	ch.qos.logback.core;version='[1.2.3,1.2.4)',\
 	javax.ejb-api;version='[3.2.0,3.2.1)',\
+	javax.transaction-api;version='[1.2.0,1.2.1)',\
 	jboss-classfilewriter;version='[1.1.2,1.1.3)',\
 	org.apache.aries.cdi.extender;version='[0.0.1,0.0.2)',\
 	org.apache.aries.cdi.extension.http;version='[0.0.1,0.0.2)',\
@@ -29,7 +30,7 @@
 	org.apache.aries.jndi.api;version='[1.1.0,1.1.1)',\
 	org.apache.aries.jndi.core;version='[1.0.2,1.0.3)',\
 	org.apache.aries.util;version='[1.0.0,1.0.1)',\
-	org.apache.felix.configadmin;version='[1.8.12,1.8.13)',\
+	org.apache.felix.configadmin;version='[1.9.0,1.9.1)',\
 	org.apache.felix.gogo.command;version='[1.0.2,1.0.3)',\
 	org.apache.felix.gogo.jline;version='[1.0.2,1.0.3)',\
 	org.apache.felix.gogo.runtime;version='[1.0.2,1.0.3)',\
@@ -37,11 +38,9 @@
 	org.apache.felix.http.servlet-api;version='[1.1.2,1.1.3)',\
 	org.apache.logging.log4j.api;version='[2.7.0,2.7.1)',\
 	org.jboss.logging.jboss-logging;version='[3.2.1,3.2.2)',\
-	org.jboss.spec.javax.transaction.jboss-transaction-api_1.2_spec;version='[1.0.0,1.0.1)',\
 	org.jboss.weld.osgi-bundle;version='[3.0.2,3.0.3)',\
 	org.jline;version='[3.0.0,3.0.1)',\
 	org.osgi.service.cdi;version='[1.0.0,1.0.1)',\
-	org.osgi.service.cm;version='[1.6.0,1.6.1)',\
 	org.osgi.service.event;version='[1.3.1,1.3.2)',\
 	org.osgi.util.function;version='[1.1.0,1.1.1)',\
 	org.osgi.util.promise;version='[1.1.0,1.1.1)',\
