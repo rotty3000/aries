@@ -29,20 +29,21 @@ public class CDIBundle extends Phase implements Extension {
 
 	@Override
 	public boolean close() {
-		next.ifPresent(
-			next -> submit(Op.INIT_CLOSE, next::close).then(
-				null,
-				f -> {
-					_log.error(l -> l.error("CCR Error in cdibundle CLOSE on {}", bundle(), f.getFailure()));
-
-					error(f.getFailure());
+		return next.map(
+			next -> {
+				try {
+					return next.close();
 				}
-			)
-		);
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR Error in cdibundle CLOSE on {}", bundle(), t));
 
-		_ccr.remove(bundle());
-
-		return true;
+					return false;
+				}
+				finally {
+					_ccr.remove(bundle());
+				}
+			}
+		).get();
 	}
 
 	@Override

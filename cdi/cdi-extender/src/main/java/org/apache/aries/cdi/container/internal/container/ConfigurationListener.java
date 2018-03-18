@@ -35,18 +35,18 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 			_listenerService.unregister();
 		}
 
-		next.map(next -> (Component)next).ifPresent(
-			next -> submit(next.closeOp(), next::close).then(
-				null,
-				f -> {
-					_log.error(l -> l.error("CCR Failure in configuration listener close on {}", next, f.getFailure()));
-
-					error(f.getFailure());
+		return next.map(
+			next -> {
+				try {
+					return next.close();
 				}
-			)
-		);
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR Failure in configuration listener close on {}", next, t));
 
-		return true;
+					return false;
+				}
+			}
+		).get();
 	}
 
 	@Override

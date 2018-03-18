@@ -3,9 +3,11 @@ package org.apache.aries.cdi.container.internal.model;
 import org.apache.aries.cdi.container.internal.container.ContainerBootstrap;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.jboss.weld.bootstrap.WeldBootstrap;
 import org.osgi.service.cdi.MaximumCardinality;
 import org.osgi.service.cdi.ReferencePolicy;
+import org.osgi.service.log.Logger;
 
 public class ContainerActivator extends InstanceActivator {
 
@@ -38,15 +40,22 @@ public class ContainerActivator extends InstanceActivator {
 
 	@Override
 	public boolean close() {
-		next.map(ContainerBootstrap.class::cast).ifPresent(
+		boolean result = next.map(
 			next -> {
-				next.close();
+				try {
+					return next.close();
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR Failure in container activator close on {}", next, t));
+
+					return false;
+				}
 			}
-		);
+		).get();
 
 		instance.active = false;
 
-		return true;
+		return result;
 	}
 
 	@Override
@@ -75,5 +84,7 @@ public class ContainerActivator extends InstanceActivator {
 
 		return true;
 	}
+
+	private static final Logger _log = Logs.getLogger(ContainerActivator.class);
 
 }

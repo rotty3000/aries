@@ -147,6 +147,29 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 		return true;
 	}
 
+	public boolean stop() {
+		properties = null;
+
+		references.removeIf(
+			r -> {
+				ExtendedReferenceDTO referenceDTO = (ExtendedReferenceDTO)r;
+				referenceDTO.serviceTracker.close();
+				return true;
+			}
+		);
+
+		InstanceActivator activator = builder.setInstance(this).build();
+
+		try {
+			return activator.close();
+		}
+		catch (Throwable t) {
+			_log.error(l -> l.error("CCR Error in component instance stop on {}", this, t));
+
+			return false;
+		}
+	}
+
 	private Map<String, Object> componentProperties() {
 		Map<String, Object> props = new HashMap<>();
 		props.putAll(template.properties);
@@ -175,28 +198,6 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 		props.put("component.name", template.name);
 
 		return props;
-	}
-
-	public boolean stop() {
-		properties = null;
-
-		containerState.submit(
-			Op.CONTAINER_REFERENCES_CLOSE,
-			() -> references.removeIf(
-				r -> {
-					ExtendedReferenceDTO referenceDTO = (ExtendedReferenceDTO)r;
-					referenceDTO.serviceTracker.close();
-					return true;
-				}
-			)
-		).then(
-			null,
-			f -> {
-				_log.error(l -> l.error("CCR Error in component instance stop on {}", this, f.getFailure()));
-			}
-		);
-
-		return true;
 	}
 
 	private int minimumCardinality(String componentName, int minimumCardinality) {

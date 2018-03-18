@@ -27,8 +27,8 @@ import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionTemplateDTO;
-import org.apache.aries.cdi.container.internal.util.SRs;
 import org.apache.aries.cdi.container.internal.util.Logs;
+import org.apache.aries.cdi.container.internal.util.SRs;
 import org.osgi.framework.Filter;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.runtime.dto.ExtensionDTO;
@@ -51,21 +51,23 @@ public class ExtensionPhase extends Phase {
 
 				_extensionTracker = null;
 			}
+
+			return true;
 		}
 		else {
-			next.ifPresent(
-				next -> submit(Op.CONFIGURATION_CLOSE, next::close).then(
-					null,
-					f -> {
-						_log.error(l -> l.error("CCR Error in extension CLOSE on {}", bundle(), f.getFailure()));
-
-						error(f.getFailure());
+			return next.map(
+				next -> {
+					try {
+						return next.close();
 					}
-				)
-			);
-		}
+					catch (Throwable t) {
+						_log.error(l -> l.error("CCR Error in extension CLOSE on {}", bundle(), t));
 
-		return true;
+						return false;
+					}
+				}
+			).get();
+		}
 	}
 
 	@Override

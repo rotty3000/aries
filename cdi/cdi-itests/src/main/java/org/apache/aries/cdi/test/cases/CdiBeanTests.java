@@ -30,12 +30,14 @@ import org.apache.aries.cdi.test.interfaces.BundleContextBeanQualifier;
 import org.apache.aries.cdi.test.interfaces.FieldInjectedReference;
 import org.junit.Ignore;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.Filter;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.ComponentType;
 import org.osgi.service.cdi.runtime.CDIComponentRuntime;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
+import org.osgi.util.tracker.ServiceTracker;
 
 @SuppressWarnings("rawtypes")
 public class CdiBeanTests extends AbstractTestCase {
@@ -138,26 +140,19 @@ public class CdiBeanTests extends AbstractTestCase {
 		assertNotNull(containerComponentDTO);
 		assertEquals(5, containerComponentDTO.template.beans.size());
 
+		Filter filter = filter("(&(objectClass=%s)(objectClass=*.%s))", BeanService.class.getName(), "MethodInjectedService");
+		ServiceTracker<BeanService, BeanService> bsTracker = new ServiceTracker<>(bundleContext, filter, null);
+		bsTracker.open();
+		BeanService beanService = bsTracker.waitForService(5000);
+		assertNotNull(beanService);
+		assertEquals("PREFIXMETHOD", beanService.doSomething());
+
 		// There's only one instance of the Container component
 		ComponentInstanceDTO componentInstanceDTO = containerComponentDTO.instances.get(0);
 		assertNotNull(componentInstanceDTO);
 
 		assertEquals(0, componentInstanceDTO.configurations.size());
 		assertNotNull("should have properties", componentInstanceDTO.properties);
-
-		Iterator<ServiceReference<BeanService>> iterator = bundleContext.getServiceReferences(
-			BeanService.class, String.format("(objectClass=*.%s)","MethodInjectedService")).iterator();
-
-		assertTrue(iterator.hasNext());
-
-		ServiceReference<BeanService> serviceReference = iterator.next();
-
-		assertNotNull(serviceReference);
-
-		BeanService bean = bundleContext.getService(serviceReference);
-
-		assertNotNull(bean);
-		assertEquals("PREFIXMETHOD", bean.doSomething());
 	}
 
 	@SuppressWarnings("unchecked")

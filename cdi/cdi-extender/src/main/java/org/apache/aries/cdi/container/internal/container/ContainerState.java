@@ -265,6 +265,10 @@ public class ContainerState {
 		return _loggerTracker;
 	}
 
+	public PromiseFactory promiseFactory() {
+		return _promiseFactory;
+	}
+
 	@SuppressWarnings("unchecked")
 	public <T, R> Promise<T> submit(Op op, Callable<T> task) {
 		_log.debug(l -> l.debug("CCR submit {} for {}", op , task));
