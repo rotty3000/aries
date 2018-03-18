@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.enterprise.inject.Any;
 import javax.enterprise.util.AnnotationLiteral;
@@ -182,6 +183,12 @@ public class ContainerState {
 		}
 	}
 
+	public <T, R> Promise<R> addCallback(CheckedCallback<T, R> checkedCallback) {
+		Deferred<R> deferred = _promiseFactory.deferred();
+		_callbacks.put(checkedCallback, deferred);
+		return deferred.getPromise();
+	}
+
 	public BeansModel beansModel() {
 		return _beansModel;
 	}
@@ -198,23 +205,21 @@ public class ContainerState {
 		return _bundle.getBundleContext();
 	}
 
-	public <T, R> Promise<R> addCallback(CheckedCallback<T, R> checkedCallback) {
-		Deferred<R> deferred = _promiseFactory.deferred();
-		_callbacks.put(checkedCallback, deferred);
-		return deferred.getPromise();
+	public ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker() {
+		return _caTracker;
 	}
 
 	public ClassLoader classLoader() {
 		return _aggregateClassLoader;
 	}
 
+	public void closing() {
+		_closing.set(true);
+	}
+
 	public ContainerDTO containerDTO() {
 		_containerDTO.changeCount = _changeCount.get();
 		return _containerDTO;
-	}
-
-	public ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker() {
-		return _caTracker;
 	}
 
 	public void error(Throwable t) {
@@ -273,6 +278,17 @@ public class ContainerState {
 	public <T, R> Promise<T> submit(Op op, Callable<T> task) {
 		_log.debug(l -> l.debug("CCR submit {} for {}", op , task));
 
+		if (_closing.get()) {
+			try {
+				T t = task.call();
+
+				return _promiseFactory.resolved(t);
+			}
+			catch (Exception e) {
+				return _promiseFactory.failed(e);
+			}
+		}
+
 		Promise<T> promise = _promiseFactory.submit(task);
 
 		for (Entry<CheckedCallback<?, ?>, Deferred<?>> entry : _callbacks.entrySet()) {
@@ -325,9 +341,10 @@ public class ContainerState {
 	private final Bundle _bundle;
 	private final ClassLoader _bundleClassLoader;
 	private final Map<CheckedCallback<?, ?>, Deferred<?>> _callbacks = new ConcurrentHashMap<>();
-	private final ChangeCount _changeCount;
 	private final ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> _caTracker;
+	private final ChangeCount _changeCount;
 	private final ContainerDTO _containerDTO;
+	private final AtomicBoolean _closing = new AtomicBoolean(false);
 	private final Bundle _extenderBundle;
 	private final ServiceTracker<LoggerFactory, LoggerFactory> _loggerTracker;
 	private final PromiseFactory _promiseFactory;

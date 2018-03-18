@@ -24,11 +24,13 @@ import javax.enterprise.inject.spi.Extension;
 
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
 import org.apache.aries.cdi.container.internal.phase.Phase;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.jboss.weld.bootstrap.WeldBootstrap;
 import org.jboss.weld.bootstrap.spi.BeanDeploymentArchive;
 import org.jboss.weld.bootstrap.spi.Deployment;
 import org.jboss.weld.bootstrap.spi.Metadata;
 import org.jboss.weld.util.ServiceLoader;
+import org.osgi.service.log.Logger;
 
 public class ContainerBootstrap extends Phase {
 
@@ -38,11 +40,18 @@ public class ContainerBootstrap extends Phase {
 
 	@Override
 	public boolean close() {
-		if (_bootstrap != null) {
-			_bootstrap.shutdown();
-		}
+		try {
+			if (_bootstrap != null) {
+				_bootstrap.shutdown();
+			}
 
-		return true;
+			return true;
+		}
+		catch (Throwable t) {
+			_log.error(l -> l.error("CCR Failure in container bootstrap shutdown on {}", _bootstrap, t));
+
+			return false;
+		}
 	}
 
 	@Override
@@ -105,6 +114,8 @@ public class ContainerBootstrap extends Phase {
 	public WeldBootstrap getBootstrap() {
 		return _bootstrap;
 	}
+
+	private static final Logger _log = Logs.getLogger(ContainerBootstrap.class);
 
 	private volatile BeanManager _beanManager;
 	private volatile WeldBootstrap _bootstrap;

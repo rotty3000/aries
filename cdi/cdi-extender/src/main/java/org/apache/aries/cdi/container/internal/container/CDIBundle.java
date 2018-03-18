@@ -29,6 +29,8 @@ public class CDIBundle extends Phase implements Extension {
 
 	@Override
 	public boolean close() {
+		containerState.closing();
+
 		return next.map(
 			next -> {
 				try {
