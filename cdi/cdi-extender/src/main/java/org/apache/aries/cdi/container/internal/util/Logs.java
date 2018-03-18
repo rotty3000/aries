@@ -13,14 +13,14 @@ import org.osgi.util.tracker.ServiceTracker;
 public class Logs {
 
 	public static Logger getLogger(Class<?> clazz) {
-		if (INSTANCE._tracker != null) {
+/*		if (INSTANCE._tracker != null) {
 			LoggerFactory service = INSTANCE._tracker.getService();
 
 			if (service != null) {
 				return service.getLogger(clazz);
 			}
 		}
-
+*/
 		Logger logger = new NoopLogger(clazz);
 
 		try {

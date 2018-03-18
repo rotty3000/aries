@@ -137,7 +137,7 @@ public class ReferenceModel {
 				throw new IllegalArgumentException(
 					"The service type specified in @Reference (" + c +
 						") is not compatible with the type calculated from the injection point: " +
-							_serviceType);
+							_serviceType + " on " + _annotated);
 			}
 
 			_serviceType = c;
@@ -306,7 +306,7 @@ public class ReferenceModel {
 			if (named.value() == null | named.value().equals("")) {
 				throw new IllegalArgumentException(
 					"It's illegal to specify @Name without specifying a value with @Reference: " +
-						annotated);
+						annotated + " on " + _annotated);
 			}
 			return named.value();
 		}
@@ -343,7 +343,7 @@ public class ReferenceModel {
 		if (!(type instanceof ParameterizedType)) {
 			if (!(type instanceof Class)) {
 				throw new IllegalArgumentException(
-					"The service type must not be generic: " + type);
+					"The service type must not be generic: " + type + " on " + _annotated);
 			}
 
 			Class<?> clazz = cast(type);
@@ -478,7 +478,7 @@ public class ReferenceModel {
 
 			if (!_referenceType.isPresent()) {
 				throw new IllegalArgumentException(
-					"Maps of properties must specify service type with @Reference.value(): " + argument);
+					"Maps of properties must specify service type with @Reference.value(): " + argument + " on " + _annotated);
 			}
 
 			return;
@@ -487,7 +487,7 @@ public class ReferenceModel {
 		if (Map.Entry.class == cast(rawType)) {
 			if (!checkKey(argument)) {
 				throw new IllegalArgumentException(
-					"Tuples must have a key of type Map<String, (? | Object)>: " + argument);
+					"Tuples must have a key of type Map<String, (? | Object)>: " + argument + " on " + _annotated);
 			}
 
 			_collectionType = CollectionType.TUPLE;
@@ -500,7 +500,7 @@ public class ReferenceModel {
 
 			if (!(second instanceof Class)) {
 				throw new IllegalArgumentException(
-					"The service type must not be generic: " + second);
+					"The service type must not be generic: " + second + " on " + _annotated);
 			}
 
 			_serviceType = cast(second);
@@ -536,7 +536,7 @@ public class ReferenceModel {
 
 		if (_serviceType.getTypeParameters().length > 0) {
 			throw new IllegalArgumentException(
-				"Illegal service type: " + argument);
+				"Illegal service type: " + argument + " on " + _annotated);
 		}
 	}
 

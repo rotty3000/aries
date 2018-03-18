@@ -226,8 +226,11 @@ public class ReferenceBean implements Bean<Object> {
 		_qualifiers.add(mark);
 	}
 
-	public void prepare(ExtendedReferenceDTO snapshot, BeanManager bm) {
+	public void setReferenceDTO(ExtendedReferenceDTO snapshot) {
 		_snapshot = snapshot;
+	}
+
+	public void setBeanManager(BeanManager bm) {
 		_bm = bm;
 	}
 

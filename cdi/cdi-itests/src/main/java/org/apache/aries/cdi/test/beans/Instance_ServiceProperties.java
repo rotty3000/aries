@@ -43,7 +43,7 @@ public class Instance_ServiceProperties implements BeanService<Map<String, Objec
 	}
 
 	@Inject
-	@Reference
+	@Reference(Integer.class)
 	List<Map<String, Object>> _instance;
 
 }

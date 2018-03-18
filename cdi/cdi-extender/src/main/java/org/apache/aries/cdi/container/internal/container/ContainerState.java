@@ -267,6 +267,8 @@ public class ContainerState {
 
 	@SuppressWarnings("unchecked")
 	public <T, R> Promise<T> submit(Op op, Callable<T> task) {
+		_log.debug(l -> l.debug("CCR submit {} for {}", op , task));
+
 		Promise<T> promise = _promiseFactory.submit(task);
 
 		for (Entry<CheckedCallback<?, ?>, Deferred<?>> entry : _callbacks.entrySet()) {

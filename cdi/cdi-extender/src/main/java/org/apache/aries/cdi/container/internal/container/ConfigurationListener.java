@@ -99,7 +99,18 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 			}
 		);
 
-		next.ifPresent(next -> startComponent((Component)next));
+		next.map(Component.class::cast).ifPresent(
+			component -> {
+				submit(component.openOp(), component::open).then(
+					null,
+					f -> {
+						_log.error(l -> l.error("CCR Failure during configuration start on {}", component, f.getFailure()));
+
+						error(f.getFailure());
+					}
+				);
+			}
+		);
 
 		return true;
 	}

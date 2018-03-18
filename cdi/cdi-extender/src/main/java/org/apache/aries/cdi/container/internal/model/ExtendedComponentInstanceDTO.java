@@ -104,9 +104,7 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 
 		properties = componentProperties();
 
-		template.references.stream().map(
-			t -> (ExtendedReferenceTemplateDTO)t
-		).forEach(
+		template.references.stream().map(ExtendedReferenceTemplateDTO.class::cast).forEach(
 			t -> {
 				ExtendedReferenceDTO referenceDTO = new ExtendedReferenceDTO();
 
@@ -126,10 +124,23 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 		containerState.submit(
 			Op.CONTAINER_REFERENCES_OPEN,
 			() -> {
-				references.stream().map(
-					r -> (ExtendedReferenceDTO)r).forEach(r -> r.serviceTracker.open()
+				references.stream().map(ExtendedReferenceDTO.class::cast).forEach(
+					r -> r.serviceTracker.open()
 				);
 				return null;
+			}
+		);
+
+		InstanceActivator activator = builder.setInstance(this).build();
+
+		containerState.submit(
+			activator.openOp(), activator::open
+		).then(
+			null,
+			f -> {
+				_log.error(l -> l.error("CCR Error in OPEN on {}", this, f.getFailure()));
+
+				containerState.error(f.getFailure());
 			}
 		);
 
@@ -150,9 +161,7 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 
 					Optional.ofNullable(
 						copy.remove(Constants.SERVICE_PID)
-					).map(
-						v -> (String)v
-					).ifPresent(
+					).map(String.class::cast).ifPresent(
 						v -> servicePids.add(v)
 					);
 

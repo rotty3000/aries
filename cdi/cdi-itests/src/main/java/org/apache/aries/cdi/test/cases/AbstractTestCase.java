@@ -15,6 +15,7 @@
 package org.apache.aries.cdi.test.cases;
 
 import java.io.InputStream;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,9 @@ import org.osgi.namespace.extender.ExtenderNamespace;
 import org.osgi.namespace.service.ServiceNamespace;
 import org.osgi.service.cdi.CDIConstants;
 import org.osgi.service.cdi.runtime.CDIComponentRuntime;
+import org.osgi.service.log.LogLevel;
+import org.osgi.service.log.Logger;
+import org.osgi.service.log.admin.LoggerAdmin;
 import org.osgi.util.promise.PromiseFactory;
 import org.osgi.util.tracker.ServiceTracker;
 
@@ -54,6 +58,10 @@ public class AbstractTestCase extends TestCase {
 
 	@Override
 	protected void setUp() throws Exception {
+		ServiceTracker<LoggerAdmin, LoggerAdmin> laTracker = new ServiceTracker<>(bundleContext, LoggerAdmin.class, null);
+		laTracker.open();
+		loggerAdmin = laTracker.getService();
+		loggerAdmin.getLoggerContext(null).setLogLevels(Collections.singletonMap(Logger.ROOT_LOGGER_NAME, LogLevel.DEBUG));
 		servicesBundle = bundleContext.installBundle("services-one.jar" , getBundle("services-one.jar"));
 		servicesBundle.start();
 		cdiBundle = bundleContext.installBundle("basic-beans.jar" , getBundle("basic-beans.jar"));
@@ -167,9 +175,10 @@ public class AbstractTestCase extends TestCase {
 	static final long timeout = 5000;
 
 	Bundle cdiBundle;
-	Bundle servicesBundle;
 	CDIComponentRuntime cdiRuntime;
-	ServiceTracker<CDIComponentRuntime, CDIComponentRuntime> runtimeTracker;
+	LoggerAdmin loggerAdmin;
 	final PromiseFactory promiseFactory = new PromiseFactory(null);
+	ServiceTracker<CDIComponentRuntime, CDIComponentRuntime> runtimeTracker;
+	Bundle servicesBundle;
 
 }

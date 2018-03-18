@@ -125,23 +125,21 @@ public class CdiBeanTests extends AbstractTestCase {
 
 	public void testMethodInjectedService() throws Exception {
 		CDIComponentRuntime runtime = runtimeTracker.waitForService(5000);
-
 		assertNotNull(runtime);
 
-		ContainerDTO containerDTO = runtime.getContainerDTO(cdiBundle);
+		ServiceReference<CDIComponentRuntime> runtimeReference = runtimeTracker.getServiceReference();
+		long changeCount = getChangeCount(runtimeReference);
 
+		ContainerDTO containerDTO = runtime.getContainerDTO(cdiBundle);
 		assertNotNull(containerDTO);
 
 		ComponentDTO containerComponentDTO = containerDTO.components.stream().filter(
 			c -> c.template.type == ComponentType.CONTAINER).findFirst().orElse(null);
-
 		assertNotNull(containerComponentDTO);
-
 		assertEquals(5, containerComponentDTO.template.beans.size());
 
 		// There's only one instance of the Container component
 		ComponentInstanceDTO componentInstanceDTO = containerComponentDTO.instances.get(0);
-
 		assertNotNull(componentInstanceDTO);
 
 		assertEquals(0, componentInstanceDTO.configurations.size());

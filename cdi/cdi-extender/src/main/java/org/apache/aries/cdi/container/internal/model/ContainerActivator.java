@@ -3,11 +3,9 @@ package org.apache.aries.cdi.container.internal.model;
 import org.apache.aries.cdi.container.internal.container.ContainerBootstrap;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
-import org.apache.aries.cdi.container.internal.util.Logs;
 import org.jboss.weld.bootstrap.WeldBootstrap;
 import org.osgi.service.cdi.MaximumCardinality;
 import org.osgi.service.cdi.ReferencePolicy;
-import org.osgi.service.log.Logger;
 
 public class ContainerActivator extends InstanceActivator {
 
@@ -40,7 +38,7 @@ public class ContainerActivator extends InstanceActivator {
 
 	@Override
 	public boolean close() {
-		next.map(next -> (ContainerBootstrap)next).ifPresent(
+		next.map(ContainerBootstrap.class::cast).ifPresent(
 			next -> {
 				next.close();
 			}
@@ -53,7 +51,11 @@ public class ContainerActivator extends InstanceActivator {
 
 	@Override
 	public boolean open() {
-		next.map(next -> (ContainerBootstrap)next).ifPresent(
+		if (!instance.referencesResolved()) {
+			return false;
+		}
+
+		next.map(ContainerBootstrap.class::cast).ifPresent(
 			next -> {
 				next.open();
 
@@ -73,7 +75,5 @@ public class ContainerActivator extends InstanceActivator {
 
 		return true;
 	}
-
-	private static final Logger _log = Logs.getLogger(ContainerActivator.class);
 
 }

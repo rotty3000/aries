@@ -22,6 +22,7 @@ import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.BeforeDestroyed;
 import javax.enterprise.context.Initialized;
 import javax.enterprise.context.spi.Context;
+import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.event.Observes;
 import javax.enterprise.inject.Any;
 import javax.enterprise.inject.spi.AfterBeanDiscovery;
@@ -39,7 +40,6 @@ import org.apache.aries.cdi.container.internal.model.CollectionType;
 import org.apache.aries.cdi.container.internal.model.ConfigurationModel;
 import org.apache.aries.cdi.container.internal.model.ExtendedActivationTemplateDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedComponentInstanceDTO;
-import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationTemplateDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceTemplateDTO;
@@ -57,6 +57,7 @@ import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.Reference;
 import org.osgi.service.cdi.runtime.dto.ActivationDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
+import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 
 public class RuntimeExtension implements Extension {
@@ -66,12 +67,8 @@ public class RuntimeExtension implements Extension {
 	}
 
 	void afterBeanDiscovery(@Observes AfterBeanDiscovery abd, BeanManager bm) {
-		_containerState.containerDTO().components.stream().flatMap(
-			c -> c.instances.stream()
-		).map(
-			c -> (ExtendedComponentInstanceDTO)c
-		).forEach(
-			comp -> addBeans(comp, abd, bm)
+		_containerState.containerDTO().template.components.forEach(
+			ct -> addBeans(ct, abd, bm)
 		);
 	}
 
@@ -128,34 +125,37 @@ public class RuntimeExtension implements Extension {
 		}
 	}
 
-	private void addBeans(ExtendedComponentInstanceDTO comp, AfterBeanDiscovery abd, BeanManager bm) {
-		comp.references.stream().map(
-			r -> (ExtendedReferenceDTO)r
-		).forEach(
-			r -> {
-				ExtendedReferenceTemplateDTO template = (ExtendedReferenceTemplateDTO)r.template;
-				template.bean.prepare(r, bm);
-				if (template.collectionType != CollectionType.OBSERVER) {
-					abd.addBean(template.bean);
+	private void addBeans(ComponentTemplateDTO componentTemplate, AfterBeanDiscovery abd, BeanManager bm) {
+		componentTemplate.references.stream().map(ExtendedReferenceTemplateDTO.class::cast).forEach(
+			t -> {
+				t.bean.setBeanManager(bm);
+				if (componentTemplate.type == ComponentType.CONTAINER) {
+					_containerState.containerDTO().components.get(0).instances.get(0).references.stream().filter(
+						r -> r.template == t
+					).findFirst().map(
+						ExtendedReferenceDTO.class::cast
+					).ifPresent(
+						r -> t.bean.setReferenceDTO(r)
+					);
+				}
+				if (t.collectionType != CollectionType.OBSERVER) {
+					abd.addBean(t.bean);
 				}
 			}
 		);
-		comp.configurations.stream().map(
-			c -> (ExtendedConfigurationDTO)c
-		).filter(
-			c -> Objects.nonNull(((ExtendedConfigurationTemplateDTO)c.template).injectionPointType)
+		componentTemplate.configurations.stream().map(ExtendedConfigurationTemplateDTO.class::cast).filter(
+			t -> Objects.nonNull(t.injectionPointType)
 		).forEach(
-			c -> {
-				ExtendedConfigurationTemplateDTO template = (ExtendedConfigurationTemplateDTO)c.template;
-				if (comp.template.type == ComponentType.CONTAINER) {
-					if (template.pid == null) {
-						template.bean.setProperties(comp.properties);
+			t -> {
+				if (componentTemplate.type == ComponentType.CONTAINER) {
+					if (t.pid == null) {
+						t.bean.setProperties(componentTemplate.properties);
 					}
 					else {
-						template.bean.setProperties(c.properties);
+						t.bean.setProperties(_containerState.containerDTO().components.get(0).instances.get(0).properties);
 					}
 				}
-				abd.addBean(template.bean);
+				abd.addBean(t.bean);
 			}
 		);
 	}
@@ -256,14 +256,15 @@ public class RuntimeExtension implements Extension {
 		}
 
 		final Context context = bm.getContext(activationTemplate.cdiScope);
-		final Bean<?> bean = bm.resolve(bm.getBeans(activationTemplate.declaringClass, Any.Literal.INSTANCE));
+		final Bean<Object> bean = (Bean<Object>)bm.resolve(bm.getBeans(activationTemplate.declaringClass, Any.Literal.INSTANCE));
 		Object serviceObject;
 
 		if (scope == ServiceScope.PROTOTYPE) {
 			serviceObject = new PrototypeServiceFactory<Object>() {
 				@Override
 				public Object getService(Bundle bundle, ServiceRegistration<Object> registration) {
-					return context.get(bean);
+					CreationalContext<Object> cc = bm.createCreationalContext(bean);
+					return context.get(bean, cc);
 				}
 
 				@Override
@@ -275,7 +276,8 @@ public class RuntimeExtension implements Extension {
 			serviceObject = new ServiceFactory<Object>() {
 				@Override
 				public Object getService(Bundle bundle, ServiceRegistration<Object> registration) {
-					return context.get(bean);
+					CreationalContext<Object> cc = bm.createCreationalContext(bean);
+					return context.get(bean, cc);
 				}
 
 				@Override
@@ -284,8 +286,11 @@ public class RuntimeExtension implements Extension {
 			};
 		}
 		else {
-			serviceObject = context.get(bean);
+			CreationalContext<Object> cc = bm.createCreationalContext(bean);
+			serviceObject = context.get(bean, cc);
 		}
+
+		Objects.requireNonNull(serviceObject, "The service object is somehow null on " + this);
 
 		ServiceRegistration<?> serviceRegistration = _containerState.bundleContext().registerService(
 			activationTemplate.serviceClasses.toArray(new String[0]),

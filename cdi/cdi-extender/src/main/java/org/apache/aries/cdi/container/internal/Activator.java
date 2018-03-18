@@ -46,6 +46,7 @@ import org.osgi.framework.BundleContext;
 import org.osgi.framework.Constants;
 import org.osgi.framework.ServiceFactory;
 import org.osgi.framework.ServiceRegistration;
+import org.osgi.framework.wiring.BundleRequirement;
 import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.service.cdi.runtime.CDIComponentRuntime;
@@ -195,7 +196,14 @@ public class Activator extends AbstractExtender {
 				Bundle providerWiringBundle = bundleWire.getProviderWiring().getBundle();
 
 				if (providerWiringBundle.equals(_bundleContext.getBundle())) {
-					return true;
+					BundleRequirement requirement = bundleWire.getRequirement();
+					Map<String, Object> requirementAttributes = requirement.getAttributes();
+
+					List<String> beans = (List<String>)requirementAttributes.get(REQUIREMENT_OSGI_BEANS_ATTRIBUTE);
+
+					if (beans != null && !beans.isEmpty()) {
+						return true;
+					}
 				}
 			}
 		}
