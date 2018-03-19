@@ -66,7 +66,7 @@ public class ExtensionPhase extends Phase {
 						return false;
 					}
 				}
-			).get();
+			).orElse(true);
 		}
 	}
 

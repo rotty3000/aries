@@ -44,12 +44,12 @@ public class SingleComponent extends Component {
 
 	@Override
 	public boolean close() {
-		return _instanceDTO.stop();
+		return _instanceDTO.close();
 	}
 
 	@Override
 	public Op closeOp() {
-		return Op.SINGLE_COMPONENT_STOP;
+		return Op.SINGLE_COMPONENT_CLOSE;
 	}
 
 	@Override
@@ -69,12 +69,12 @@ public class SingleComponent extends Component {
 
 	@Override
 	public boolean open() {
-		return _instanceDTO.start();
+		return _instanceDTO.open();
 	}
 
 	@Override
 	public Op openOp() {
-		return Op.SINGLE_COMPONENT_START;
+		return Op.SINGLE_COMPONENT_OPEN;
 	}
 
 	@Override

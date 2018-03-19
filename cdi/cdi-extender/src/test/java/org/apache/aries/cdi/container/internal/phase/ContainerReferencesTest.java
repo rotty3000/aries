@@ -46,7 +46,6 @@ import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.service.cdi.runtime.dto.ReferenceDTO;
-import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.log.LoggerFactory;
 import org.osgi.util.converter.TypeReference;
@@ -67,17 +66,13 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 
 		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, loggerTracker);
 
-		ComponentTemplateDTO containerTemplate = containerState.containerDTO().template.components.get(0);
-
-		ContainerActivator.Builder builder = new ContainerActivator.Builder(containerState, null);
-
-		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate, builder);
-
-		ConfigurationListener configurationListener = new ConfigurationListener(containerState, containerComponent);
+		ConfigurationListener configurationListener = new ConfigurationListener(containerState,
+			new ContainerComponent(containerState,
+				new ContainerActivator.Builder(containerState, null)));
 
 		Promise<Boolean> p0 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_COMPONENT_START;
+				return cc == Op.CONTAINER_COMPONENT_OPEN;
 			}
 		);
 
@@ -258,11 +253,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 
 		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, loggerTracker);
 
-		ComponentTemplateDTO containerTemplate = containerState.containerDTO().template.components.get(0);
-
-		ContainerActivator.Builder builder = new ContainerActivator.Builder(containerState, null);
-
-		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate, builder);
+		ContainerComponent containerComponent = new ContainerComponent(containerState,
+			new ContainerActivator.Builder(containerState, null));
 
 		Promise<Boolean> p0 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) cc -> {
@@ -401,11 +393,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 
 		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, loggerTracker);
 
-		ComponentTemplateDTO containerTemplate = containerState.containerDTO().template.components.get(0);
-
-		ContainerActivator.Builder builder = new ContainerActivator.Builder(containerState, null);
-
-		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate, builder);
+		ContainerComponent containerComponent = new ContainerComponent(containerState,
+			new ContainerActivator.Builder(containerState, null));
 
 		Promise<Boolean> p0 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) cc -> {

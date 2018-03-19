@@ -59,7 +59,7 @@ public class FactoryComponent extends Component {
 		_snapshot.instances.stream().map(
 			instance -> (ExtendedComponentInstanceDTO)instance
 		).forEach(
-			instance -> instance.stop()
+			instance -> instance.close()
 		);
 
 		return true;
@@ -67,7 +67,7 @@ public class FactoryComponent extends Component {
 
 	@Override
 	public Op closeOp() {
-		return Op.FACTORY_COMPONENT_STOP;
+		return Op.FACTORY_COMPONENT_CLOSE;
 	}
 
 	@Override
@@ -90,7 +90,7 @@ public class FactoryComponent extends Component {
 		_snapshot.instances.stream().map(
 			instance -> (ExtendedComponentInstanceDTO)instance
 		).forEach(
-			instance -> instance.start()
+			instance -> instance.open()
 		);
 
 		return true;
@@ -98,7 +98,7 @@ public class FactoryComponent extends Component {
 
 	@Override
 	public Op openOp() {
-		return Op.FACTORY_COMPONENT_START;
+		return Op.FACTORY_COMPONENT_OPEN;
 	}
 
 	@Override

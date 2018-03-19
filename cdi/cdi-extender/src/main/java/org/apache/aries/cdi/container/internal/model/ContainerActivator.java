@@ -48,7 +48,7 @@ public class ContainerActivator extends InstanceActivator {
 					return false;
 				}
 			}
-		).get();
+		).orElse(true);
 
 		instance.active = false;
 
@@ -72,7 +72,7 @@ public class ContainerActivator extends InstanceActivator {
 					return false;
 				}
 			}
-		).get();
+		).orElse(true);
 
 		if (result) {
 			instance.active = true;

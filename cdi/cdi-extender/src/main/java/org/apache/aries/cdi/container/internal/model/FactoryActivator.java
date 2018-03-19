@@ -30,7 +30,7 @@ public class FactoryActivator extends InstanceActivator {
 
 	@Override
 	public Op closeOp() {
-		return Op.FACTORY_INSTANCE_DEACTIVATE;
+		return Op.FACTORY_INSTANCE_CLOSE;
 	}
 
 	@Override
@@ -40,7 +40,7 @@ public class FactoryActivator extends InstanceActivator {
 
 	@Override
 	public Op openOp() {
-		return Op.FACTORY_INSTANCE_ACTIVATE;
+		return Op.FACTORY_INSTANCE_OPEN;
 	}
 
 }

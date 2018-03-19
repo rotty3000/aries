@@ -15,12 +15,11 @@ public class ContainerComponent extends Component {
 
 	public ContainerComponent(
 		ContainerState containerState,
-		ComponentTemplateDTO template,
 		InstanceActivator.Builder<?> builder) {
 
 		super(containerState, null);
 
-		_template = template;
+		_template = containerState.containerDTO().template.components.get(0);
 
 		_snapshot = new ComponentDTO();
 		_snapshot.instances = new CopyOnWriteArrayList<>();
@@ -33,7 +32,7 @@ public class ContainerComponent extends Component {
 		_instanceDTO.pid = _template.configurations.get(0).pid;
 		_instanceDTO.properties = null;
 		_instanceDTO.references = new CopyOnWriteArrayList<>();
-		_instanceDTO.template = template;
+		_instanceDTO.template = _template;
 		_instanceDTO.builder = builder;
 
 		_snapshot.instances.add(_instanceDTO);
@@ -43,7 +42,7 @@ public class ContainerComponent extends Component {
 
 	@Override
 	public boolean close() {
-		return _instanceDTO.stop();
+		return _instanceDTO.close();
 	}
 
 	@Override
@@ -58,7 +57,7 @@ public class ContainerComponent extends Component {
 
 	@Override
 	public boolean open() {
-		return _instanceDTO.start();
+		return _instanceDTO.open();
 	}
 
 	@Override
@@ -68,12 +67,12 @@ public class ContainerComponent extends Component {
 
 	@Override
 	public Op openOp() {
-		return Op.CONTAINER_COMPONENT_START;
+		return Op.CONTAINER_COMPONENT_OPEN;
 	}
 
 	@Override
 	public Op closeOp() {
-		return Op.CONTAINER_COMPONENT_STOP;
+		return Op.CONTAINER_COMPONENT_CLOSE;
 	}
 
 	@Override

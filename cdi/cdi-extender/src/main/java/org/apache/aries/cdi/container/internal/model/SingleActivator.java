@@ -30,7 +30,7 @@ public class SingleActivator extends InstanceActivator {
 
 	@Override
 	public Op openOp() {
-		return Op.SINGLE_INSTANCE_ACTIVATE;
+		return Op.SINGLE_INSTANCE_OPEN;
 	}
 
 	@Override
@@ -40,7 +40,7 @@ public class SingleActivator extends InstanceActivator {
 
 	@Override
 	public Op closeOp() {
-		return Op.SINGLE_INSTANCE_DEACTIVATE;
+		return Op.SINGLE_INSTANCE_CLOSE;
 	}
 
 }

@@ -50,7 +50,6 @@ import org.osgi.framework.wiring.BundleRequirement;
 import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.service.cdi.runtime.CDIComponentRuntime;
-import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.log.Logger;
 import org.osgi.service.log.LoggerFactory;
@@ -149,17 +148,12 @@ public class Activator extends AbstractExtender {
 		ContainerState containerState = new ContainerState(
 			bundle, _bundleContext.getBundle(), _ccrChangeCount, _promiseFactory, caTracker, loggerTracker);
 
-		ComponentTemplateDTO containerTemplate = containerState.containerDTO().template.components.get(0);
-
-		ContainerBootstrap cb = new ContainerBootstrap(containerState);
-
-		ContainerActivator.Builder builder = new ContainerActivator.Builder(containerState, cb);
-
-		ContainerComponent containerComponent = new ContainerComponent(containerState, containerTemplate, builder);
-
 		return new CDIBundle(_ccr, containerState,
 			new ExtensionPhase(containerState,
-				new ConfigurationListener(containerState, containerComponent)));
+				new ConfigurationListener(containerState,
+					new ContainerComponent(containerState,
+						new ContainerActivator.Builder(containerState,
+							new ContainerBootstrap(containerState))))));
 	}
 
 	@Override

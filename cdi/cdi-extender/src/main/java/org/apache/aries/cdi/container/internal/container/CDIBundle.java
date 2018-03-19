@@ -45,7 +45,7 @@ public class CDIBundle extends Phase implements Extension {
 					_ccr.remove(bundle());
 				}
 			}
-		).get();
+		).orElse(true);
 	}
 
 	@Override

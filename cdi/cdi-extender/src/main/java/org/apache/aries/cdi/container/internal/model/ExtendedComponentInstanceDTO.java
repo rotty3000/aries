@@ -97,7 +97,7 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 	// ------ activate immediate components OR publish single and factory component services
 	//
 
-	public boolean start() {
+	public boolean open() {
 		if (!configurationsResolved() || (properties != null)) {
 			return false;
 		}
@@ -147,7 +147,7 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 		return true;
 	}
 
-	public boolean stop() {
+	public boolean close() {
 		properties = null;
 
 		references.removeIf(

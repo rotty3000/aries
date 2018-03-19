@@ -141,7 +141,7 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 					).forEach(
 						instance -> {
 							if (instances.remove(instance)) {
-								instance.stop();
+								instance.close();
 							}
 						}
 					);
@@ -167,7 +167,7 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 					instanceDTO.builder = new FactoryActivator.Builder(containerState, null);
 
 					if (instances.add(instanceDTO)) {
-						instanceDTO.start();
+						instanceDTO.open();
 					}
 				}
 

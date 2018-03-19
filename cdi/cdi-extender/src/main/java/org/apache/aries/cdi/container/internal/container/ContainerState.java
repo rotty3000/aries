@@ -285,15 +285,15 @@ public class ContainerState {
 					case BUNDLE_OPEN:
 					case CONFIGURATION_LISTENER_OPEN:
 					case CONFIGURATION_OPEN:
-					case CONTAINER_COMPONENT_START:
+					case CONTAINER_COMPONENT_OPEN:
 					case CONTAINER_INSTANCE_OPEN:
 					case CONTAINER_REFERENCES_OPEN:
 					case EXTENSION_OPEN:
-					case FACTORY_COMPONENT_START:
-					case FACTORY_INSTANCE_ACTIVATE:
+					case FACTORY_COMPONENT_OPEN:
+					case FACTORY_INSTANCE_OPEN:
 					case INIT_OPEN:
-					case SINGLE_COMPONENT_START:
-					case SINGLE_INSTANCE_ACTIVATE:
+					case SINGLE_COMPONENT_OPEN:
+					case SINGLE_INSTANCE_OPEN:
 						return _promiseFactory.resolved((T)new Object());
 					default:
 						return _promiseFactory.resolved(task.call());
