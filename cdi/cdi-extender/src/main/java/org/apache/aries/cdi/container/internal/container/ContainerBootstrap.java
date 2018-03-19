@@ -103,6 +103,8 @@ public class ContainerBootstrap extends Phase {
 
 		_bootstrap.startInitialization();
 		_bootstrap.deployBeans();
+		_bootstrap.validateBeans();
+		_bootstrap.endInitialization();
 
 		return true;
 	}

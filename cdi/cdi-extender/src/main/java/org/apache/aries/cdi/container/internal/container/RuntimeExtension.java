@@ -57,6 +57,7 @@ import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.Reference;
 import org.osgi.service.cdi.runtime.dto.ActivationDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
+import org.osgi.service.cdi.runtime.dto.template.ActivationTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 
@@ -171,7 +172,9 @@ public class RuntimeExtension implements Extension {
 			t -> t.bean.fireEvents()
 		);
 
-		c.template.activations.stream().map(
+		List<ActivationTemplateDTO> activations = c.template.activations;
+
+		activations.stream().map(
 			a -> (ExtendedActivationTemplateDTO)a
 		).forEach(
 			a -> registerServices(instance, a, bm)

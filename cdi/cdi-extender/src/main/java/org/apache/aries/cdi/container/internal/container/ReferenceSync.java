@@ -1,8 +1,6 @@
 package org.apache.aries.cdi.container.internal.container;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
-import java.util.Arrays;
-import java.util.stream.Collectors;
 
 import org.apache.aries.cdi.container.internal.model.CollectionType;
 import org.apache.aries.cdi.container.internal.model.ExtendedComponentInstanceDTO;
@@ -121,11 +119,7 @@ public class ReferenceSync implements ServiceTrackerCustomizer<Object, Object> {
 			requiresUpdate = true;
 		}
 
-		_referenceDTO.matches = SRs.from(
-			Arrays.stream(_referenceDTO.serviceTracker.getServiceReferences()).filter(
-				r -> !r.equals(reference)
-			).collect(Collectors.toList())
-		);
+		_referenceDTO.matches.removeIf(d -> d.id == SRs.id(reference));
 
 		try {
 			if (collectionType == CollectionType.OBSERVER) {

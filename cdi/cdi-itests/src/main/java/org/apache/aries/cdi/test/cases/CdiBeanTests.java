@@ -129,8 +129,12 @@ public class CdiBeanTests extends AbstractTestCase {
 		CDIComponentRuntime runtime = runtimeTracker.waitForService(5000);
 		assertNotNull(runtime);
 
-		ServiceReference<CDIComponentRuntime> runtimeReference = runtimeTracker.getServiceReference();
-		long changeCount = getChangeCount(runtimeReference);
+		Filter filter = filter("(&(objectClass=%s)(objectClass=*.%s))", BeanService.class.getName(), "MethodInjectedService");
+		ServiceTracker<BeanService, BeanService> bsTracker = new ServiceTracker<>(bundleContext, filter, null);
+		bsTracker.open();
+		BeanService beanService = bsTracker.waitForService(200000);
+		assertNotNull(beanService);
+		assertEquals("PREFIXMETHOD", beanService.doSomething());
 
 		ContainerDTO containerDTO = runtime.getContainerDTO(cdiBundle);
 		assertNotNull(containerDTO);
@@ -139,13 +143,6 @@ public class CdiBeanTests extends AbstractTestCase {
 			c -> c.template.type == ComponentType.CONTAINER).findFirst().orElse(null);
 		assertNotNull(containerComponentDTO);
 		assertEquals(5, containerComponentDTO.template.beans.size());
-
-		Filter filter = filter("(&(objectClass=%s)(objectClass=*.%s))", BeanService.class.getName(), "MethodInjectedService");
-		ServiceTracker<BeanService, BeanService> bsTracker = new ServiceTracker<>(bundleContext, filter, null);
-		bsTracker.open();
-		BeanService beanService = bsTracker.waitForService(5000);
-		assertNotNull(beanService);
-		assertEquals("PREFIXMETHOD", beanService.doSomething());
 
 		// There's only one instance of the Container component
 		ComponentInstanceDTO componentInstanceDTO = containerComponentDTO.instances.get(0);

@@ -280,9 +280,24 @@ public class ContainerState {
 
 		if (_closing.get()) {
 			try {
-				T t = task.call();
-
-				return _promiseFactory.resolved(t);
+				switch (op) {
+					// TODO unify the naming...
+					case BUNDLE_OPEN:
+					case CONFIGURATION_LISTENER_OPEN:
+					case CONFIGURATION_OPEN:
+					case CONTAINER_COMPONENT_START:
+					case CONTAINER_INSTANCE_OPEN:
+					case CONTAINER_REFERENCES_OPEN:
+					case EXTENSION_OPEN:
+					case FACTORY_COMPONENT_START:
+					case FACTORY_INSTANCE_ACTIVATE:
+					case INIT_OPEN:
+					case SINGLE_COMPONENT_START:
+					case SINGLE_INSTANCE_ACTIVATE:
+						return _promiseFactory.resolved((T)new Object());
+					default:
+						return _promiseFactory.resolved(task.call());
+				}
 			}
 			catch (Exception e) {
 				return _promiseFactory.failed(e);

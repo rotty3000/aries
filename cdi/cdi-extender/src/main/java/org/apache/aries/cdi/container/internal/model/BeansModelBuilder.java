@@ -39,7 +39,7 @@ public class BeansModelBuilder {
 		BundleWiring bundleWiring,
 		Map<String, Object> cdiAttributes) {
 
-		_containerState = Optional.ofNullable(containerState);
+		_containerState = containerState;
 		_aggregateClassLoader = aggregateClassLoader;
 		_bundleWiring = bundleWiring;
 		_attributes = cdiAttributes;
@@ -74,11 +74,13 @@ public class BeansModelBuilder {
 				Class<?> clazz = _aggregateClassLoader.loadClass(beanClassName);
 
 				beans.put(beanClassName, new OSGiBean.Builder(clazz).build());
+
+				_log.debug(l -> l.debug("CCR found bean {} on {}", beanClassName, _containerState.bundle()));
 			}
 			catch (Exception e) {
-				_log.error(l -> l.error("CCR Error loading class {}", beanClassName, e));
+				_log.error(l -> l.error("CCR Error loading class {} on {}", beanClassName, _containerState.bundle(), e));
 
-				_containerState.ifPresent(cs -> cs.error(e));
+				_containerState.error(e);
 			}
 		}
 
@@ -99,6 +101,6 @@ public class BeansModelBuilder {
 	private final Map<String, Object> _attributes;
 	private final Bundle _bundle;
 	private final BundleWiring _bundleWiring;
-	private final Optional<ContainerState> _containerState;
+	private final ContainerState _containerState;
 
 }

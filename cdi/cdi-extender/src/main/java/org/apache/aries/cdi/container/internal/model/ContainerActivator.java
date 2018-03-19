@@ -4,9 +4,6 @@ import org.apache.aries.cdi.container.internal.container.ContainerBootstrap;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.util.Logs;
-import org.jboss.weld.bootstrap.WeldBootstrap;
-import org.osgi.service.cdi.MaximumCardinality;
-import org.osgi.service.cdi.ReferencePolicy;
 import org.osgi.service.log.Logger;
 
 public class ContainerActivator extends InstanceActivator {
@@ -64,25 +61,24 @@ public class ContainerActivator extends InstanceActivator {
 			return false;
 		}
 
-		next.map(ContainerBootstrap.class::cast).ifPresent(
+		boolean result = next.map(
 			next -> {
-				next.open();
+				try {
+					return next.open();
+				}
+				catch (Throwable t) {
+					_log.error(l -> l.error("CCR Failure in container activator open on {}", next, t));
 
-				WeldBootstrap bootstrap = next.getBootstrap();
-
-				bootstrap.validateBeans();
-				bootstrap.endInitialization();
-
-				if (referenceDTO.template.policy == ReferencePolicy.DYNAMIC) {
-					if (referenceDTO.template.maximumCardinality == MaximumCardinality.MANY) {
-					}
+					return false;
 				}
 			}
-		);
+		).get();
 
-		instance.active = true;
+		if (result) {
+			instance.active = true;
+		}
 
-		return true;
+		return result;
 	}
 
 	private static final Logger _log = Logs.getLogger(ContainerActivator.class);
