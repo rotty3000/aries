@@ -14,6 +14,8 @@
 
 package org.apache.aries.cdi.test.cases;
 
+import static org.junit.Assert.*;
+
 import java.util.Hashtable;
 
 import javax.enterprise.inject.spi.BeanManager;
@@ -21,6 +23,8 @@ import javax.enterprise.inject.spi.Extension;
 import javax.naming.InitialContext;
 
 import org.apache.aries.cdi.test.interfaces.Pojo;
+import org.junit.Ignore;
+import org.junit.Test;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.Filter;
 import org.osgi.service.jndi.JNDIConstants;
@@ -28,11 +32,8 @@ import org.osgi.util.tracker.ServiceTracker;
 
 public class JndiExtensionTests extends AbstractTestCase {
 
-	@Override
-	protected void setUp() throws Exception {
-		super.setUp();
-	}
-
+	@Ignore
+	@Test
 	public void testGetBeanManagerThroughJNDI() throws Exception {
 		Hashtable<String, Object> env = new Hashtable<>();
 		env.put(JNDIConstants.BUNDLE_CONTEXT, cdiBundle.getBundleContext());

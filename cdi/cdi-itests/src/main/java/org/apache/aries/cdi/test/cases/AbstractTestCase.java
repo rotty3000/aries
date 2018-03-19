@@ -14,6 +14,8 @@
 
 package org.apache.aries.cdi.test.cases;
 
+import static org.junit.Assert.*;
+
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.Iterator;
@@ -47,17 +49,14 @@ import org.osgi.service.log.admin.LoggerAdmin;
 import org.osgi.util.promise.PromiseFactory;
 import org.osgi.util.tracker.ServiceTracker;
 
-import junit.framework.TestCase;
-
 @Requirement(
 	effective = "active",
 	filter = "(objectClass=org.osgi.service.cm.ConfigurationAdmin)",
 	namespace = ServiceNamespace.SERVICE_NAMESPACE
 )
-public class AbstractTestCase extends TestCase {
+public class AbstractTestCase {
 
-	@Override
-	protected void setUp() throws Exception {
+	public void setUp() throws Exception {
 		ServiceTracker<LoggerAdmin, LoggerAdmin> laTracker = new ServiceTracker<>(bundleContext, LoggerAdmin.class, null);
 		laTracker.open();
 		loggerAdmin = laTracker.getService();
@@ -74,7 +73,6 @@ public class AbstractTestCase extends TestCase {
 		cdiRuntime = runtimeTracker.waitForService(timeout);
 	}
 
-	@Override
 	protected void tearDown() throws Exception {
 		runtimeTracker.close();
 		cdiBundle.uninstall();

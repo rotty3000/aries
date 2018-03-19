@@ -14,6 +14,8 @@
 
 package org.apache.aries.cdi.test.cases;
 
+import static org.junit.Assert.*;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +30,9 @@ import javax.enterprise.util.AnnotationLiteral;
 import org.apache.aries.cdi.test.interfaces.BeanService;
 import org.apache.aries.cdi.test.interfaces.BundleContextBeanQualifier;
 import org.apache.aries.cdi.test.interfaces.FieldInjectedReference;
+import org.junit.Before;
 import org.junit.Ignore;
+import org.junit.Test;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.Filter;
 import org.osgi.framework.ServiceReference;
@@ -43,7 +47,8 @@ import org.osgi.util.tracker.ServiceTracker;
 public class CdiBeanTests extends AbstractTestCase {
 
 	@Override
-	protected void setUp() throws Exception {
+	@Before
+	public void setUp() throws Exception {
 		super.setUp();
 	}
 
@@ -109,22 +114,22 @@ public class CdiBeanTests extends AbstractTestCase {
 		assertEquals("value", fieldInjectedReference.getRawReference().getProperty("key"));
 	}
 
+	// TODO @SingleComponent
+	@Ignore
+	@Test
 	public void testFieldInjectedService() throws Exception {
-		Iterator<ServiceReference<BeanService>> iterator = bundleContext.getServiceReferences(
-			BeanService.class, String.format("(objectClass=*.%s)","FieldInjectedService")).iterator();
+		CDIComponentRuntime runtime = runtimeTracker.waitForService(5000);
+		assertNotNull(runtime);
 
-		assertTrue(iterator.hasNext());
-
-		ServiceReference<BeanService> serviceReference = iterator.next();
-
-		assertNotNull(serviceReference);
-
-		BeanService bean = bundleContext.getService(serviceReference);
-
-		assertNotNull(bean);
-		assertEquals("PREFIXFIELD", bean.doSomething());
+		Filter filter = filter("(&(objectClass=%s)(objectClass=*.%s))", BeanService.class.getName(), "FieldInjectedService");
+		ServiceTracker<BeanService, BeanService> bsTracker = new ServiceTracker<>(bundleContext, filter, null);
+		bsTracker.open();
+		BeanService beanService = bsTracker.waitForService(5000);
+		assertNotNull(beanService);
+		assertEquals("PREFIXMETHOD", beanService.doSomething());
 	}
 
+	@Test
 	public void testMethodInjectedService() throws Exception {
 		CDIComponentRuntime runtime = runtimeTracker.waitForService(5000);
 		assertNotNull(runtime);
@@ -132,7 +137,7 @@ public class CdiBeanTests extends AbstractTestCase {
 		Filter filter = filter("(&(objectClass=%s)(objectClass=*.%s))", BeanService.class.getName(), "MethodInjectedService");
 		ServiceTracker<BeanService, BeanService> bsTracker = new ServiceTracker<>(bundleContext, filter, null);
 		bsTracker.open();
-		BeanService beanService = bsTracker.waitForService(200000);
+		BeanService beanService = bsTracker.waitForService(5000);
 		assertNotNull(beanService);
 		assertEquals("PREFIXMETHOD", beanService.doSomething());
 
@@ -245,7 +250,7 @@ public class CdiBeanTests extends AbstractTestCase {
 		assertTrue(serviceReference.getProperty("glub.integer") instanceof Integer);
 		assertEquals(45, ((Integer)serviceReference.getProperty("glub.integer")).intValue());
 		assertTrue(serviceReference.getProperty("goo.string") instanceof String);
-		assertEquals("green", ((String)serviceReference.getProperty("goo.string")));
+		assertEquals("green", (serviceReference.getProperty("goo.string")));
 	}
 
 	public void testBundleContextInjection() throws Exception {

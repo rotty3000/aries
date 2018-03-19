@@ -14,6 +14,8 @@
 
 package org.apache.aries.cdi.test.cases;
 
+import static org.junit.Assert.*;
+
 import java.util.List;
 import java.util.Set;
 
@@ -24,14 +26,13 @@ import javax.enterprise.util.AnnotationLiteral;
 
 import org.apache.aries.cdi.test.interfaces.BeanService;
 import org.apache.aries.cdi.test.interfaces.CdiEventObserverQualifier;
+import org.junit.Ignore;
+import org.junit.Test;
 
 public class EventsTests extends AbstractTestCase {
 
-	@Override
-	protected void setUp() throws Exception {
-		super.setUp();
-	}
-
+	@Ignore
+	@Test
 	public void testEventsGetSent() throws Exception {
 		BeanManager beanManager = getBeanManager(cdiBundle);
 

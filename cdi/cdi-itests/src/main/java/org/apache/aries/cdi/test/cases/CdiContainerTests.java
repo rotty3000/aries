@@ -14,19 +14,27 @@
 
 package org.apache.aries.cdi.test.cases;
 
+import static org.junit.Assert.*;
+
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.CDI;
 
 import org.apache.aries.cdi.test.interfaces.Pojo;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Test;
 import org.osgi.framework.wiring.BundleWiring;
 
 public class CdiContainerTests extends AbstractTestCase {
 
+	@Before
 	@Override
-	protected void setUp() throws Exception {
+	public void setUp() throws Exception {
 		super.setUp();
 	}
 
+	@Ignore
+	@Test
 	public void testGetBeanFromCdiContainerService() throws Exception {
 		BeanManager beanManager = getBeanManager(cdiBundle);
 

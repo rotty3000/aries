@@ -21,6 +21,10 @@ import java.util.Hashtable;
 import java.util.concurrent.Callable;
 
 import org.apache.aries.cdi.test.interfaces.BeanService;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Test;
 import org.osgi.framework.Bundle;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.service.cm.Configuration;
@@ -29,6 +33,24 @@ import org.osgi.util.tracker.ServiceTracker;
 
 public class ConfigurationTests extends AbstractTestCase {
 
+	@Before
+	@Override
+	public void setUp() throws Exception {
+		adminTracker = new ServiceTracker<>(bundleContext, ConfigurationAdmin.class, null);
+
+		adminTracker.open();
+
+		configurationAdmin = adminTracker.getService();
+	}
+
+	@After
+	@Override
+	public void tearDown() throws Exception {
+		adminTracker.close();
+	}
+
+	@Ignore
+	@Test
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void testConfiguration() throws Exception {
 		Bundle tb3Bundle = installBundle("tb3.jar");
@@ -166,20 +188,6 @@ public class ConfigurationTests extends AbstractTestCase {
 			}
 			tb5Bundle.uninstall();
 		}
-	}
-
-	@Override
-	protected void setUp() throws Exception {
-		adminTracker = new ServiceTracker<>(bundleContext, ConfigurationAdmin.class, null);
-
-		adminTracker.open();
-
-		configurationAdmin = adminTracker.getService();
-	}
-
-	@Override
-	protected void tearDown() throws Exception {
-		adminTracker.close();
 	}
 
 	private ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> adminTracker;
