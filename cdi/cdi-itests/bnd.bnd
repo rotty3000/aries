@@ -1,8 +1,6 @@
 Bundle-Description: Integration Test bundle for the CDI Extender
 Export-Package: ${p}.cases.*,${p}.interfaces.*
-Test-Cases: \
-	${classes;CONCRETE;EXTENDS;${p}.cases.AbstractTestCase},\
-	${classes;CONCRETE;ANNOTATED;org.junit.Test}
+Test-Cases: ${classes;CONCRETE;ANNOTATED;org.junit.Test}
 
 ##
 ## All of remainder is to make bnd's `-make` function work in our maven project.
