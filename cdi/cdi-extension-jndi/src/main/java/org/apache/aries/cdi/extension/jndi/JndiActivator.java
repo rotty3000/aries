@@ -43,7 +43,7 @@ public class JndiActivator implements BundleActivator {
 
 		_serviceRegistration = context.registerService(
 			new String[] {Extension.class.getName(), ObjectFactory.class.getName()},
-			new JndiExtensionFactory(_lft.getService().getLogger(JndiContext.class)), properties);
+			new JndiExtensionFactory(_lft.getService()), properties);
 	}
 
 	@Override

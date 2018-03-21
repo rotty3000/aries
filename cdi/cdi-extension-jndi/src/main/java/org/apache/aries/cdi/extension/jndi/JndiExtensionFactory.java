@@ -18,17 +18,18 @@ import org.osgi.framework.Bundle;
 import org.osgi.framework.PrototypeServiceFactory;
 import org.osgi.framework.ServiceRegistration;
 import org.osgi.service.log.Logger;
+import org.osgi.service.log.LoggerFactory;
 
 @SuppressWarnings("rawtypes")
 public class JndiExtensionFactory implements PrototypeServiceFactory {
 
-	public JndiExtensionFactory(Logger log) {
-		_log = log;
+	public JndiExtensionFactory(LoggerFactory loggerFactory) {
+		_loggerFactory = loggerFactory;
 	}
 
 	@Override
 	public Object getService(Bundle bundle, ServiceRegistration registration) {
-		return new JndiExtension(_log);
+		return new JndiExtension(_loggerFactory.getLogger(bundle, JndiContext.class.getName(), Logger.class));
 	}
 
 	@Override
@@ -36,6 +37,6 @@ public class JndiExtensionFactory implements PrototypeServiceFactory {
 		Bundle bundle, ServiceRegistration registration, Object extension) {
 	}
 
-	private final Logger _log;
+	private final LoggerFactory _loggerFactory;
 
 }
