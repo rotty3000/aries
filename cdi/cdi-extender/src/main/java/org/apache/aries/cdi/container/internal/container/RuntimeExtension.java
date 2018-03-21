@@ -15,6 +15,7 @@
 package org.apache.aries.cdi.container.internal.container;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -51,13 +52,13 @@ import org.osgi.framework.Bundle;
 import org.osgi.framework.PrototypeServiceFactory;
 import org.osgi.framework.ServiceFactory;
 import org.osgi.framework.ServiceRegistration;
+import org.osgi.service.cdi.CDIConstants;
 import org.osgi.service.cdi.ComponentType;
 import org.osgi.service.cdi.ServiceScope;
 import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.Reference;
 import org.osgi.service.cdi.runtime.dto.ActivationDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
-import org.osgi.service.cdi.runtime.dto.template.ActivationTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 
@@ -65,6 +66,12 @@ public class RuntimeExtension implements Extension {
 
 	public RuntimeExtension(ContainerState containerState) {
 		_containerState = containerState;
+
+		_componentDTO = _containerState.containerDTO().components.stream().filter(
+			c -> c.template.type == ComponentType.CONTAINER
+		).findFirst().get();
+
+		_instanceDTO = (ExtendedComponentInstanceDTO)_componentDTO.instances.get(0);
 	}
 
 	void afterBeanDiscovery(@Observes AfterBeanDiscovery abd, BeanManager bm) {
@@ -74,23 +81,17 @@ public class RuntimeExtension implements Extension {
 	}
 
 	void applicationScopedInitialized(@Observes @Initialized(ApplicationScoped.class) Object o, BeanManager bm) {
-		_containerState.containerDTO().components.stream().filter(
-			c -> c.template.type == ComponentType.CONTAINER
-		).findFirst().ifPresent(
-			c -> fireEventsAndRegisterServices(c, (ExtendedComponentInstanceDTO)c.instances.get(0), bm)
-		);
+		ServiceRegistration<?> serviceRegistration = registerService(
+			new String[] {BeanManager.class.getName()}, bm,
+			Maps.of(CDIConstants.CDI_CONTAINER_ID, _containerState.id()));
+
+		_registrations.add(serviceRegistration);
+
+		fireEventsAndRegisterServices(_componentDTO, _instanceDTO, bm);
 	}
 
 	void applicationScopedBeforeDestroyed(@Observes @BeforeDestroyed(ApplicationScoped.class) Object o) {
-		_containerState.containerDTO().components.stream().filter(
-			c -> c.template.type == ComponentType.CONTAINER
-		).findFirst().ifPresent(
-			c -> {
-				ExtendedComponentInstanceDTO instance = (ExtendedComponentInstanceDTO)c.instances.get(0);
-
-				instance.activations.clear();
-			}
-		);
+		_instanceDTO.activations.clear();
 
 		_registrations.removeIf(
 			r -> {
@@ -131,7 +132,7 @@ public class RuntimeExtension implements Extension {
 			t -> {
 				t.bean.setBeanManager(bm);
 				if (componentTemplate.type == ComponentType.CONTAINER) {
-					_containerState.containerDTO().components.get(0).instances.get(0).references.stream().filter(
+					_instanceDTO.references.stream().filter(
 						r -> r.template == t
 					).findFirst().map(
 						ExtendedReferenceDTO.class::cast
@@ -144,6 +145,7 @@ public class RuntimeExtension implements Extension {
 				}
 			}
 		);
+
 		componentTemplate.configurations.stream().map(ExtendedConfigurationTemplateDTO.class::cast).filter(
 			t -> Objects.nonNull(t.injectionPointType)
 		).forEach(
@@ -161,23 +163,20 @@ public class RuntimeExtension implements Extension {
 		);
 	}
 
-	private void fireEventsAndRegisterServices(ComponentDTO c, ExtendedComponentInstanceDTO instance, BeanManager bm) {
-		instance.references.stream().map(
-			r -> (ExtendedReferenceDTO)r
-		).filter(
+	private void fireEventsAndRegisterServices(ComponentDTO componentDTO, ExtendedComponentInstanceDTO instance, BeanManager bm) {
+		componentDTO.template.activations.stream().map(
+			ExtendedActivationTemplateDTO.class::cast
+		).forEach(
+			a -> registerService(instance, a, bm)
+		);
+
+		// TODO Check the logic of firing all the queued service events.
+		instance.references.stream().map(ExtendedReferenceDTO.class::cast).filter(
 			r -> ((ExtendedReferenceTemplateDTO)r.template).collectionType == CollectionType.OBSERVER
 		).map(
 			r -> (ExtendedReferenceTemplateDTO)r.template
 		).forEach(
 			t -> t.bean.fireEvents()
-		);
-
-		List<ActivationTemplateDTO> activations = c.template.activations;
-
-		activations.stream().map(
-			a -> (ExtendedActivationTemplateDTO)a
-		).forEach(
-			a -> registerServices(instance, a, bm)
 		);
 	}
 
@@ -247,7 +246,7 @@ public class RuntimeExtension implements Extension {
 		).orElse(false);
 	}
 
-	private void registerServices(
+	private void registerService(
 		ExtendedComponentInstanceDTO componentInstance,
 		ExtendedActivationTemplateDTO activationTemplate,
 		BeanManager bm) {
@@ -259,7 +258,10 @@ public class RuntimeExtension implements Extension {
 		}
 
 		final Context context = bm.getContext(activationTemplate.cdiScope);
-		final Bean<Object> bean = (Bean<Object>)bm.resolve(bm.getBeans(activationTemplate.declaringClass, Any.Literal.INSTANCE));
+		@SuppressWarnings("unchecked")
+		final Bean<Object> bean = (Bean<Object>)bm.resolve(
+			bm.getBeans(activationTemplate.declaringClass, Any.Literal.INSTANCE));
+
 		Object serviceObject;
 
 		if (scope == ServiceScope.PROTOTYPE) {
@@ -295,21 +297,30 @@ public class RuntimeExtension implements Extension {
 
 		Objects.requireNonNull(serviceObject, "The service object is somehow null on " + this);
 
-		ServiceRegistration<?> serviceRegistration = _containerState.bundleContext().registerService(
+		ServiceRegistration<?> serviceRegistration = registerService(
 			activationTemplate.serviceClasses.toArray(new String[0]),
 			serviceObject,
-			Maps.dict(componentInstance.properties));
+			componentInstance.properties);
 
 		ActivationDTO activationDTO = new ActivationDTO();
 		activationDTO.errors = new CopyOnWriteArrayList<>();
 		activationDTO.service = SRs.from(serviceRegistration.getReference());
 		activationDTO.template = activationTemplate;
 		componentInstance.activations.add(activationDTO);
-
-		_registrations.add(serviceRegistration);
 	}
 
+	ServiceRegistration<?> registerService(String[] serviceTypes, Object serviceObject, Map<String, Object> properties) {
+		ServiceRegistration<?> serviceRegistration = _containerState.bundleContext().registerService(
+			serviceTypes, serviceObject, Maps.dict(properties));
+
+		_registrations.add(serviceRegistration);
+
+		return serviceRegistration;
+	}
+
+	private final ComponentDTO _componentDTO;
 	private final ContainerState _containerState;
+	private final ExtendedComponentInstanceDTO _instanceDTO;
 	private final List<ServiceRegistration<?>> _registrations = new CopyOnWriteArrayList<>();
 
 }

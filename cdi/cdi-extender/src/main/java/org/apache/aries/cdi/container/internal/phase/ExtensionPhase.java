@@ -27,8 +27,10 @@ import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionTemplateDTO;
+import org.apache.aries.cdi.container.internal.util.Conversions;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.SRs;
+import org.osgi.framework.BundleContext;
 import org.osgi.framework.Filter;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.runtime.dto.ExtensionDTO;
@@ -157,7 +159,9 @@ public class ExtensionPhase extends Phase {
 
 			ExtendedExtensionDTO extensionDTO = new ExtendedExtensionDTO();
 
-			extensionDTO.extension = containerState.bundleContext().getService(reference);
+			BundleContext bc = containerState.bundleContext();
+
+			extensionDTO.extension = bc.getServiceObjects(reference);
 			extensionDTO.service = SRs.from(reference);
 			extensionDTO.serviceReference = reference;
 			extensionDTO.template = template;
@@ -172,14 +176,14 @@ public class ExtensionPhase extends Phase {
 							return submit(Op.CONFIGURATION_OPEN, next::open).then(
 								null,
 								f -> {
-									_log.error(l -> l.error("CCR Error in extension open TRACKING {} on {}", reference, bundle()));
+									_log.error(l -> l.error("CCR Error in extension open TRACKING {} on {}", reference, bundle(), f.getFailure()));
 
 									error(f.getFailure());
 								}
 							);
 						},
 						f -> {
-							_log.error(l -> l.error("CCR Error extension close TRACKING {} on {}", reference, bundle()));
+							_log.error(l -> l.error("CCR Error extension close TRACKING {} on {}", reference, bundle(), f.getFailure()));
 
 							error(f.getFailure());
 						}
@@ -198,6 +202,8 @@ public class ExtensionPhase extends Phase {
 
 		@Override
 		public void removedService(ServiceReference<Extension> reference, final ExtendedExtensionDTO extensionDTO) {
+			_log.debug(l -> l.debug("CCR Departing extension {} on {}", Conversions.convert(extensionDTO).to(ExtensionDTO.class), bundle()));
+
 			containerState.bundleContext().ungetService(reference);
 
 			if (!snapshots().removeIf(snap -> ((ExtendedExtensionDTO)snap).serviceReference.equals(reference))) {
@@ -207,7 +213,7 @@ public class ExtensionPhase extends Phase {
 			for (Iterator<ExtendedExtensionDTO> itr = _references.iterator();itr.hasNext();) {
 				ExtendedExtensionDTO entry = itr.next();
 				if (((ExtendedExtensionTemplateDTO)extensionDTO.template).filter.match(entry.serviceReference)) {
-					entry.extension = containerState.bundleContext().getService(entry.serviceReference);
+					entry.extension = containerState.bundleContext().getServiceObjects(entry.serviceReference);
 					itr.remove();
 					snapshots().add(entry);
 					break;
@@ -216,11 +222,13 @@ public class ExtensionPhase extends Phase {
 
 			containerState.incrementChangeCount();
 
-			next.ifPresent(
-				next -> submit(Op.CONFIGURATION_CLOSE, next::close).then(
-					s -> {
+			next.map(
+				next -> {
+					try {
+						next.close();
+
 						if (snapshots().size() == extensionTemplates().size()) {
-							return submit(Op.CONFIGURATION_OPEN, next::open).then(
+							submit(Op.CONFIGURATION_OPEN, next::open).then(
 								null,
 								f -> {
 									_log.error(l -> l.error("CCR Error in extension open TRACKING {} on {}", reference, bundle()));
@@ -230,14 +238,16 @@ public class ExtensionPhase extends Phase {
 							);
 						}
 
-						return s;
-					},
-					f -> {
+						return true;
+					}
+					catch (Throwable t) {
 						_log.error(l -> l.error("CCR Error extension close TRACKING {} on {}", reference, bundle()));
 
-						error(f.getFailure());
+						error(t);
+
+						return false;
 					}
-				)
+				}
 			);
 		}
 

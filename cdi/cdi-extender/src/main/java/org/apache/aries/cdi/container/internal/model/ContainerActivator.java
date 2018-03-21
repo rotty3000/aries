@@ -37,6 +37,8 @@ public class ContainerActivator extends InstanceActivator {
 
 	@Override
 	public boolean close() {
+		_log.debug(l -> l.debug("CCR Closing activator {} on {}", instance, bundle()));
+
 		boolean result = next.map(
 			next -> {
 				try {

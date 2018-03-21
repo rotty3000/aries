@@ -166,7 +166,12 @@ public class ReferenceSync implements ServiceTrackerCustomizer<Object, Object> {
 
 	private void updateStatically(InstanceActivator activator) {
 		_containerState.submit(
-			activator.closeOp(), activator::close
+			activator.closeOp(), () -> {
+				if (_componentInstanceDTO.active) {
+					return activator.close();
+				}
+				return true;
+			}
 		).then(
 			s -> _containerState.submit(
 				activator.openOp(), activator::open

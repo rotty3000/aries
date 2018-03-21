@@ -18,14 +18,12 @@ import static org.junit.Assert.*;
 
 import javax.enterprise.inject.spi.BeanManager;
 
-import org.junit.Ignore;
 import org.junit.Test;
 import org.osgi.framework.Bundle;
 import org.osgi.util.tracker.ServiceTracker;
 
 public class CdiExtenderTests extends AbstractTestCase {
 
-	@Ignore
 	@Test
 	public void testStopExtender() throws Exception {
 		Bundle cdiExtenderBundle = getCdiExtenderBundle();

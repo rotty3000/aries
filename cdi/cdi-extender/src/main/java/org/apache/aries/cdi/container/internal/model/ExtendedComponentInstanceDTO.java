@@ -127,20 +127,26 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 				references.stream().map(ExtendedReferenceDTO.class::cast).forEach(
 					r -> r.serviceTracker.open()
 				);
-				return null;
+				return referencesResolved();
 			}
-		);
-
-		InstanceActivator activator = builder.setInstance(this).build();
-
-		containerState.submit(
-			activator.openOp(), activator::open
 		).then(
-			null,
-			f -> {
-				_log.error(l -> l.error("CCR Error in OPEN on {}", this, f.getFailure()));
+			s -> {
+				if (!s.getValue()) {
+					InstanceActivator activator = builder.setInstance(this).build();
 
-				containerState.error(f.getFailure());
+					return containerState.submit(
+						activator.openOp(), activator::open
+					).then(
+						null,
+						f -> {
+							_log.error(l -> l.error("CCR Error in OPEN on {}", this, f.getFailure()));
+
+							containerState.error(f.getFailure());
+						}
+					);
+				}
+
+				return s;
 			}
 		);
 
@@ -148,15 +154,9 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 	}
 
 	public boolean close() {
-		properties = null;
+		_log.debug(l -> l.debug("CCR Closing component instance {} stop on {}", this, containerState.bundle()));
 
-		references.removeIf(
-			r -> {
-				ExtendedReferenceDTO referenceDTO = (ExtendedReferenceDTO)r;
-				referenceDTO.serviceTracker.close();
-				return true;
-			}
-		);
+		properties = null;
 
 		InstanceActivator activator = builder.setInstance(this).build();
 
@@ -168,6 +168,16 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 
 			return false;
 		}
+		finally {
+			references.removeIf(
+				r -> {
+					ExtendedReferenceDTO referenceDTO = (ExtendedReferenceDTO)r;
+					referenceDTO.serviceTracker.close();
+					return true;
+				}
+			);
+		}
+
 	}
 
 	private Map<String, Object> componentProperties() {

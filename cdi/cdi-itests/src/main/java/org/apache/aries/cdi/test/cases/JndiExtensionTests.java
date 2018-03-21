@@ -16,35 +16,42 @@ package org.apache.aries.cdi.test.cases;
 
 import static org.junit.Assert.*;
 
-import java.util.Hashtable;
-
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.Extension;
 import javax.naming.InitialContext;
 
 import org.apache.aries.cdi.test.interfaces.Pojo;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.Filter;
-import org.osgi.service.jndi.JNDIConstants;
+import org.osgi.framework.wiring.BundleWiring;
+import org.osgi.service.cdi.runtime.CDIComponentRuntime;
 import org.osgi.util.tracker.ServiceTracker;
 
 public class JndiExtensionTests extends AbstractTestCase {
 
-	@Ignore
 	@Test
 	public void testGetBeanManagerThroughJNDI() throws Exception {
-		Hashtable<String, Object> env = new Hashtable<>();
-		env.put(JNDIConstants.BUNDLE_CONTEXT, cdiBundle.getBundleContext());
-		InitialContext context = new InitialContext(env);
+		CDIComponentRuntime runtime = runtimeTracker.waitForService(5000);
+		assertNotNull(runtime);
 
-		BeanManager beanManager = (BeanManager)context.lookup("java:comp/BeanManager");
+		Thread currentThread = Thread.currentThread();
+		ClassLoader contextClassLoader = currentThread.getContextClassLoader();
+		try {
+			BundleWiring bundleWiring = cdiBundle.adapt(BundleWiring.class);
+			currentThread.setContextClassLoader(bundleWiring.getClassLoader());
 
-		assertNotNull(beanManager);
-		assertBeanExists(Pojo.class, beanManager);
+			BeanManager beanManager = (BeanManager)InitialContext.doLookup("java:comp/BeanManager");
+
+			assertNotNull(beanManager);
+			assertBeanExists(Pojo.class, beanManager);
+		}
+		finally {
+			currentThread.setContextClassLoader(contextClassLoader);
+		}
 	}
 
+	@Test
 	public void testDisableExtensionAndCDIContainerWaits() throws Exception {
 		Filter filter = filter(
 			"(&(objectClass=%s)(osgi.cdi.extension=aries.cdi.jndi))",
@@ -58,15 +65,15 @@ public class JndiExtensionTests extends AbstractTestCase {
 
 		Bundle extensionBundle = et.getServiceReference().getBundle();
 
-		// TODO Check that everything is ok...
+		assertNotNull(getBeanManager(cdiBundle));
 
 		extensionBundle.stop();
 
-		// TODO check that CDI bundles dependent on the extension are not not OK
+		assertNull(getBeanManager(cdiBundle));
 
 		extensionBundle.start();
 
-		// TODO check that they are ok again!
+		assertNotNull(getBeanManager(cdiBundle));
 	}
 
 }

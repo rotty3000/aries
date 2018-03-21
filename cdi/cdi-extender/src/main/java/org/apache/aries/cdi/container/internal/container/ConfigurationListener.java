@@ -31,8 +31,11 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 
 	@Override
 	public boolean close() {
+		_log.debug(l -> l.debug("CCR Closing configuration Listener {} on {}", next.get(), bundle()));
+
 		if (_listenerService != null) {
 			_listenerService.unregister();
+			_listenerService = null;
 		}
 
 		return next.map(

@@ -40,6 +40,8 @@ public class ContainerBootstrap extends Phase {
 
 	@Override
 	public boolean close() {
+		_log.debug(l -> l.debug("CCR Closing container bootstrap on {}", bundle()));
+
 		try {
 			if (_bootstrap != null) {
 				_bootstrap.shutdown();
@@ -56,34 +58,36 @@ public class ContainerBootstrap extends Phase {
 
 	@Override
 	public boolean open() {
-		_externalExtensions = containerState.containerDTO().extensions.stream().map(
+		Collection<Metadata<Extension>> externalExtensions = containerState.containerDTO().extensions.stream().map(
 			e -> (ExtendedExtensionDTO)e
 		).map(
-			e -> new ExtensionMetadata(e.extension, e.template.serviceFilter)
+			e -> new ExtensionMetadata(e.extension.getService(), e.template.serviceFilter)
 		).collect(Collectors.toList());
 
+		List<Metadata<Extension>> extensions = new CopyOnWriteArrayList<>();
+
 		// Add the internal extensions
-		_extensions.add(
+		extensions.add(
 			new ExtensionMetadata(
 				new BundleContextExtension(containerState.bundleContext()),
 				containerState.id()));
-		_extensions.add(
+		extensions.add(
 			new ExtensionMetadata(
 				new RuntimeExtension(containerState),
 				containerState.id()));
-		_extensions.add(
+		extensions.add(
 			new ExtensionMetadata(
 				new LoggerExtension(containerState),
 				containerState.id()));
 
 		// Add extensions found from the bundle's classloader, such as those in the Bundle-ClassPath
 		for (Metadata<Extension> meta : ServiceLoader.load(Extension.class, containerState.classLoader())) {
-			_extensions.add(meta);
+			extensions.add(meta);
 		}
 
 		// Add external extensions
-		for (Metadata<Extension> meta : _externalExtensions) {
-			_extensions.add(meta);
+		for (Metadata<Extension> meta : externalExtensions) {
+			extensions.add(meta);
 		}
 
 		_bootstrap = new WeldBootstrap();
@@ -94,9 +98,9 @@ public class ContainerBootstrap extends Phase {
 			containerState.beansModel().getBeanClassNames(),
 			containerState.beansModel().getBeansXml());
 
-		Deployment deployment = new ContainerDeployment(_extensions, beanDeploymentArchive);
+		Deployment deployment = new ContainerDeployment(extensions, beanDeploymentArchive);
 
-		_bootstrap.startExtensions(_extensions);
+		_bootstrap.startExtensions(extensions);
 		_bootstrap.startContainer(containerState.id(), new ContainerEnvironment(), deployment);
 
 		_beanManager = _bootstrap.getManager(beanDeploymentArchive);
@@ -121,7 +125,5 @@ public class ContainerBootstrap extends Phase {
 
 	private volatile BeanManager _beanManager;
 	private volatile WeldBootstrap _bootstrap;
-	private final List<Metadata<Extension>> _extensions = new CopyOnWriteArrayList<>();
-	private volatile Collection<Metadata<Extension>> _externalExtensions;
 
 }

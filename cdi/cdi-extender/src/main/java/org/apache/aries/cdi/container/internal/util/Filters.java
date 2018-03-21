@@ -10,9 +10,9 @@ public class Filters {
 		// no instances
 	}
 
-	public static final Filter asFilter(String filterString) {
+	public static final Filter asFilter(String pattern, Object... objects) {
 		try {
-			return FrameworkUtil.createFilter(filterString);
+			return FrameworkUtil.createFilter(String.format(pattern, objects));
 		}
 		catch (InvalidSyntaxException ise) {
 			return Throw.exception(ise);

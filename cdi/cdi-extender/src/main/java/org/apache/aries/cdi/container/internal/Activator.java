@@ -158,16 +158,10 @@ public class Activator extends AbstractExtender {
 
 	@Override
 	protected void debug(Bundle bundle, String msg) {
-		if (_log.isDebugEnabled()) {
-			_log.debug(msg, bundle);
-		}
 	}
 
 	@Override
 	protected void warn(Bundle bundle, String msg, Throwable t) {
-		if (_log.isWarnEnabled()) {
-			_log.warn(msg, bundle, t);
-		}
 	}
 
 	@Override

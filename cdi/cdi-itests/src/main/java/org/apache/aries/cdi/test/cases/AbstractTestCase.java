@@ -29,6 +29,8 @@ import javax.enterprise.inject.Any;
 import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
 
+import org.junit.After;
+import org.junit.Before;
 import org.osgi.annotation.bundle.Requirement;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
@@ -56,6 +58,7 @@ import org.osgi.util.tracker.ServiceTracker;
 )
 public class AbstractTestCase {
 
+	@Before
 	public void setUp() throws Exception {
 		ServiceTracker<LoggerAdmin, LoggerAdmin> laTracker = new ServiceTracker<>(bundleContext, LoggerAdmin.class, null);
 		laTracker.open();
@@ -73,7 +76,8 @@ public class AbstractTestCase {
 		cdiRuntime = runtimeTracker.waitForService(timeout);
 	}
 
-	protected void tearDown() throws Exception {
+	@After
+	public void tearDown() throws Exception {
 		runtimeTracker.close();
 		cdiBundle.uninstall();
 		servicesBundle.uninstall();
@@ -148,9 +152,9 @@ public class AbstractTestCase {
 
 	ServiceTracker<BeanManager, BeanManager> getServiceTracker(Bundle bundle) throws Exception {
 		ServiceTracker<BeanManager, BeanManager> serviceTracker = new ServiceTracker<>(
-			bundleContext,
+			bundle.getBundleContext(),
 			filter(
-				"(&(objectclass=%s)(bundle.id=%d))",
+				"(&(objectClass=%s)(service.bundleid=%d))",
 				BeanManager.class.getName(),
 				bundle.getBundleId()),
 			null);

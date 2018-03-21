@@ -30,7 +30,6 @@ import javax.enterprise.util.AnnotationLiteral;
 import org.apache.aries.cdi.test.interfaces.BeanService;
 import org.apache.aries.cdi.test.interfaces.BundleContextBeanQualifier;
 import org.apache.aries.cdi.test.interfaces.FieldInjectedReference;
-import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.osgi.framework.BundleContext;
@@ -46,26 +45,17 @@ import org.osgi.util.tracker.ServiceTracker;
 @SuppressWarnings("rawtypes")
 public class CdiBeanTests extends AbstractTestCase {
 
-	@Override
-	@Before
-	public void setUp() throws Exception {
-		super.setUp();
-	}
-
+	@Test
 	public void testConstructorInjectedService() throws Exception {
-		Iterator<ServiceReference<BeanService>> iterator = bundleContext.getServiceReferences(
-			BeanService.class, String.format("(objectClass=*.%s)","ConstructorInjectedService")).iterator();
+		CDIComponentRuntime runtime = runtimeTracker.waitForService(5000);
+		assertNotNull(runtime);
 
-		assertTrue(iterator.hasNext());
-
-		ServiceReference<BeanService> serviceReference = iterator.next();
-
-		assertNotNull(serviceReference);
-
-		BeanService bean = bundleContext.getService(serviceReference);
-
-		assertNotNull(bean);
-		assertEquals("PREFIXCONSTRUCTOR", bean.doSomething());
+		Filter filter = filter("(&(objectClass=%s)(objectClass=*.%s))", BeanService.class.getName(), "ConstructorInjectedService");
+		ServiceTracker<BeanService, BeanService> bsTracker = new ServiceTracker<>(bundleContext, filter, null);
+		bsTracker.open();
+		BeanService beanService = bsTracker.waitForService(5000);
+		assertNotNull(beanService);
+		assertEquals("PREFIXCONSTRUCTOR", beanService.doSomething());
 	}
 
 	public void testFieldInjectedReference_BundleScoped() throws Exception {
@@ -114,8 +104,6 @@ public class CdiBeanTests extends AbstractTestCase {
 		assertEquals("value", fieldInjectedReference.getRawReference().getProperty("key"));
 	}
 
-	// TODO @SingleComponent
-	@Ignore
 	@Test
 	public void testFieldInjectedService() throws Exception {
 		CDIComponentRuntime runtime = runtimeTracker.waitForService(5000);
@@ -126,7 +114,7 @@ public class CdiBeanTests extends AbstractTestCase {
 		bsTracker.open();
 		BeanService beanService = bsTracker.waitForService(5000);
 		assertNotNull(beanService);
-		assertEquals("PREFIXMETHOD", beanService.doSomething());
+		assertEquals("PREFIXFIELD", beanService.doSomething());
 	}
 
 	@Test
@@ -147,7 +135,7 @@ public class CdiBeanTests extends AbstractTestCase {
 		ComponentDTO containerComponentDTO = containerDTO.components.stream().filter(
 			c -> c.template.type == ComponentType.CONTAINER).findFirst().orElse(null);
 		assertNotNull(containerComponentDTO);
-		assertEquals(5, containerComponentDTO.template.beans.size());
+		assertEquals(7, containerComponentDTO.template.beans.size());
 
 		// There's only one instance of the Container component
 		ComponentInstanceDTO componentInstanceDTO = containerComponentDTO.instances.get(0);
