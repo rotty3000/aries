@@ -270,7 +270,7 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		assertTrue(containerDTO.errors + "", containerDTO.errors.isEmpty());
 		assertNotNull(containerDTO.template);
 
-		assertNull(p0.timeout(200).getValue());
+		assertNotNull(p0.timeout(200).getValue());
 
 		ComponentInstanceDTO containerComponentInstance = containerDTO.components.get(0).instances.get(0);
 
@@ -410,7 +410,7 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		assertTrue(containerDTO.errors + "", containerDTO.errors.isEmpty());
 		assertNotNull(containerDTO.template);
 
-		assertNull(p0.timeout(200).getValue());
+		assertNotNull(p0.timeout(200).getValue());
 
 		ComponentInstanceDTO containerComponentInstance = containerDTO.components.get(0).instances.get(0);
 
