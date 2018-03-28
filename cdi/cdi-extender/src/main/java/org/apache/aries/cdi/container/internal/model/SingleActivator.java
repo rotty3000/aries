@@ -2,14 +2,13 @@ package org.apache.aries.cdi.container.internal.model;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
-import org.apache.aries.cdi.container.internal.phase.Phase;
 
 public class SingleActivator extends InstanceActivator {
 
 	public static class Builder extends InstanceActivator.Builder<Builder> {
 
-		public Builder(ContainerState containerState, Phase next) {
-			super(containerState, next);
+		public Builder(ContainerState containerState) {
+			super(containerState, null);
 		}
 
 		@Override

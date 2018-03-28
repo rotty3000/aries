@@ -2,6 +2,7 @@ package org.apache.aries.cdi.container.internal.container;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -22,7 +23,28 @@ import org.osgi.service.log.Logger;
 
 public class ConfigurationListener extends Phase implements org.osgi.service.cm.ConfigurationListener {
 
-	public ConfigurationListener(
+	public static class Builder {
+
+		public Builder(ContainerState containerState) {
+			_containerState = containerState;
+		}
+
+		public Builder component(Component component) {
+			_component = component;
+			return this;
+		}
+
+		public ConfigurationListener build() {
+			Objects.requireNonNull(_component);
+			return new ConfigurationListener(_containerState, _component);
+		}
+
+		private Component _component;
+		private final ContainerState _containerState;
+
+	}
+
+	protected ConfigurationListener(
 		ContainerState containerState,
 		Component component) {
 
@@ -167,7 +189,7 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 					instanceDTO.properties = null;
 					instanceDTO.references = new CopyOnWriteArrayList<>();
 					instanceDTO.template = component.template();
-					instanceDTO.builder = new FactoryActivator.Builder(containerState, null);
+					instanceDTO.builder = new FactoryActivator.Builder(containerState);
 
 					if (instances.add(instanceDTO)) {
 						instanceDTO.open();

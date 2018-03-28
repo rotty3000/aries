@@ -12,8 +12,30 @@ import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 
 public abstract class Component extends Phase {
 
-	public Component(ContainerState containerState, Phase next) {
-		super(containerState, next);
+	public abstract static class Builder<T extends Builder<T>> {
+
+		public Builder(ContainerState containerState, InstanceActivator.Builder<?> activatorBuilder) {
+			_containerState = containerState;
+			_activatorBuilder = activatorBuilder;
+		}
+
+		@SuppressWarnings("unchecked")
+		public T template(ComponentTemplateDTO templateDTO) {
+			_templateDTO = templateDTO;
+			return (T)this;
+		}
+
+		public abstract Component build();
+
+		protected InstanceActivator.Builder<?> _activatorBuilder;
+		protected ContainerState _containerState;
+		protected Phase _next;
+		protected ComponentTemplateDTO _templateDTO;
+
+	}
+
+	Component(Builder<?> builder) {
+		super(builder._containerState, null);
 	}
 
 	public abstract Op closeOp();

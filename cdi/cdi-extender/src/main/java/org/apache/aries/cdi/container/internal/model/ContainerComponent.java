@@ -13,13 +13,23 @@ import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 
 public class ContainerComponent extends Component {
 
-	public ContainerComponent(
-		ContainerState containerState,
-		InstanceActivator.Builder<?> builder) {
+	public static class Builder extends Component.Builder<Builder> {
 
-		super(containerState, null);
+		public Builder(ContainerState containerState, ContainerActivator.Builder activatorBuilder) {
+			super(containerState, activatorBuilder);
+		}
 
-		_template = containerState.containerDTO().template.components.get(0);
+		@Override
+		public ContainerComponent build() {
+			return new ContainerComponent(this);
+		}
+
+	}
+
+	protected ContainerComponent(Builder builder) {
+		super(builder);
+
+		_template = builder._templateDTO;
 
 		_snapshot = new ComponentDTO();
 		_snapshot.instances = new CopyOnWriteArrayList<>();
@@ -33,7 +43,7 @@ public class ContainerComponent extends Component {
 		_instanceDTO.properties = null;
 		_instanceDTO.references = new CopyOnWriteArrayList<>();
 		_instanceDTO.template = _template;
-		_instanceDTO.builder = builder;
+		_instanceDTO.builder = builder._activatorBuilder;
 
 		_snapshot.instances.add(_instanceDTO);
 

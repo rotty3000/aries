@@ -14,14 +14,23 @@ import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 
 public class FactoryComponent extends Component {
 
-	public FactoryComponent(
-		ContainerState containerState,
-		ComponentTemplateDTO template,
-		InstanceActivator.Builder<?> builder) {
+	public static class Builder extends Component.Builder<Builder> {
 
-		super(containerState, null);
+		public Builder(ContainerState containerState, FactoryActivator.Builder activatorBuilder) {
+			super(containerState, activatorBuilder);
+		}
 
-		_template = template;
+		@Override
+		public FactoryComponent build() {
+			return new FactoryComponent(this);
+		}
+
+	}
+
+	protected FactoryComponent(Builder builder) {
+		super(builder);
+
+		_template = builder._templateDTO;
 
 		_snapshot = new ComponentDTO();
 		_snapshot.instances = new CopyOnWriteArrayList<>();
@@ -43,8 +52,8 @@ public class FactoryComponent extends Component {
 							instanceDTO.pid = c.getPid();
 							instanceDTO.properties = null;
 							instanceDTO.references = new CopyOnWriteArrayList<>();
-							instanceDTO.template = template;
-							instanceDTO.builder = builder;
+							instanceDTO.template = builder._templateDTO;
+							instanceDTO.builder = builder._activatorBuilder;
 
 							_snapshot.instances.add(instanceDTO);
 						}

@@ -13,15 +13,23 @@ import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 
 public class SingleComponent extends Component {
 
-	public SingleComponent(
-		ContainerState containerState,
-		ComponentTemplateDTO template,
-		InstanceActivator.Builder<?> builder) {
+	public static class Builder extends Component.Builder<Builder> {
 
-		super(containerState, null);
+		public Builder(ContainerState containerState, SingleActivator.Builder activatorBuilder) {
+			super(containerState, activatorBuilder);
+		}
 
-		_containerState = containerState;
-		_template = template;
+		@Override
+		public SingleComponent build() {
+			return new SingleComponent(this);
+		}
+
+	}
+
+	protected SingleComponent(Builder builder) {
+		super(builder);
+
+		_template = builder._templateDTO;
 
 		_snapshot = new ComponentDTO();
 		_snapshot.instances = new CopyOnWriteArrayList<>();
@@ -30,16 +38,16 @@ public class SingleComponent extends Component {
 		_instanceDTO = new ExtendedComponentInstanceDTO();
 		_instanceDTO.activations = new CopyOnWriteArrayList<>();
 		_instanceDTO.configurations = new CopyOnWriteArrayList<>();
-		_instanceDTO.containerState = _containerState;
+		_instanceDTO.containerState = containerState;
 		_instanceDTO.pid = _template.configurations.get(0).pid;
 		_instanceDTO.properties = null;
 		_instanceDTO.references = new CopyOnWriteArrayList<>();
-		_instanceDTO.template = template;
-		_instanceDTO.builder = builder;
+		_instanceDTO.template = builder._templateDTO;
+		_instanceDTO.builder = builder._activatorBuilder;
 
 		_snapshot.instances.add(_instanceDTO);
 
-		_containerState.containerDTO().components.add(_snapshot);
+		containerState.containerDTO().components.add(_snapshot);
 	}
 
 	@Override
@@ -82,7 +90,6 @@ public class SingleComponent extends Component {
 		return _template;
 	}
 
-	private final ContainerState _containerState;
 	private final ExtendedComponentInstanceDTO _instanceDTO;
 	private final ComponentDTO _snapshot;
 	private final ComponentTemplateDTO _template;

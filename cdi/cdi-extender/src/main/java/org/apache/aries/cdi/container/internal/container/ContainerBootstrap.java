@@ -14,15 +14,15 @@
 
 package org.apache.aries.cdi.container.internal.container;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.stream.Collectors;
 
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.Extension;
 
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
+import org.apache.aries.cdi.container.internal.model.FactoryComponent;
+import org.apache.aries.cdi.container.internal.model.SingleComponent;
 import org.apache.aries.cdi.container.internal.phase.Phase;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.jboss.weld.bootstrap.WeldBootstrap;
@@ -34,8 +34,17 @@ import org.osgi.service.log.Logger;
 
 public class ContainerBootstrap extends Phase {
 
-	public ContainerBootstrap(ContainerState containerState) {
+	public ContainerBootstrap(
+		ContainerState containerState,
+		ConfigurationListener.Builder configurationBuilder,
+		SingleComponent.Builder singleBuilder,
+		FactoryComponent.Builder factoryBuilder) {
+
 		super(containerState, null);
+
+		_configurationBuilder = configurationBuilder;
+		_singleBuilder = singleBuilder;
+		_factoryBuilder = factoryBuilder;
 	}
 
 	@Override
@@ -58,12 +67,6 @@ public class ContainerBootstrap extends Phase {
 
 	@Override
 	public boolean open() {
-		Collection<Metadata<Extension>> externalExtensions = containerState.containerDTO().extensions.stream().map(
-			e -> (ExtendedExtensionDTO)e
-		).map(
-			e -> new ExtensionMetadata(e.extension.getService(), e.template.serviceFilter)
-		).collect(Collectors.toList());
-
 		List<Metadata<Extension>> extensions = new CopyOnWriteArrayList<>();
 
 		// Add the internal extensions
@@ -73,22 +76,22 @@ public class ContainerBootstrap extends Phase {
 				containerState.id()));
 		extensions.add(
 			new ExtensionMetadata(
-				new RuntimeExtension(containerState),
+				new RuntimeExtension(containerState, _configurationBuilder, _singleBuilder, _factoryBuilder),
 				containerState.id()));
 		extensions.add(
 			new ExtensionMetadata(
 				new LoggerExtension(containerState),
 				containerState.id()));
 
-		// Add extensions found from the bundle's classloader, such as those in the Bundle-ClassPath
-		for (Metadata<Extension> meta : ServiceLoader.load(Extension.class, containerState.classLoader())) {
-			extensions.add(meta);
-		}
+		// Add extensions found from the bundle's class loader, such as those in the Bundle-ClassPath
+		ServiceLoader.load(Extension.class, containerState.classLoader()).forEach(extensions::add);
 
 		// Add external extensions
-		for (Metadata<Extension> meta : externalExtensions) {
-			extensions.add(meta);
-		}
+		containerState.containerDTO().extensions.stream().map(
+			ExtendedExtensionDTO.class::cast
+		).map(
+			e -> new ExtensionMetadata(e.extension.getService(), e.template.serviceFilter)
+		).forEach(extensions::add);
 
 		_bootstrap = new WeldBootstrap();
 
@@ -125,5 +128,8 @@ public class ContainerBootstrap extends Phase {
 
 	private volatile BeanManager _beanManager;
 	private volatile WeldBootstrap _bootstrap;
+	private final ConfigurationListener.Builder _configurationBuilder;
+	private final FactoryComponent.Builder _factoryBuilder;
+	private final SingleComponent.Builder _singleBuilder;
 
 }

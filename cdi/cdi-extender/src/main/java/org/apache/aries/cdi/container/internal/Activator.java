@@ -35,6 +35,10 @@ import org.apache.aries.cdi.container.internal.container.ContainerBootstrap;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.model.ContainerActivator;
 import org.apache.aries.cdi.container.internal.model.ContainerComponent;
+import org.apache.aries.cdi.container.internal.model.FactoryActivator;
+import org.apache.aries.cdi.container.internal.model.FactoryComponent;
+import org.apache.aries.cdi.container.internal.model.SingleActivator;
+import org.apache.aries.cdi.container.internal.model.SingleComponent;
 import org.apache.aries.cdi.container.internal.phase.ExtensionPhase;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.provider.CDIProvider;
@@ -150,10 +154,24 @@ public class Activator extends AbstractExtender {
 
 		return new CDIBundle(_ccr, containerState,
 			new ExtensionPhase(containerState,
-				new ConfigurationListener(containerState,
-					new ContainerComponent(containerState,
+				new ConfigurationListener.Builder(containerState
+				).component(
+					new ContainerComponent.Builder(containerState,
 						new ContainerActivator.Builder(containerState,
-							new ContainerBootstrap(containerState))))));
+							new ContainerBootstrap(
+								containerState,
+								new ConfigurationListener.Builder(containerState),
+								new SingleComponent.Builder(containerState,
+									new SingleActivator.Builder(containerState)),
+								new FactoryComponent.Builder(containerState,
+									new FactoryActivator.Builder(containerState))
+							)
+						)
+					).template(containerState.containerDTO().template.components.get(0)
+					).build()
+				).build()
+			)
+		);
 	}
 
 	@Override

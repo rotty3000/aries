@@ -40,7 +40,7 @@ import org.osgi.service.log.LoggerFactory;
 import org.osgi.util.promise.Promise;
 import org.osgi.util.tracker.ServiceTracker;
 
-public class ConfigurationPhaseTest extends BaseCDIBundleTest {
+public class ConfigurationListenerTest extends BaseCDIBundleTest {
 
 	@Test
 	public void configuration_tracking() throws Exception {
@@ -57,9 +57,14 @@ public class ConfigurationPhaseTest extends BaseCDIBundleTest {
 
 		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, loggerTracker);
 
-		ConfigurationListener configurationListener = new ConfigurationListener(containerState,
-			new ContainerComponent(containerState,
-				new ContainerActivator.Builder(containerState, null)));
+		ConfigurationListener configurationListener = new ConfigurationListener.Builder(containerState
+		).component(
+			new ContainerComponent.Builder(containerState,
+				new ContainerActivator.Builder(containerState, null)
+			).template(
+				containerState.containerDTO().template.components.get(0)
+			).build()
+		).build();
 
 		Promise<Boolean> p0 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) op -> {

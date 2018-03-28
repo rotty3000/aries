@@ -44,8 +44,10 @@ import org.apache.aries.cdi.container.internal.model.ExtendedComponentInstanceDT
 import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationTemplateDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceTemplateDTO;
+import org.apache.aries.cdi.container.internal.model.FactoryComponent;
 import org.apache.aries.cdi.container.internal.model.OSGiBean;
 import org.apache.aries.cdi.container.internal.model.ReferenceModel;
+import org.apache.aries.cdi.container.internal.model.SingleComponent;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.internal.util.SRs;
 import org.osgi.framework.Bundle;
@@ -64,8 +66,16 @@ import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 
 public class RuntimeExtension implements Extension {
 
-	public RuntimeExtension(ContainerState containerState) {
+	public RuntimeExtension(
+		ContainerState containerState,
+		ConfigurationListener.Builder configurationBuilder,
+		SingleComponent.Builder singleBuilder,
+		FactoryComponent.Builder factoryBuilder) {
+
 		_containerState = containerState;
+		_configurationBuilder = configurationBuilder;
+		_singleBuilder = singleBuilder;
+		_factoryBuilder = factoryBuilder;
 
 		_componentDTO = _containerState.containerDTO().components.stream().filter(
 			c -> c.template.type == ComponentType.CONTAINER
@@ -319,8 +329,11 @@ public class RuntimeExtension implements Extension {
 	}
 
 	private final ComponentDTO _componentDTO;
+	private final ConfigurationListener.Builder _configurationBuilder;
 	private final ContainerState _containerState;
+	private final FactoryComponent.Builder _factoryBuilder;
 	private final ExtendedComponentInstanceDTO _instanceDTO;
 	private final List<ServiceRegistration<?>> _registrations = new CopyOnWriteArrayList<>();
+	private final SingleComponent.Builder _singleBuilder;
 
 }
