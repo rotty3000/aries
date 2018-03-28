@@ -97,7 +97,40 @@ public class RuntimeExtension implements Extension {
 
 		_registrations.add(serviceRegistration);
 
-		fireEventsAndRegisterServices(_componentDTO, _instanceDTO, bm);
+		_containerState.submit(
+			Op.CONTAINER_FIRE_EVENTS, () -> fireEvents(_componentDTO, _instanceDTO, bm)
+		).then(
+			s-> {
+				return _containerState.submit(
+					Op.CONTAINER_PUBLISH_SERVICES, () -> registerServices(_componentDTO, _instanceDTO, bm)
+				);
+			}
+		).then(
+			s -> {
+				initSingleComponents(_configurationBuilder, _singleBuilder);
+				return s;
+			}
+		).then(
+			s -> {
+				initFactoryComponents(_configurationBuilder, _factoryBuilder);
+				return s;
+			}
+		);
+
+	}
+
+	private boolean initFactoryComponents(
+		ConfigurationListener.Builder configurationBuilder,
+		FactoryComponent.Builder factoryBuilder) {
+
+		return true;
+	}
+
+	private boolean initSingleComponents(
+		ConfigurationListener.Builder configurationBuilder,
+		SingleComponent.Builder singleBuilder) {
+
+		return true;
 	}
 
 	void applicationScopedBeforeDestroyed(@Observes @BeforeDestroyed(ApplicationScoped.class) Object o) {
@@ -173,13 +206,17 @@ public class RuntimeExtension implements Extension {
 		);
 	}
 
-	private void fireEventsAndRegisterServices(ComponentDTO componentDTO, ExtendedComponentInstanceDTO instance, BeanManager bm) {
+	private boolean registerServices(ComponentDTO componentDTO, ExtendedComponentInstanceDTO instance, BeanManager bm) {
 		componentDTO.template.activations.stream().map(
 			ExtendedActivationTemplateDTO.class::cast
 		).forEach(
 			a -> registerService(instance, a, bm)
 		);
 
+		return true;
+	}
+
+	private boolean fireEvents(ComponentDTO componentDTO, ExtendedComponentInstanceDTO instance, BeanManager bm) {
 		// TODO Check the logic of firing all the queued service events.
 		instance.references.stream().map(ExtendedReferenceDTO.class::cast).filter(
 			r -> ((ExtendedReferenceTemplateDTO)r.template).collectionType == CollectionType.OBSERVER
@@ -188,6 +225,8 @@ public class RuntimeExtension implements Extension {
 		).forEach(
 			t -> t.bean.fireEvents()
 		);
+
+		return true;
 	}
 
 	private boolean matchConfiguration(OSGiBean osgiBean, Configuration configuration, ProcessInjectionPoint<?, ?> pip) {

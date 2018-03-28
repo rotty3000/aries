@@ -227,7 +227,7 @@ public class TestUtil {
 			(Answer<ServiceRegistration<?>>) registerService -> {
 				Class<?> clazz = registerService.getArgument(0);
 				MockServiceReference<?> mockServiceReference = new MockServiceReference<>(
-					bundle, registerService.getArgument(1), clazz);
+					bundle, registerService.getArgument(1), new String[] {clazz.getName()});
 
 				Optional.ofNullable(
 					registerService.getArgument(2)
@@ -251,6 +251,34 @@ public class TestUtil {
 				return new MockServiceRegistration<>(mockServiceReference, serviceRegistrations, serviceListeners);
 			}
 		).when(bundleContext).registerService(any(Class.class), any(Object.class), any());
+		doAnswer(
+			(Answer<ServiceRegistration<?>>) registerService -> {
+				String[] clazzes = registerService.getArgument(0);
+				MockServiceReference<?> mockServiceReference = new MockServiceReference<>(
+					bundle, registerService.getArgument(1), clazzes);
+
+				Optional.ofNullable(
+					registerService.getArgument(2)
+				).map(
+					arg -> (Dictionary<String, Object>)arg
+				).ifPresent(
+					dict -> {
+						for (Enumeration<String> enu = dict.keys(); enu.hasMoreElements();) {
+							String key = enu.nextElement();
+							if (key.equals(Constants.OBJECTCLASS) ||
+								key.equals(Constants.SERVICE_BUNDLEID) ||
+								key.equals(Constants.SERVICE_ID) ||
+								key.equals(Constants.SERVICE_SCOPE)) {
+								continue;
+							}
+							mockServiceReference.setProperty(key, dict.get(key));
+						}
+					}
+				);
+
+				return new MockServiceRegistration<>(mockServiceReference, serviceRegistrations, serviceListeners);
+			}
+		).when(bundleContext).registerService(any(String[].class), any(Object.class), any());
 		doAnswer(
 			(Answer<Void>) addServiceListener -> {
 				ServiceListener sl = cast(addServiceListener.getArgument(0));

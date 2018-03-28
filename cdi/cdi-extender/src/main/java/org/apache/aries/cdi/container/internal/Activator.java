@@ -167,7 +167,8 @@ public class Activator extends AbstractExtender {
 									new FactoryActivator.Builder(containerState))
 							)
 						)
-					).template(containerState.containerDTO().template.components.get(0)
+					).template(
+						containerState.containerDTO().template.components.get(0)
 					).build()
 				).build()
 			)
