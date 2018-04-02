@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.aries.cdi.container.internal.bean.ReferenceBean;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
@@ -35,6 +36,7 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 	public String pid;
 	public ComponentTemplateDTO template;
 	public List<ReferenceBean> _referenceBeans = new CopyOnWriteArrayList<>();
+	private final AtomicReference<InstanceActivator> _noRequiredDependenciesActivator = new AtomicReference<>();
 
 	/**
 	 * @return true when all the configuration templates are resolved, otherwise false
@@ -132,10 +134,12 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 		).then(
 			s -> {
 				if (!s.getValue()) {
-					InstanceActivator activator = builder.setInstance(this).build();
+					// none of the reference dependencies are required
+					_noRequiredDependenciesActivator.set(builder.setInstance(this).build());
 
 					return containerState.submit(
-						activator.openOp(), activator::open
+						_noRequiredDependenciesActivator.get().openOp(),
+						() -> _noRequiredDependenciesActivator.get().open()
 					).then(
 						null,
 						f -> {
@@ -158,10 +162,12 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 
 		properties = null;
 
-		InstanceActivator activator = builder.setInstance(this).build();
-
 		try {
-			return activator.close();
+			if (_noRequiredDependenciesActivator.get() != null) {
+				return _noRequiredDependenciesActivator.get().close();
+			}
+
+			return true;
 		}
 		catch (Throwable t) {
 			_log.error(l -> l.error("CCR Error in component instance stop on {}", this, t));
@@ -177,7 +183,6 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 				}
 			);
 		}
-
 	}
 
 	private Map<String, Object> componentProperties() {

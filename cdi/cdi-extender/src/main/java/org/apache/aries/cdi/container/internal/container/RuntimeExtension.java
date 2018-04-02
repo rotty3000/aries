@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.BeforeDestroyed;
@@ -41,12 +42,15 @@ import org.apache.aries.cdi.container.internal.model.CollectionType;
 import org.apache.aries.cdi.container.internal.model.ConfigurationModel;
 import org.apache.aries.cdi.container.internal.model.ExtendedActivationTemplateDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedComponentInstanceDTO;
+import org.apache.aries.cdi.container.internal.model.ExtendedComponentTemplateDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationTemplateDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceTemplateDTO;
+import org.apache.aries.cdi.container.internal.model.FactoryActivator;
 import org.apache.aries.cdi.container.internal.model.FactoryComponent;
 import org.apache.aries.cdi.container.internal.model.OSGiBean;
 import org.apache.aries.cdi.container.internal.model.ReferenceModel;
+import org.apache.aries.cdi.container.internal.model.SingleActivator;
 import org.apache.aries.cdi.container.internal.model.SingleComponent;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.internal.util.SRs;
@@ -63,6 +67,7 @@ import org.osgi.service.cdi.runtime.dto.ActivationDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
+import org.osgi.util.promise.Promise;
 
 public class RuntimeExtension implements Extension {
 
@@ -106,34 +111,14 @@ public class RuntimeExtension implements Extension {
 				);
 			}
 		).then(
-			s -> {
-				initSingleComponents(_configurationBuilder, _singleBuilder);
-				return s;
-			}
-		).then(
-			s -> {
-				initFactoryComponents(_configurationBuilder, _factoryBuilder);
-				return s;
-			}
+			s -> initComponents()
 		);
 
 	}
 
-	private boolean initFactoryComponents(
-		ConfigurationListener.Builder configurationBuilder,
-		FactoryComponent.Builder factoryBuilder) {
-
-		return true;
-	}
-
-	private boolean initSingleComponents(
-		ConfigurationListener.Builder configurationBuilder,
-		SingleComponent.Builder singleBuilder) {
-
-		return true;
-	}
-
 	void applicationScopedBeforeDestroyed(@Observes @BeforeDestroyed(ApplicationScoped.class) Object o) {
+		_configurationListeners.removeIf(cl -> cl.close());
+
 		_instanceDTO.activations.clear();
 
 		_registrations.removeIf(
@@ -198,22 +183,12 @@ public class RuntimeExtension implements Extension {
 						t.bean.setProperties(componentTemplate.properties);
 					}
 					else {
-						t.bean.setProperties(_containerState.containerDTO().components.get(0).instances.get(0).properties);
+						t.bean.setProperties(_instanceDTO.properties);
 					}
 				}
 				abd.addBean(t.bean);
 			}
 		);
-	}
-
-	private boolean registerServices(ComponentDTO componentDTO, ExtendedComponentInstanceDTO instance, BeanManager bm) {
-		componentDTO.template.activations.stream().map(
-			ExtendedActivationTemplateDTO.class::cast
-		).forEach(
-			a -> registerService(instance, a, bm)
-		);
-
-		return true;
 	}
 
 	private boolean fireEvents(ComponentDTO componentDTO, ExtendedComponentInstanceDTO instance, BeanManager bm) {
@@ -227,6 +202,48 @@ public class RuntimeExtension implements Extension {
 		);
 
 		return true;
+	}
+
+	private Promise<List<Boolean>> initComponents() {
+		List<Promise<Boolean>> promises = _containerState.containerDTO().template.components.stream().filter(
+			t -> t.type != ComponentType.CONTAINER
+		).map(ExtendedComponentTemplateDTO.class::cast).map(
+			t -> initComponent(t)
+		).collect(Collectors.toList());
+
+		return _containerState.promiseFactory().all(promises);
+	}
+
+	private Promise<Boolean> initComponent(ExtendedComponentTemplateDTO componentTemplateDTO) {
+		if (componentTemplateDTO.type == ComponentType.FACTORY) {
+			return initFactoryComponent(componentTemplateDTO);
+		}
+
+		return initSingleComponent(componentTemplateDTO);
+	}
+
+	private Promise<Boolean> initFactoryComponent(ExtendedComponentTemplateDTO componentTemplateDTO) {
+		ConfigurationListener cl = new ConfigurationListener.Builder(_containerState).component(
+			new FactoryComponent.Builder(_containerState,
+				new FactoryActivator.Builder(_containerState)
+			).template(componentTemplateDTO).build()
+		).build();
+
+		_configurationListeners.add(cl);
+
+		return _containerState.submit(Op.CONFIGURATION_OPEN, cl::open);
+	}
+
+	private Promise<Boolean> initSingleComponent(ExtendedComponentTemplateDTO componentTemplateDTO) {
+		ConfigurationListener cl = new ConfigurationListener.Builder(_containerState).component(
+			new SingleComponent.Builder(_containerState,
+				new SingleActivator.Builder(_containerState)
+			).template(componentTemplateDTO).build()
+		).build();
+
+		_configurationListeners.add(cl);
+
+		return _containerState.submit(Op.CONFIGURATION_OPEN, cl::open);
 	}
 
 	private boolean matchConfiguration(OSGiBean osgiBean, Configuration configuration, ProcessInjectionPoint<?, ?> pip) {
@@ -358,7 +375,7 @@ public class RuntimeExtension implements Extension {
 		componentInstance.activations.add(activationDTO);
 	}
 
-	ServiceRegistration<?> registerService(String[] serviceTypes, Object serviceObject, Map<String, Object> properties) {
+	private ServiceRegistration<?> registerService(String[] serviceTypes, Object serviceObject, Map<String, Object> properties) {
 		ServiceRegistration<?> serviceRegistration = _containerState.bundleContext().registerService(
 			serviceTypes, serviceObject, Maps.dict(properties));
 
@@ -367,8 +384,19 @@ public class RuntimeExtension implements Extension {
 		return serviceRegistration;
 	}
 
+	private boolean registerServices(ComponentDTO componentDTO, ExtendedComponentInstanceDTO instance, BeanManager bm) {
+		componentDTO.template.activations.stream().map(
+			ExtendedActivationTemplateDTO.class::cast
+		).forEach(
+			a -> registerService(instance, a, bm)
+		);
+
+		return true;
+	}
+
 	private final ComponentDTO _componentDTO;
 	private final ConfigurationListener.Builder _configurationBuilder;
+	private final List<ConfigurationListener> _configurationListeners = new CopyOnWriteArrayList<>();
 	private final ContainerState _containerState;
 	private final FactoryComponent.Builder _factoryBuilder;
 	private final ExtendedComponentInstanceDTO _instanceDTO;

@@ -68,10 +68,10 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 				catch (Throwable t) {
 					_log.error(l -> l.error("CCR Failure in configuration listener close on {}", next, t));
 
-					return false;
+					return true;
 				}
 			}
-		).get();
+		).orElse(true);
 	}
 
 	@Override

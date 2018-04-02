@@ -152,14 +152,21 @@ public class Activator extends AbstractExtender {
 		ContainerState containerState = new ContainerState(
 			bundle, _bundleContext.getBundle(), _ccrChangeCount, _promiseFactory, caTracker, loggerTracker);
 
+		// the CDI bundle
 		return new CDIBundle(_ccr, containerState,
+			// handle extensions
 			new ExtensionPhase(containerState,
-				new ConfigurationListener.Builder(containerState
-				).component(
+				// listen for configurations of the container component
+				new ConfigurationListener.Builder(containerState).component(
+					// the container component
 					new ContainerComponent.Builder(containerState,
+						// when dependencies are satisfied activate the container
 						new ContainerActivator.Builder(containerState,
+							// when the active container bootstraps CDI
 							new ContainerBootstrap(
 								containerState,
+								// when CDI is bootstrapping is complete and is up and running
+								// activate the configuration listeners for single and factory components
 								new ConfigurationListener.Builder(containerState),
 								new SingleComponent.Builder(containerState,
 									new SingleActivator.Builder(containerState)),
@@ -167,8 +174,6 @@ public class Activator extends AbstractExtender {
 									new FactoryActivator.Builder(containerState))
 							)
 						)
-					).template(
-						containerState.containerDTO().template.components.get(0)
 					).build()
 				).build()
 			)
@@ -206,6 +211,7 @@ public class Activator extends AbstractExtender {
 					BundleRequirement requirement = bundleWire.getRequirement();
 					Map<String, Object> requirementAttributes = requirement.getAttributes();
 
+					@SuppressWarnings("unchecked")
 					List<String> beans = (List<String>)requirementAttributes.get(REQUIREMENT_OSGI_BEANS_ATTRIBUTE);
 
 					if (beans != null && !beans.isEmpty()) {

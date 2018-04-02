@@ -144,14 +144,14 @@ public class ContainerState {
 			)
 		);
 
-		ComponentTemplateDTO componentTemplate = new ComponentTemplateDTO();
-		componentTemplate.activations = new CopyOnWriteArrayList<>();
-		componentTemplate.beans = new CopyOnWriteArrayList<>();
-		componentTemplate.configurations = new CopyOnWriteArrayList<>();
-		componentTemplate.name = _containerDTO.template.id;
-		componentTemplate.properties = Collections.emptyMap();
-		componentTemplate.references = new CopyOnWriteArrayList<>();
-		componentTemplate.type = ComponentType.CONTAINER;
+		_containerComponentTemplateDTO = new ComponentTemplateDTO();
+		_containerComponentTemplateDTO.activations = new CopyOnWriteArrayList<>();
+		_containerComponentTemplateDTO.beans = new CopyOnWriteArrayList<>();
+		_containerComponentTemplateDTO.configurations = new CopyOnWriteArrayList<>();
+		_containerComponentTemplateDTO.name = _containerDTO.template.id;
+		_containerComponentTemplateDTO.properties = Collections.emptyMap();
+		_containerComponentTemplateDTO.references = new CopyOnWriteArrayList<>();
+		_containerComponentTemplateDTO.type = ComponentType.CONTAINER;
 
 		ExtendedConfigurationTemplateDTO configurationTemplate = new ExtendedConfigurationTemplateDTO();
 		configurationTemplate.componentConfiguration = true;
@@ -163,9 +163,9 @@ public class ContainerState {
 		);
 		configurationTemplate.policy = ConfigurationPolicy.OPTIONAL;
 
-		componentTemplate.configurations.add(configurationTemplate);
+		_containerComponentTemplateDTO.configurations.add(configurationTemplate);
 
-		_containerDTO.template.components.add(componentTemplate);
+		_containerDTO.template.components.add(_containerComponentTemplateDTO);
 
 		_aggregateClassLoader = new BundleClassLoader(getBundles(_bundle, _extenderBundle));
 
@@ -220,6 +220,10 @@ public class ContainerState {
 	public ContainerDTO containerDTO() {
 		_containerDTO.changeCount = _changeCount.get();
 		return _containerDTO;
+	}
+
+	public ComponentTemplateDTO containerComponentTemplateDTO() {
+		return _containerComponentTemplateDTO;
 	}
 
 	public void error(Throwable t) {
@@ -359,6 +363,7 @@ public class ContainerState {
 	private final ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> _caTracker;
 	private final ChangeCount _changeCount;
 	private final ContainerDTO _containerDTO;
+	private final ComponentTemplateDTO _containerComponentTemplateDTO;
 	private final AtomicBoolean _closing = new AtomicBoolean(false);
 	private final Bundle _extenderBundle;
 	private final ServiceTracker<LoggerFactory, LoggerFactory> _loggerTracker;

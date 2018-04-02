@@ -21,6 +21,7 @@ public class ContainerComponent extends Component {
 
 		@Override
 		public ContainerComponent build() {
+			template(_containerState.containerComponentTemplateDTO());
 			return new ContainerComponent(this);
 		}
 
