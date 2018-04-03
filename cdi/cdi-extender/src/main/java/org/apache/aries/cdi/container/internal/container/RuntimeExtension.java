@@ -34,10 +34,13 @@ import javax.enterprise.inject.spi.AnnotatedMethod;
 import javax.enterprise.inject.spi.AnnotatedParameter;
 import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
+import javax.enterprise.inject.spi.BeforeBeanDiscovery;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.enterprise.inject.spi.ProcessInjectionPoint;
 
+import org.apache.aries.cdi.container.internal.bean.ConfigurationBean;
+import org.apache.aries.cdi.container.internal.bean.ReferenceBean;
 import org.apache.aries.cdi.container.internal.model.CollectionType;
 import org.apache.aries.cdi.container.internal.model.ConfigurationModel;
 import org.apache.aries.cdi.container.internal.model.ExtendedActivationTemplateDTO;
@@ -52,6 +55,7 @@ import org.apache.aries.cdi.container.internal.model.OSGiBean;
 import org.apache.aries.cdi.container.internal.model.ReferenceModel;
 import org.apache.aries.cdi.container.internal.model.SingleActivator;
 import org.apache.aries.cdi.container.internal.model.SingleComponent;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.internal.util.SRs;
 import org.osgi.framework.Bundle;
@@ -61,12 +65,14 @@ import org.osgi.framework.ServiceRegistration;
 import org.osgi.service.cdi.CDIConstants;
 import org.osgi.service.cdi.ComponentType;
 import org.osgi.service.cdi.ServiceScope;
+import org.osgi.service.cdi.annotations.ComponentScoped;
 import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.Reference;
 import org.osgi.service.cdi.runtime.dto.ActivationDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
+import org.osgi.service.log.Logger;
 import org.osgi.util.promise.Promise;
 
 public class RuntimeExtension implements Extension {
@@ -89,7 +95,22 @@ public class RuntimeExtension implements Extension {
 		_instanceDTO = (ExtendedComponentInstanceDTO)_componentDTO.instances.get(0);
 	}
 
+	void beforeBeanDiscovery(@Observes BeforeBeanDiscovery bbd) {
+		bbd.addQualifier(org.osgi.service.cdi.annotations.Bundle.class);
+		bbd.addQualifier(org.osgi.service.cdi.annotations.Configuration.class);
+		bbd.addQualifier(org.osgi.service.cdi.annotations.Greedy.class);
+		bbd.addQualifier(org.osgi.service.cdi.annotations.PID.class);
+		bbd.addQualifier(org.osgi.service.cdi.annotations.Prototype.class);
+		bbd.addQualifier(org.osgi.service.cdi.annotations.Reference.class);
+		bbd.addQualifier(org.osgi.service.cdi.annotations.Service.class);
+		bbd.addScope(ComponentScoped.class, false, false);
+		bbd.addStereotype(org.osgi.service.cdi.annotations.FactoryComponent.class);
+		bbd.addStereotype(org.osgi.service.cdi.annotations.SingleComponent.class);
+	}
+
 	void afterBeanDiscovery(@Observes AfterBeanDiscovery abd, BeanManager bm) {
+		abd.addContext(new ComponentContext());
+
 		_containerState.containerDTO().template.components.forEach(
 			ct -> addBeans(ct, abd, bm)
 		);
@@ -158,18 +179,21 @@ public class RuntimeExtension implements Extension {
 	private void addBeans(ComponentTemplateDTO componentTemplate, AfterBeanDiscovery abd, BeanManager bm) {
 		componentTemplate.references.stream().map(ExtendedReferenceTemplateDTO.class::cast).forEach(
 			t -> {
-				t.bean.setBeanManager(bm);
+				ReferenceBean bean = t.bean;
+				bean.setBeanManager(bm);
 				if (componentTemplate.type == ComponentType.CONTAINER) {
 					_instanceDTO.references.stream().filter(
 						r -> r.template == t
 					).findFirst().map(
 						ExtendedReferenceDTO.class::cast
 					).ifPresent(
-						r -> t.bean.setReferenceDTO(r)
+						r -> bean.setReferenceDTO(r)
 					);
 				}
 				if (t.collectionType != CollectionType.OBSERVER) {
-					abd.addBean(t.bean);
+					_log.debug(l -> l.debug("CCR Adding synthetic bean {} on {}", bean, _containerState.bundle()));
+
+					abd.addBean(bean);
 				}
 			}
 		);
@@ -178,15 +202,18 @@ public class RuntimeExtension implements Extension {
 			t -> Objects.nonNull(t.injectionPointType)
 		).forEach(
 			t -> {
+				ConfigurationBean bean = t.bean;
 				if (componentTemplate.type == ComponentType.CONTAINER) {
 					if (t.pid == null) {
-						t.bean.setProperties(componentTemplate.properties);
+						bean.setProperties(componentTemplate.properties);
 					}
 					else {
-						t.bean.setProperties(_instanceDTO.properties);
+						bean.setProperties(_instanceDTO.properties);
 					}
 				}
-				abd.addBean(t.bean);
+				_log.debug(l -> l.debug("CCR Adding synthetic bean {} on {}", bean, _containerState.bundle()));
+
+				abd.addBean(bean);
 			}
 		);
 	}
@@ -393,6 +420,8 @@ public class RuntimeExtension implements Extension {
 
 		return true;
 	}
+
+	private static final Logger _log = Logs.getLogger(RuntimeExtension.class);
 
 	private final ComponentDTO _componentDTO;
 	private final ConfigurationListener.Builder _configurationBuilder;

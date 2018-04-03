@@ -224,6 +224,7 @@ public class ReferenceBean implements Bean<Object> {
 
 	public void setMark(Mark mark) {
 		_qualifiers.add(mark);
+		_string = null; // invalidate the toString
 	}
 
 	public void setReferenceDTO(ExtendedReferenceDTO snapshot) {
@@ -237,7 +238,7 @@ public class ReferenceBean implements Bean<Object> {
 	@Override
 	public String toString() {
 		if (_string == null) {
-			_string =  "ReferenceBean[" + _template.name + ", " + _template.injectionPointType + ", " + getScope().getSimpleName() + "]";
+			_string =  "ReferenceBean[" + _template.name + ", " + _template.injectionPointType + ", " + getScope().getSimpleName() + ", " + _qualifiers + "]";
 		}
 		return _string;
 	}
