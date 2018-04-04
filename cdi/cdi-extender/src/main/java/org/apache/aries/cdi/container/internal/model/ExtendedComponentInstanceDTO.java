@@ -163,6 +163,14 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 		properties = null;
 
 		try {
+			references.removeIf(
+				r -> {
+					ExtendedReferenceDTO referenceDTO = (ExtendedReferenceDTO)r;
+					referenceDTO.serviceTracker.close();
+					return true;
+				}
+			);
+
 			if (_noRequiredDependenciesActivator.get() != null) {
 				return _noRequiredDependenciesActivator.get().close();
 			}
@@ -173,15 +181,6 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 			_log.error(l -> l.error("CCR Error in component instance stop on {}", this, t));
 
 			return false;
-		}
-		finally {
-			references.removeIf(
-				r -> {
-					ExtendedReferenceDTO referenceDTO = (ExtendedReferenceDTO)r;
-					referenceDTO.serviceTracker.close();
-					return true;
-				}
-			);
 		}
 	}
 

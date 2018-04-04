@@ -16,6 +16,7 @@ package org.apache.aries.cdi.container.internal.phase;
 
 import static org.apache.aries.cdi.container.internal.util.Filters.*;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.SortedSet;
@@ -203,6 +204,12 @@ public class ExtensionPhase extends Phase {
 		@Override
 		public void removedService(ServiceReference<Extension> reference, final ExtendedExtensionDTO extensionDTO) {
 			_log.debug(l -> l.debug("CCR Departing extension {} on {}", Conversions.convert(extensionDTO).to(ExtensionDTO.class), bundle()));
+
+			try {
+				containerState.promiseFactory().submit(() -> Boolean.TRUE).getValue();
+			} catch (InvocationTargetException | InterruptedException e) {
+				e.printStackTrace();
+			}
 
 			containerState.bundleContext().ungetService(reference);
 

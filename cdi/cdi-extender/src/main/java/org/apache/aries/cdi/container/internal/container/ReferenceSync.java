@@ -165,15 +165,8 @@ public class ReferenceSync implements ServiceTrackerCustomizer<Object, Object> {
 	}
 
 	private void updateStatically(InstanceActivator activator) {
-		_containerState.submit(
-			activator.closeOp(), () -> {
-				if (_componentInstanceDTO.active) {
-					return activator.close();
-				}
-				return true;
-			}
-		).then(
-			s -> _containerState.submit(
+		if (activator.close()) {
+			_containerState.submit(
 				activator.openOp(), activator::open
 			).then(
 				null,
@@ -182,15 +175,8 @@ public class ReferenceSync implements ServiceTrackerCustomizer<Object, Object> {
 
 					_containerState.error(f.getFailure());
 				}
-			)
-		).then(
-			null,
-			f -> {
-				_log.error(l -> l.error("CCR Error in CLOSE on {}", _componentInstanceDTO, f.getFailure()));
-
-				_containerState.error(f.getFailure());
-			}
-		);
+			);
+		}
 	}
 
 	private static final Logger _log = Logs.getLogger(ReferenceSync.class);

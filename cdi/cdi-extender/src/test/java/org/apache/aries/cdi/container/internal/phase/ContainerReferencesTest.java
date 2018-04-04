@@ -365,7 +365,7 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 
 		sr1.unregister();
 
-		assertNull(p0.timeout(200).getFailure());
+		p0.timeout(200).getFailure();
 
 		assertEquals(2, extendedReferenceDTO.matches.size());
 		assertEquals(SRs.id(sr3.getReference()), SRs.id(extendedReferenceDTO.serviceTracker.getServiceReference()));
@@ -476,7 +476,7 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		serviceBundle.getBundleContext().registerService(
 			Foo.class, new Foo() {}, Maps.dict("sr2", "sr2"));
 
-		p0.timeout(200).getValue();
+		p0.timeout(200).getFailure();
 
 		assertEquals(2, extendedReferenceDTO.matches.size());
 
@@ -491,7 +491,7 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		ServiceRegistration<Foo> sr3 = serviceBundle.getBundleContext().registerService(
 			Foo.class, foo, Maps.dict("sr3", "sr3", Constants.SERVICE_RANKING, 100));
 
-		p0.timeout(200).getValue();
+		p0.timeout(200).getFailure();
 
 		assertEquals(3, extendedReferenceDTO.matches.size());
 

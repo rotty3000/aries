@@ -138,13 +138,28 @@ public class RuntimeExtension implements Extension {
 	}
 
 	void applicationScopedBeforeDestroyed(@Observes @BeforeDestroyed(ApplicationScoped.class) Object o) {
-		_configurationListeners.removeIf(cl -> cl.close());
+		_configurationListeners.removeIf(
+			cl -> {
+				try {
+					cl.close();
+				}
+				catch (Exception e) {
+					_log.error(l -> l.error("CCR Error while closing configuration listener {} on {}", cl, _containerState.bundle(), e));
+				}
+				return true;
+			}
+		);
 
 		_instanceDTO.activations.clear();
 
 		_registrations.removeIf(
 			r -> {
-				r.unregister();
+				try {
+					r.unregister();
+				}
+				catch (Exception e) {
+					//_log.error(l -> l.error("CCR Error while unregistring {} on {}", r, _containerState.bundle(), e));
+				}
 				return true;
 			}
 		);

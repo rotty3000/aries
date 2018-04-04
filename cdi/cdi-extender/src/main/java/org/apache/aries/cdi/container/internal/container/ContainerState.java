@@ -18,6 +18,7 @@ import static org.apache.aries.cdi.container.internal.util.Filters.*;
 import static org.osgi.namespace.extender.ExtenderNamespace.*;
 import static org.osgi.service.cdi.CDIConstants.*;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -214,7 +215,11 @@ public class ContainerState {
 	}
 
 	public void closing() {
-		_closing.set(true);
+		try {
+			_closing.set(_promiseFactory.submit(() -> Boolean.TRUE).getValue());
+		} catch (InvocationTargetException | InterruptedException e) {
+			e.printStackTrace();
+		}
 	}
 
 	public ContainerDTO containerDTO() {
