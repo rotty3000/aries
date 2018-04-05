@@ -3,6 +3,8 @@ package org.apache.aries.cdi.container.internal.model;
 import org.apache.aries.cdi.container.internal.container.ContainerBootstrap;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
+import org.apache.aries.cdi.container.internal.container.Op.Mode;
+import org.apache.aries.cdi.container.internal.container.Op.Type;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.osgi.service.log.Logger;
 
@@ -26,35 +28,27 @@ public class ContainerActivator extends InstanceActivator {
 	}
 
 	@Override
-	public Op openOp() {
-		return Op.CONTAINER_INSTANCE_OPEN;
-	}
-
-	@Override
-	public Op closeOp() {
-		return Op.CONTAINER_INSTANCE_CLOSE;
-	}
-
-	@Override
 	public boolean close() {
-		_log.debug(l -> l.debug("CCR Closing activator {} on {}", instance, bundle()));
-
 		boolean result = next.map(
 			next -> {
-				try {
-					return next.close();
-				}
-				catch (Throwable t) {
-					_log.error(l -> l.error("CCR Failure in container activator close on {}", next, t));
+				submit(next.closeOp(), next::close).onFailure(
+					f -> {
+						_log.error(l -> l.error("CCR Failure in container activator close on {}", next, f));
+					}
+				);
 
-					return false;
-				}
+				return true;
 			}
 		).orElse(true);
 
 		instance.active = false;
 
 		return result;
+	}
+
+	@Override
+	public Op closeOp() {
+		return Op.of(Mode.CLOSE, Type.CONTAINER_INSTANCE, instance.template.name);
 	}
 
 	@Override
@@ -65,14 +59,13 @@ public class ContainerActivator extends InstanceActivator {
 
 		boolean result = next.map(
 			next -> {
-				try {
-					return next.open();
-				}
-				catch (Throwable t) {
-					_log.error(l -> l.error("CCR Failure in container activator open on {}", next, t));
+				submit(next.openOp(), next::open).onFailure(
+					f -> {
+						_log.error(l -> l.error("CCR Failure in container activator open on {}", next, f));
+					}
+				);
 
-					return false;
-				}
+				return true;
 			}
 		).orElse(true);
 
@@ -81,6 +74,11 @@ public class ContainerActivator extends InstanceActivator {
 		}
 
 		return result;
+	}
+
+	@Override
+	public Op openOp() {
+		return Op.of(Mode.OPEN, Type.CONTAINER_INSTANCE, instance.template.name);
 	}
 
 	private static final Logger _log = Logs.getLogger(ContainerActivator.class);

@@ -76,8 +76,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		).build();
 
 		Promise<Boolean> p0 = containerState.addCallback(
-			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_COMPONENT_OPEN;
+			(CheckedCallback<Boolean, Boolean>) op -> {
+				return op.mode == Op.Mode.OPEN && op.type == Op.Type.CONTAINER_COMPONENT;
 			}
 		);
 
@@ -106,12 +106,12 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		// are we currently blocked waiting for those references?
 
 		Promise<Boolean> p1 = containerState.addCallback(
-			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_OPEN;
+			(CheckedCallback<Boolean, Boolean>) op -> {
+				return op.mode == Op.Mode.OPEN && op.type == Op.Type.CONTAINER_INSTANCE;
 			}
 		);
 
-		assertNotNull(p1.timeout(200).getFailure());
+		p1.timeout(200).getFailure();
 
 		List<ReferenceDTO> references = TestUtil.sort(
 			componentInstanceDTO.references, (a, b) -> a.template.name.compareTo(b.template.name));
@@ -265,8 +265,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		).build();
 
 		Promise<Boolean> p0 = containerState.addCallback(
-			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_REFERENCES_OPEN;
+			(CheckedCallback<Boolean, Boolean>) op -> {
+				return op.mode == Op.Mode.OPEN && op.type == Op.Type.REFERENCES;
 			}
 		);
 
@@ -312,8 +312,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		Bundle serviceBundle = TestUtil.mockBundle(serviceBundleDTO, b -> {});
 
 		p0 = containerState.addCallback(
-			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_OPEN;
+			(CheckedCallback<Boolean, Boolean>) op -> {
+				return op.mode == Op.Mode.OPEN && op.type == Op.Type.CONTAINER_INSTANCE;
 			}
 		);
 
@@ -325,8 +325,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		assertEquals(1, extendedReferenceDTO.matches.size());
 
 		p0 = containerState.addCallback(
-			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_CLOSE;
+			(CheckedCallback<Boolean, Boolean>) op -> {
+				return op.mode == Op.Mode.CLOSE && op.type == Op.Type.CONTAINER_INSTANCE;
 			}
 		);
 
@@ -338,8 +338,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		assertEquals(2, extendedReferenceDTO.matches.size());
 
 		p0 = containerState.addCallback(
-			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_CLOSE;
+			(CheckedCallback<Boolean, Boolean>) op -> {
+				return op.mode == Op.Mode.CLOSE && op.type == Op.Type.CONTAINER_INSTANCE;
 			}
 		);
 
@@ -353,13 +353,13 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		assertEquals(3, extendedReferenceDTO.matches.size());
 
 		p0 = containerState.addCallback(
-			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_CLOSE;
+			(CheckedCallback<Boolean, Boolean>) op -> {
+				return op.mode == Op.Mode.CLOSE && op.type == Op.Type.CONTAINER_INSTANCE;
 			}
 		);
 		Promise<Boolean> p1 = containerState.addCallback(
-			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_OPEN;
+			(CheckedCallback<Boolean, Boolean>) op -> {
+				return op.mode == Op.Mode.OPEN && op.type == Op.Type.CONTAINER_INSTANCE;
 			}
 		);
 
@@ -408,8 +408,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		).build();
 
 		Promise<Boolean> p0 = containerState.addCallback(
-			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_REFERENCES_OPEN;
+			(CheckedCallback<Boolean, Boolean>) op -> {
+				return op.mode == Op.Mode.OPEN && op.type == Op.Type.REFERENCES;
 			}
 		);
 
@@ -455,8 +455,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		Bundle serviceBundle = TestUtil.mockBundle(serviceBundleDTO, b -> {});
 
 		p0 = containerState.addCallback(
-			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_OPEN;
+			(CheckedCallback<Boolean, Boolean>) op -> {
+				return op.mode == Op.Mode.OPEN && op.type == Op.Type.CONTAINER_INSTANCE;
 			}
 		);
 
@@ -468,8 +468,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		assertEquals(1, extendedReferenceDTO.matches.size());
 
 		p0 = containerState.addCallback(
-			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_CLOSE;
+			(CheckedCallback<Boolean, Boolean>) op -> {
+				return op.mode == Op.Mode.CLOSE && op.type == Op.Type.CONTAINER_INSTANCE;
 			}
 		);
 
@@ -481,8 +481,8 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		assertEquals(2, extendedReferenceDTO.matches.size());
 
 		p0 = containerState.addCallback(
-			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_CLOSE;
+			(CheckedCallback<Boolean, Boolean>) op -> {
+				return op.mode == Op.Mode.CLOSE && op.type == Op.Type.CONTAINER_INSTANCE;
 			}
 		);
 
@@ -496,13 +496,13 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		assertEquals(3, extendedReferenceDTO.matches.size());
 
 		p0 = containerState.addCallback(
-			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_CLOSE;
+			(CheckedCallback<Boolean, Boolean>) op -> {
+				return op.mode == Op.Mode.CLOSE && op.type == Op.Type.CONTAINER_INSTANCE;
 			}
 		);
 		Promise<Boolean> p1 = containerState.addCallback(
-			(CheckedCallback<Boolean, Boolean>) cc -> {
-				return cc == Op.CONTAINER_INSTANCE_OPEN;
+			(CheckedCallback<Boolean, Boolean>) op -> {
+				return op.mode == Op.Mode.OPEN && op.type == Op.Type.CONTAINER_INSTANCE;
 			}
 		);
 

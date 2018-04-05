@@ -165,18 +165,24 @@ public class ReferenceSync implements ServiceTrackerCustomizer<Object, Object> {
 	}
 
 	private void updateStatically(InstanceActivator activator) {
-		if (activator.close()) {
-			_containerState.submit(
+		_containerState.submit(
+			activator.closeOp(), activator::close
+		).then(
+			s -> _containerState.submit(
 				activator.openOp(), activator::open
-			).then(
-				null,
+			).onFailure(
 				f -> {
-					_log.error(l -> l.error("CCR Error in OPEN on {}", _componentInstanceDTO, f.getFailure()));
+					_log.error(l -> l.error("CCR Error in OPEN for {} on {}", _componentInstanceDTO.ident(), _containerState.bundle(), f));
 
-					_containerState.error(f.getFailure());
+					_containerState.error(f);
 				}
-			);
-		}
+			),
+			f -> {
+				_log.error(l -> l.error("CCR Error in CLODE for {} on {}", _componentInstanceDTO.ident(), _containerState.bundle(), f.getFailure()));
+
+				_containerState.error(f.getFailure());
+			}
+		);
 	}
 
 	private static final Logger _log = Logs.getLogger(ReferenceSync.class);

@@ -6,11 +6,12 @@ import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.aries.cdi.container.internal.container.Op.Mode;
+import org.apache.aries.cdi.container.internal.container.Op.Type;
 import org.apache.aries.cdi.container.internal.model.Component;
 import org.apache.aries.cdi.container.internal.model.ExtendedComponentInstanceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationDTO;
 import org.apache.aries.cdi.container.internal.model.FactoryActivator;
-import org.apache.aries.cdi.container.internal.phase.Phase;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.internal.util.Predicates;
@@ -49,12 +50,11 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 		Component component) {
 
 		super(containerState, component);
+		_component = component;
 	}
 
 	@Override
 	public boolean close() {
-		_log.debug(l -> l.debug("CCR Closing configuration Listener {} on {}", next.get(), bundle()));
-
 		if (_listenerService != null) {
 			_listenerService.unregister();
 			_listenerService = null;
@@ -62,16 +62,22 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 
 		return next.map(
 			next -> {
-				try {
-					return next.close();
-				}
-				catch (Throwable t) {
-					_log.error(l -> l.error("CCR Failure in configuration listener close on {}", next, t));
+				submit(next.closeOp(), next::close).onFailure(
+					f -> {
+						_log.error(l -> l.error("CCR Failure in configuration listener close on {}", next, f));
 
-					return true;
-				}
+						error(f);
+					}
+				);
+
+				return true;
 			}
 		).orElse(true);
+	}
+
+	@Override
+	public Op closeOp() {
+		return Op.of(Mode.CLOSE, Type.CONFIGURATION_LISTENER, _component.template().name);
 	}
 
 	@Override
@@ -90,14 +96,14 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 		_listenerService = containerState.bundleContext().registerService(
 			ConfigurationListener.class, this, null);
 
-		next.map(next -> (Component)next).ifPresent(
-			next -> {
-				next.configurationTemplates().forEach(
+		return next.map(next -> (Component)next).map(
+			component -> {
+				component.configurationTemplates().forEach(
 					template -> {
 						if (template.maximumCardinality == MaximumCardinality.ONE) {
 							containerState.findConfig(template.pid).ifPresent(
 								c -> processEvent(
-										next,
+										component,
 										template,
 										new ConfigurationEvent(
 											containerState.caTracker().getServiceReference(),
@@ -110,7 +116,7 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 							containerState.findConfigs(template.pid, true).ifPresent(
 								arr -> Arrays.stream(arr).forEach(
 									c -> processEvent(
-											next,
+											component,
 											template,
 											new ConfigurationEvent(
 												containerState.caTracker().getServiceReference(),
@@ -121,23 +127,23 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 						}
 					}
 				);
-			}
-		);
 
-		next.map(Component.class::cast).ifPresent(
-			component -> {
-				submit(component.openOp(), component::open).then(
-					null,
+				submit(component.openOp(), component::open).onFailure(
 					f -> {
-						_log.error(l -> l.error("CCR Failure during configuration start on {}", component, f.getFailure()));
+						_log.error(l -> l.error("CCR Failure during configuration start on {}", next, f));
 
-						error(f.getFailure());
+						error(f);
 					}
 				);
-			}
-		);
 
-		return true;
+				return true;
+			}
+		).orElse(true);
+	}
+
+	@Override
+	public Op openOp() {
+		return Op.of(Mode.OPEN, Type.CONFIGURATION_LISTENER, _component.template().name);
 	}
 
 	private void processEvent(Component component, ConfigurationTemplateDTO t, ConfigurationEvent event) {
@@ -166,7 +172,11 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 					).forEach(
 						instance -> {
 							if (instances.remove(instance)) {
-								instance.close();
+								submit(instance.closeOp(), instance::close).onFailure(
+									f -> {
+										_log.error(l -> l.error("CCR Error closing {} on {}", instance.ident(), bundle()));
+									}
+								);
 							}
 						}
 					);
@@ -223,18 +233,15 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 
 	private void startComponent(Component component) {
 		submit(component.closeOp(), component::close).then(
-			s -> {
-				return submit(component.openOp(), component::open).then(
-					null,
-					f -> {
-						_log.error(l -> l.error("CCR Failure during configuration start on {}", component, f.getFailure()));
+			s -> submit(component.openOp(), component::open).onFailure(
+				f -> {
+					_log.error(l -> l.error("CCR Error in configuration listener start on {}", component, f));
 
-						error(f.getFailure());
-					}
-				);
-			},
+					error(f);
+				}
+			),
 			f -> {
-				_log.error(l -> l.error("CCR Failure during component refresh {}", component, f.getFailure()));
+				_log.error(l -> l.error("CCR Error in configuration listener close on {}", component, f.getFailure()));
 
 				error(f.getFailure());
 			}
@@ -244,5 +251,7 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 	private static final Logger _log = Logs.getLogger(ConfigurationListener.class);
 
 	private volatile ServiceRegistration<ConfigurationListener> _listenerService;
+
+	private final Component _component;
 
 }

@@ -41,8 +41,11 @@ import javax.enterprise.inject.spi.ProcessInjectionPoint;
 
 import org.apache.aries.cdi.container.internal.bean.ConfigurationBean;
 import org.apache.aries.cdi.container.internal.bean.ReferenceBean;
+import org.apache.aries.cdi.container.internal.container.Op.Mode;
+import org.apache.aries.cdi.container.internal.container.Op.Type;
 import org.apache.aries.cdi.container.internal.model.CollectionType;
 import org.apache.aries.cdi.container.internal.model.ConfigurationModel;
+import org.apache.aries.cdi.container.internal.model.ExtendedActivationDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedActivationTemplateDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedComponentInstanceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedComponentTemplateDTO;
@@ -68,7 +71,6 @@ import org.osgi.service.cdi.ServiceScope;
 import org.osgi.service.cdi.annotations.ComponentScoped;
 import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.Reference;
-import org.osgi.service.cdi.runtime.dto.ActivationDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
@@ -109,7 +111,7 @@ public class RuntimeExtension implements Extension {
 	}
 
 	void afterBeanDiscovery(@Observes AfterBeanDiscovery abd, BeanManager bm) {
-		abd.addContext(new ComponentContext());
+		abd.addContext(_containerState.componentContext());
 
 		_containerState.containerDTO().template.components.forEach(
 			ct -> addBeans(ct, abd, bm)
@@ -117,22 +119,20 @@ public class RuntimeExtension implements Extension {
 	}
 
 	void applicationScopedInitialized(@Observes @Initialized(ApplicationScoped.class) Object o, BeanManager bm) {
-		ServiceRegistration<?> serviceRegistration = registerService(
+		registerService(
 			new String[] {BeanManager.class.getName()}, bm,
 			Maps.of(CDIConstants.CDI_CONTAINER_ID, _containerState.id()));
 
-		_registrations.add(serviceRegistration);
-
 		_containerState.submit(
-			Op.CONTAINER_FIRE_EVENTS, () -> fireEvents(_componentDTO, _instanceDTO, bm)
+			Op.of(Mode.OPEN, Type.CONTAINER_FIRE_EVENTS, _containerState.id()), () -> fireEvents(_componentDTO, _instanceDTO, bm)
 		).then(
 			s-> {
 				return _containerState.submit(
-					Op.CONTAINER_PUBLISH_SERVICES, () -> registerServices(_componentDTO, _instanceDTO, bm)
+					Op.of(Mode.OPEN, Type.CONTAINER_PUBLISH_SERVICES, _containerState.id()), () -> registerServices(_componentDTO, _instanceDTO, bm)
 				);
 			}
 		).then(
-			s -> initComponents()
+			s -> initComponents(bm)
 		);
 
 	}
@@ -140,12 +140,12 @@ public class RuntimeExtension implements Extension {
 	void applicationScopedBeforeDestroyed(@Observes @BeforeDestroyed(ApplicationScoped.class) Object o) {
 		_configurationListeners.removeIf(
 			cl -> {
-				try {
-					cl.close();
-				}
-				catch (Exception e) {
-					_log.error(l -> l.error("CCR Error while closing configuration listener {} on {}", cl, _containerState.bundle(), e));
-				}
+				_containerState.submit(cl.closeOp(), cl::close).onFailure(
+					f -> {
+						_log.error(l -> l.error("CCR Error while closing configuration listener {} on {}", cl, _containerState.bundle(), f));
+					}
+				);
+
 				return true;
 			}
 		);
@@ -158,7 +158,7 @@ public class RuntimeExtension implements Extension {
 					r.unregister();
 				}
 				catch (Exception e) {
-					//_log.error(l -> l.error("CCR Error while unregistring {} on {}", r, _containerState.bundle(), e));
+					_log.error(l -> l.error("CCR Error while unregistring {} on {}", r, _containerState.bundle(), e));
 				}
 				return true;
 			}
@@ -246,46 +246,46 @@ public class RuntimeExtension implements Extension {
 		return true;
 	}
 
-	private Promise<List<Boolean>> initComponents() {
+	private Promise<List<Boolean>> initComponents(BeanManager bm) {
 		List<Promise<Boolean>> promises = _containerState.containerDTO().template.components.stream().filter(
 			t -> t.type != ComponentType.CONTAINER
 		).map(ExtendedComponentTemplateDTO.class::cast).map(
-			t -> initComponent(t)
+			t -> initComponent(t, bm)
 		).collect(Collectors.toList());
 
 		return _containerState.promiseFactory().all(promises);
 	}
 
-	private Promise<Boolean> initComponent(ExtendedComponentTemplateDTO componentTemplateDTO) {
+	private Promise<Boolean> initComponent(ExtendedComponentTemplateDTO componentTemplateDTO, BeanManager bm) {
 		if (componentTemplateDTO.type == ComponentType.FACTORY) {
-			return initFactoryComponent(componentTemplateDTO);
+			return initFactoryComponent(componentTemplateDTO, bm);
 		}
 
-		return initSingleComponent(componentTemplateDTO);
+		return initSingleComponent(componentTemplateDTO, bm);
 	}
 
-	private Promise<Boolean> initFactoryComponent(ExtendedComponentTemplateDTO componentTemplateDTO) {
+	private Promise<Boolean> initFactoryComponent(ExtendedComponentTemplateDTO componentTemplateDTO, BeanManager bm) {
 		ConfigurationListener cl = new ConfigurationListener.Builder(_containerState).component(
 			new FactoryComponent.Builder(_containerState,
 				new FactoryActivator.Builder(_containerState)
-			).template(componentTemplateDTO).build()
+			).beanManager(bm).template(componentTemplateDTO).build()
 		).build();
 
 		_configurationListeners.add(cl);
 
-		return _containerState.submit(Op.CONFIGURATION_OPEN, cl::open);
+		return _containerState.submit(cl.openOp(), cl::open);
 	}
 
-	private Promise<Boolean> initSingleComponent(ExtendedComponentTemplateDTO componentTemplateDTO) {
+	private Promise<Boolean> initSingleComponent(ExtendedComponentTemplateDTO componentTemplateDTO, BeanManager bm) {
 		ConfigurationListener cl = new ConfigurationListener.Builder(_containerState).component(
 			new SingleComponent.Builder(_containerState,
 				new SingleActivator.Builder(_containerState)
-			).template(componentTemplateDTO).build()
+			).beanManager(bm).template(componentTemplateDTO).build()
 		).build();
 
 		_configurationListeners.add(cl);
 
-		return _containerState.submit(Op.CONFIGURATION_OPEN, cl::open);
+		return _containerState.submit(cl.openOp(), cl::open);
 	}
 
 	private boolean matchConfiguration(OSGiBean osgiBean, Configuration configuration, ProcessInjectionPoint<?, ?> pip) {
@@ -410,7 +410,7 @@ public class RuntimeExtension implements Extension {
 			serviceObject,
 			componentInstance.properties);
 
-		ActivationDTO activationDTO = new ActivationDTO();
+		ExtendedActivationDTO activationDTO = new ExtendedActivationDTO();
 		activationDTO.errors = new CopyOnWriteArrayList<>();
 		activationDTO.service = SRs.from(serviceRegistration.getReference());
 		activationDTO.template = activationTemplate;

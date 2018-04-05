@@ -27,7 +27,7 @@ public class CDIBundlePhaseTest extends BaseCDIBundleTest {
 
 		cdiBundle.start();
 
-		ContainerDTO containerDTO = ccr.getContainerDTO(bundle);
+		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
 
 		assertNotNull(containerDTO.bundle);
@@ -77,7 +77,7 @@ public class CDIBundlePhaseTest extends BaseCDIBundleTest {
 
 		cdiBundle.start();
 
-		ContainerDTO containerDTO = ccr.getContainerDTO(bundle);
+		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
 
 		assertNotNull(containerDTO.bundle);
@@ -122,7 +122,7 @@ public class CDIBundlePhaseTest extends BaseCDIBundleTest {
 
 		cdiBundle.start();
 
-		ContainerDTO containerDTO = ccr.getContainerDTO(bundle);
+		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
 
 		assertNotNull(containerDTO.bundle);

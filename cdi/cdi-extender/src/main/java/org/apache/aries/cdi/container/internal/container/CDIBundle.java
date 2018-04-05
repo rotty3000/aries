@@ -15,7 +15,7 @@
 package org.apache.aries.cdi.container.internal.container;
 
 import org.apache.aries.cdi.container.internal.CCR;
-import org.apache.aries.cdi.container.internal.phase.Phase;
+import org.apache.aries.cdi.container.internal.container.Op.Mode;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.felix.utils.extender.Extension;
 import org.osgi.service.log.Logger;
@@ -33,47 +33,68 @@ public class CDIBundle extends Phase implements Extension {
 
 		return next.map(
 			next -> {
-				try {
-					return next.close();
-				}
-				catch (Throwable t) {
-					_log.error(l -> l.error("CCR Error in cdibundle CLOSE on {}", bundle(), t));
+				submit(next.closeOp(), next::close).onFailure(
+					f -> {
+						_log.error(l -> l.error("CCR Error in cdibundle CLOSE on {}", bundle(), f));
 
-					return false;
-				}
-				finally {
-					_ccr.remove(bundle());
-				}
+						error(f);
+					}
+				);
+
+				_ccr.remove(bundle());
+
+				return true;
 			}
 		).orElse(true);
 	}
 
 	@Override
+	public Op closeOp() {
+		return Op.of(Mode.CLOSE, Op.Type.INIT, bundle().toString());
+	}
+
+	@Override
 	public void destroy() throws Exception {
-		close();
+		submit(closeOp(), this::close).onFailure(
+			f -> {
+				_log.error(l -> l.error("CCR Error in closing cdi bundle {}", containerState.bundle(), f));
+			}
+		);
 	}
 
 	@Override
 	public boolean open() {
-		_ccr.add(containerState.bundle(), containerState);
+		return next.map(
+			next -> {
+				_ccr.add(containerState.bundle(), containerState);
 
-		next.ifPresent(
-			next -> submit(Op.INIT_OPEN, next::open).then(
-				null,
-				f -> {
-					_log.error(l -> l.error("CCR Error in cdibundle OPEN on {}", bundle(), f.getFailure()));
+				submit(next.openOp(), next::open).then(
+					null,
+					f -> {
+						_log.error(l -> l.error("CCR Error in cdibundle OPEN on {}", bundle(), f.getFailure()));
 
-					error(f.getFailure());
-				}
-			)
-		);
+						error(f.getFailure());
+					}
 
-		return false;
+				);
+
+				return true;
+			}
+		).orElse(true);
+	}
+
+	@Override
+	public Op openOp() {
+		return Op.of(Mode.OPEN, Op.Type.INIT, bundle().toString());
 	}
 
 	@Override
 	public void start() throws Exception {
-		open();
+		submit(openOp(), this::open).onFailure(
+			f -> {
+				_log.error(l -> l.error("CCR Error in starting cdi bundle {}", containerState.bundle(), f));
+			}
+		);
 	}
 
 	private static final Logger _log = Logs.getLogger(CDIBundle.class);

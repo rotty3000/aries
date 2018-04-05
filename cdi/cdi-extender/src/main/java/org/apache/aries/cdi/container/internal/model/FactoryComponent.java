@@ -4,13 +4,19 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import javax.enterprise.inject.spi.BeanManager;
+
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
+import org.apache.aries.cdi.container.internal.container.Op.Mode;
+import org.apache.aries.cdi.container.internal.container.Op.Type;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.osgi.service.cdi.MaximumCardinality;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
+import org.osgi.service.log.Logger;
 
 public class FactoryComponent extends Component {
 
@@ -20,10 +26,17 @@ public class FactoryComponent extends Component {
 			super(containerState, activatorBuilder);
 		}
 
+		public Builder beanManager(BeanManager bm) {
+			_bm = bm;
+			return this;
+		}
+
 		@Override
 		public FactoryComponent build() {
 			return new FactoryComponent(this);
 		}
+
+		private BeanManager _bm;
 
 	}
 
@@ -47,6 +60,7 @@ public class FactoryComponent extends Component {
 						c -> {
 							ExtendedComponentInstanceDTO instanceDTO = new ExtendedComponentInstanceDTO();
 							instanceDTO.activations = new CopyOnWriteArrayList<>();
+							instanceDTO.beanManager = builder._bm;
 							instanceDTO.configurations = new CopyOnWriteArrayList<>();
 							instanceDTO.containerState = containerState;
 							instanceDTO.pid = c.getPid();
@@ -68,7 +82,13 @@ public class FactoryComponent extends Component {
 		_snapshot.instances.stream().map(
 			instance -> (ExtendedComponentInstanceDTO)instance
 		).forEach(
-			instance -> instance.close()
+			instance -> {
+				submit(instance.closeOp(), instance::close).onFailure(
+					f -> {
+						_log.error(l -> l.error("CCR Error in factory component close for {} on {}", instance.ident(), containerState.bundle()));
+					}
+				);
+			}
 		);
 
 		return true;
@@ -76,7 +96,7 @@ public class FactoryComponent extends Component {
 
 	@Override
 	public Op closeOp() {
-		return Op.FACTORY_COMPONENT_CLOSE;
+		return Op.of(Mode.CLOSE, Type.FACTORY_COMPONENT, _template.name);
 	}
 
 	@Override
@@ -99,7 +119,13 @@ public class FactoryComponent extends Component {
 		_snapshot.instances.stream().map(
 			instance -> (ExtendedComponentInstanceDTO)instance
 		).forEach(
-			instance -> instance.open()
+			instance -> {
+				submit(instance.openOp(), instance::open).onFailure(
+					f -> {
+						_log.error(l -> l.error("CCR Error in factory component open for {} on {}", instance.ident(), containerState.bundle()));
+					}
+				);
+			}
 		);
 
 		return true;
@@ -107,13 +133,15 @@ public class FactoryComponent extends Component {
 
 	@Override
 	public Op openOp() {
-		return Op.FACTORY_COMPONENT_OPEN;
+		return Op.of(Mode.OPEN, Type.FACTORY_COMPONENT, _template.name);
 	}
 
 	@Override
 	public ComponentTemplateDTO template() {
 		return _template;
 	}
+
+	private static final Logger _log = Logs.getLogger(FactoryComponent.class);
 
 	private final ComponentDTO _snapshot;
 	private final ComponentTemplateDTO _template;

@@ -222,6 +222,10 @@ public class ContainerState {
 		}
 	}
 
+	public ComponentContext componentContext() {
+		return _componentContext;
+	}
+
 	public ContainerDTO containerDTO() {
 		_containerDTO.changeCount = _changeCount.get();
 		return _containerDTO;
@@ -285,33 +289,26 @@ public class ContainerState {
 
 	@SuppressWarnings("unchecked")
 	public <T, R> Promise<T> submit(Op op, Callable<T> task) {
-		_log.debug(l -> l.debug("CCR submit {} for {}", op , task));
-
-		if (_closing.get()) {
-			try {
-				switch (op) {
-					// TODO unify the naming...
-					case BUNDLE_OPEN:
-					case CONFIGURATION_LISTENER_OPEN:
-					case CONFIGURATION_OPEN:
-					case CONTAINER_COMPONENT_OPEN:
-					case CONTAINER_INSTANCE_OPEN:
-					case CONTAINER_REFERENCES_OPEN:
-					case EXTENSION_OPEN:
-					case FACTORY_COMPONENT_OPEN:
-					case FACTORY_INSTANCE_OPEN:
-					case INIT_OPEN:
-					case SINGLE_COMPONENT_OPEN:
-					case SINGLE_INSTANCE_OPEN:
-						return _promiseFactory.resolved((T)new Object());
-					default:
-						return _promiseFactory.resolved(task.call());
+		try {
+			switch (op.mode) {
+				case CLOSE: {
+					// always perform close synchronously
+					_log.debug(l -> l.debug("CCR submit {}", op));
+					return _promiseFactory.resolved(task.call());
 				}
-			}
-			catch (Exception e) {
-				return _promiseFactory.failed(e);
+				case OPEN:
+					// when closing don't do perform any opens
+					// also, don't log it since it's just going to be noise
+					if (_closing.get()) {
+						return _promiseFactory.resolved((T)new Object());
+					}
 			}
 		}
+		catch (Exception e) {
+			return _promiseFactory.failed(e);
+		}
+
+		_log.debug(l -> l.debug("CCR submit {}", op));
 
 		Promise<T> promise = _promiseFactory.submit(task);
 
@@ -367,9 +364,10 @@ public class ContainerState {
 	private final Map<CheckedCallback<?, ?>, Deferred<?>> _callbacks = new ConcurrentHashMap<>();
 	private final ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> _caTracker;
 	private final ChangeCount _changeCount;
+	private final AtomicBoolean _closing = new AtomicBoolean(false);
+	private final ComponentContext _componentContext = new ComponentContext();
 	private final ContainerDTO _containerDTO;
 	private final ComponentTemplateDTO _containerComponentTemplateDTO;
-	private final AtomicBoolean _closing = new AtomicBoolean(false);
 	private final Bundle _extenderBundle;
 	private final ServiceTracker<LoggerFactory, LoggerFactory> _loggerTracker;
 	private final PromiseFactory _promiseFactory;

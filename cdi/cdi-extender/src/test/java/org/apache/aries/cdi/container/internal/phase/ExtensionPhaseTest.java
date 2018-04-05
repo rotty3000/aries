@@ -12,6 +12,7 @@ import javax.enterprise.inject.spi.Extension;
 
 import org.apache.aries.cdi.container.internal.container.CDIBundle;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.container.ExtensionPhase;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.test.BaseCDIBundleTest;
 import org.apache.aries.cdi.container.test.MockServiceRegistration;

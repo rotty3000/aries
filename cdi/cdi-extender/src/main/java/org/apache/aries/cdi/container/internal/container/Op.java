@@ -1,32 +1,44 @@
 package org.apache.aries.cdi.container.internal.container;
 
-public enum Op {
+import java.util.Arrays;
 
-	BUNDLE_CLOSE,
-	BUNDLE_OPEN,
-	CONFIGURATION_CLOSE,
-	CONFIGURATION_LISTENER_CLOSE,
-	CONFIGURATION_LISTENER_OPEN,
-	CONFIGURATION_OPEN,
-	CONTAINER_COMPONENT_CLOSE,
-	CONTAINER_COMPONENT_OPEN,
-	CONTAINER_FIRE_EVENTS,
-	CONTAINER_INSTANCE_CLOSE,
-	CONTAINER_INSTANCE_OPEN,
-	CONTAINER_PUBLISH_SERVICES,
-	CONTAINER_REFERENCES_CLOSE,
-	CONTAINER_REFERENCES_OPEN,
-	EXTENSION_CLOSE,
-	EXTENSION_OPEN,
-	FACTORY_COMPONENT_CLOSE,
-	FACTORY_COMPONENT_OPEN,
-	FACTORY_INSTANCE_CLOSE,
-	FACTORY_INSTANCE_OPEN,
-	INIT_CLOSE,
-	INIT_OPEN,
-	SINGLE_COMPONENT_CLOSE,
-	SINGLE_COMPONENT_OPEN,
-	SINGLE_INSTANCE_CLOSE,
-	SINGLE_INSTANCE_OPEN,
+public class Op {
+
+	public static enum Mode {CLOSE, OPEN}
+
+	public static enum Type {
+		CONFIGURATION_LISTENER,
+		CONTAINER_BOOTSTRAP,
+		CONTAINER_COMPONENT,
+		CONTAINER_FIRE_EVENTS,
+		CONTAINER_INSTANCE,
+		CONTAINER_PUBLISH_SERVICES,
+		REFERENCES,
+		EXTENSION,
+		FACTORY_COMPONENT,
+		FACTORY_INSTANCE,
+		INIT,
+		SINGLE_COMPONENT,
+		SINGLE_INSTANCE,
+	}
+
+	public static Op of(Mode mode, Type type, String name) {
+		return new Op(mode, type, name);
+	}
+
+	private Op(Mode mode, Type type, String name) {
+		this.mode = mode;
+		this.type = type;
+		this.name = name;
+	}
+
+	public final Mode mode;
+	public final Type type;
+	public final String name;
+
+	@Override
+	public String toString() {
+		return Arrays.asList(getClass().getSimpleName(), mode, type, name).toString();
+	}
 
 }

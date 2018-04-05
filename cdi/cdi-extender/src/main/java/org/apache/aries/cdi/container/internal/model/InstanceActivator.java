@@ -2,7 +2,7 @@ package org.apache.aries.cdi.container.internal.model;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
-import org.apache.aries.cdi.container.internal.phase.Phase;
+import org.apache.aries.cdi.container.internal.container.Phase;
 import org.osgi.framework.ServiceReference;
 
 public abstract class InstanceActivator extends Phase {

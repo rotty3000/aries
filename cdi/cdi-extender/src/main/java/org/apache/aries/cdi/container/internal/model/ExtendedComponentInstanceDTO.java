@@ -11,9 +11,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import javax.enterprise.inject.spi.BeanManager;
+
 import org.apache.aries.cdi.container.internal.bean.ReferenceBean;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
+import org.apache.aries.cdi.container.internal.container.Op.Mode;
+import org.apache.aries.cdi.container.internal.container.Op.Type;
 import org.apache.aries.cdi.container.internal.container.ReferenceSync;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.osgi.framework.Constants;
@@ -30,6 +34,7 @@ import org.osgi.util.tracker.ServiceTracker;
 public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 
 	public boolean active;
+	public BeanManager beanManager;
 	public InstanceActivator.Builder<?> builder;
 	public Long componentId = _componentIds.incrementAndGet();
 	public ContainerState containerState;
@@ -37,6 +42,47 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 	public ComponentTemplateDTO template;
 	public List<ReferenceBean> _referenceBeans = new CopyOnWriteArrayList<>();
 	private final AtomicReference<InstanceActivator> _noRequiredDependenciesActivator = new AtomicReference<>();
+
+	public boolean close() {
+		properties = null;
+
+		containerState.submit(Op.of(Mode.CLOSE, Type.REFERENCES, template.name),
+			() -> {
+				references.removeIf(
+					r -> {
+						ExtendedReferenceDTO referenceDTO = (ExtendedReferenceDTO)r;
+						referenceDTO.serviceTracker.close();
+						return true;
+					}
+				);
+
+				if (_noRequiredDependenciesActivator.get() != null) {
+					containerState.submit(
+						_noRequiredDependenciesActivator.get().closeOp(),
+						() -> _noRequiredDependenciesActivator.get().close()
+					).onFailure(
+						f -> {
+							_log.error(l -> l.error("CCR Error in CLOSE on {}", ident(), f));
+
+							containerState.error(f);
+						}
+					);
+				}
+
+				return true;
+			}
+		).onFailure(
+			f -> {
+				_log.error(l -> l.error("CCR Error in component instance stop on {}", this, f));
+			}
+		);
+
+		return true;
+	}
+
+	public Op closeOp() {
+		return Op.of(Mode.CLOSE, getType(), ident());
+	}
 
 	/**
 	 * @return true when all the configuration templates are resolved, otherwise false
@@ -81,24 +127,6 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 		return true;
 	}
 
-	// TODO
-	// The types of activations:
-	// - container
-	// - container service
-	// - factory/single component immediate
-	// - factory/single component service instance
-	//
-	// Here there's only a single component (the container component):
-	// @References defined by container beans
-	// - activation of the CDI container
-	// -- publish services defined by the CDI container beans
-	//
-	// These component evolve concurrently (this only happens once the container component is resolved):
-	// --- track single and factory component configurations
-	// ----- track single and factory component references
-	// ------ activate immediate components OR publish single and factory component services
-	//
-
 	public boolean open() {
 		if (!configurationsResolved() || (properties != null)) {
 			return false;
@@ -124,11 +152,12 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 		);
 
 		containerState.submit(
-			Op.CONTAINER_REFERENCES_OPEN,
+			Op.of(Mode.OPEN, Type.REFERENCES, template.name),
 			() -> {
 				references.stream().map(ExtendedReferenceDTO.class::cast).forEach(
 					r -> r.serviceTracker.open()
 				);
+
 				return referencesResolved();
 			}
 		).then(
@@ -140,12 +169,11 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 					return containerState.submit(
 						_noRequiredDependenciesActivator.get().openOp(),
 						() -> _noRequiredDependenciesActivator.get().open()
-					).then(
-						null,
+					).onFailure(
 						f -> {
-							_log.error(l -> l.error("CCR Error in OPEN on {}", this, f.getFailure()));
+							_log.error(l -> l.error("CCR Error in OPEN on {}", ident(), f));
 
-							containerState.error(f.getFailure());
+							containerState.error(f);
 						}
 					);
 				}
@@ -157,31 +185,8 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 		return true;
 	}
 
-	public boolean close() {
-		_log.debug(l -> l.debug("CCR Closing component instance {} stop on {}", this, containerState.bundle()));
-
-		properties = null;
-
-		try {
-			references.removeIf(
-				r -> {
-					ExtendedReferenceDTO referenceDTO = (ExtendedReferenceDTO)r;
-					referenceDTO.serviceTracker.close();
-					return true;
-				}
-			);
-
-			if (_noRequiredDependenciesActivator.get() != null) {
-				return _noRequiredDependenciesActivator.get().close();
-			}
-
-			return true;
-		}
-		catch (Throwable t) {
-			_log.error(l -> l.error("CCR Error in component instance stop on {}", this, t));
-
-			return false;
-		}
+	public Op openOp() {
+		return Op.of(Mode.OPEN, getType(), ident());
 	}
 
 	private Map<String, Object> componentProperties() {
@@ -214,6 +219,14 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 		return props;
 	}
 
+	private Type getType() {
+		switch (template.type) {
+			case SINGLE: return Type.SINGLE_INSTANCE;
+			case FACTORY: return Type.FACTORY_INSTANCE;
+			default: return Type.CONTAINER_INSTANCE;
+		}
+	}
+
 	private int minimumCardinality(String componentName, int minimumCardinality) {
 		return Optional.ofNullable(
 			properties.get(componentName.concat(".cardinality.minimum"))
@@ -236,6 +249,10 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 			return base;
 		}
 		return "(&".concat(base).concat(extraFilter).concat(")");
+	}
+
+	public String ident() {
+		return template.name + "[" + componentId + "]";
 	}
 
 	private static Logger _log = Logs.getLogger(ExtendedComponentInstanceDTO.class);

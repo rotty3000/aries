@@ -20,10 +20,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.Extension;
 
+import org.apache.aries.cdi.container.internal.container.Op.Mode;
+import org.apache.aries.cdi.container.internal.container.Op.Type;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
 import org.apache.aries.cdi.container.internal.model.FactoryComponent;
 import org.apache.aries.cdi.container.internal.model.SingleComponent;
-import org.apache.aries.cdi.container.internal.phase.Phase;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.jboss.weld.bootstrap.WeldBootstrap;
 import org.jboss.weld.bootstrap.spi.BeanDeploymentArchive;
@@ -49,8 +50,6 @@ public class ContainerBootstrap extends Phase {
 
 	@Override
 	public boolean close() {
-		_log.debug(l -> l.debug("CCR Closing container bootstrap on {}", bundle()));
-
 		try {
 			if (_bootstrap != null) {
 				_bootstrap.shutdown();
@@ -63,6 +62,11 @@ public class ContainerBootstrap extends Phase {
 
 			return false;
 		}
+	}
+
+	@Override
+	public Op closeOp() {
+		return Op.of(Mode.CLOSE, Type.CONTAINER_BOOTSTRAP, containerState.id());
 	}
 
 	@Override
@@ -114,6 +118,11 @@ public class ContainerBootstrap extends Phase {
 		_bootstrap.endInitialization();
 
 		return true;
+	}
+
+	@Override
+	public Op openOp() {
+		return Op.of(Mode.OPEN, Type.CONTAINER_BOOTSTRAP, containerState.id());
 	}
 
 	public BeanManager getBeanManager() {

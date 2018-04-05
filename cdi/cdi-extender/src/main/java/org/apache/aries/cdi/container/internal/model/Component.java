@@ -3,8 +3,7 @@ package org.apache.aries.cdi.container.internal.model;
 import java.util.List;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
-import org.apache.aries.cdi.container.internal.container.Op;
-import org.apache.aries.cdi.container.internal.phase.Phase;
+import org.apache.aries.cdi.container.internal.container.Phase;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
@@ -38,13 +37,9 @@ public abstract class Component extends Phase {
 		super(builder._containerState, null);
 	}
 
-	public abstract Op closeOp();
-
 	public abstract List<ConfigurationTemplateDTO> configurationTemplates();
 
 	public abstract List<ComponentInstanceDTO> instances();
-
-	public abstract Op openOp();
 
 	public abstract ComponentDTO snapshot();
 

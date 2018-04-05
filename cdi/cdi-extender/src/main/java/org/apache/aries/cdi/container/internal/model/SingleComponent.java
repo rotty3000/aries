@@ -4,12 +4,17 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import javax.enterprise.inject.spi.BeanManager;
+
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
+import org.apache.aries.cdi.container.internal.container.Op.Mode;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
+import org.osgi.service.log.Logger;
 
 public class SingleComponent extends Component {
 
@@ -19,10 +24,17 @@ public class SingleComponent extends Component {
 			super(containerState, activatorBuilder);
 		}
 
+		public Builder beanManager(BeanManager bm) {
+			_bm = bm;
+			return this;
+		}
+
 		@Override
 		public SingleComponent build() {
 			return new SingleComponent(this);
 		}
+
+		private BeanManager _bm;
 
 	}
 
@@ -37,6 +49,7 @@ public class SingleComponent extends Component {
 
 		_instanceDTO = new ExtendedComponentInstanceDTO();
 		_instanceDTO.activations = new CopyOnWriteArrayList<>();
+		_instanceDTO.beanManager = builder._bm;
 		_instanceDTO.configurations = new CopyOnWriteArrayList<>();
 		_instanceDTO.containerState = containerState;
 		_instanceDTO.pid = _template.configurations.get(0).pid;
@@ -52,12 +65,18 @@ public class SingleComponent extends Component {
 
 	@Override
 	public boolean close() {
-		return _instanceDTO.close();
+		submit(_instanceDTO.closeOp(), _instanceDTO::close).onFailure(
+			f -> {
+				_log.error(l -> l.error("CCR Error in single component close for {} on {}", _instanceDTO.ident(), containerState.bundle()));
+			}
+		);
+
+		return true;
 	}
 
 	@Override
 	public Op closeOp() {
-		return Op.SINGLE_COMPONENT_CLOSE;
+		return Op.of(Mode.CLOSE, Op.Type.SINGLE_COMPONENT, _template.name);
 	}
 
 	@Override
@@ -77,18 +96,26 @@ public class SingleComponent extends Component {
 
 	@Override
 	public boolean open() {
-		return _instanceDTO.open();
+		submit(_instanceDTO.openOp(), _instanceDTO::open).onFailure(
+			f -> {
+				_log.error(l -> l.error("CCR Error in single component open for {} on {}", _instanceDTO.ident(), containerState.bundle()));
+			}
+		);
+
+		return true;
 	}
 
 	@Override
 	public Op openOp() {
-		return Op.SINGLE_COMPONENT_OPEN;
+		return Op.of(Mode.OPEN, Op.Type.SINGLE_COMPONENT, _template.name);
 	}
 
 	@Override
 	public ComponentTemplateDTO template() {
 		return _template;
 	}
+
+	private static final Logger _log = Logs.getLogger(SingleComponent.class);
 
 	private final ExtendedComponentInstanceDTO _instanceDTO;
 	private final ComponentDTO _snapshot;

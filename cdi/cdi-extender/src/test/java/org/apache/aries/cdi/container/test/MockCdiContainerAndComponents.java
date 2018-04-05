@@ -21,10 +21,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.container.ExtensionPhase;
+import org.apache.aries.cdi.container.internal.container.Phase;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
 import org.apache.aries.cdi.container.internal.model.OSGiBean;
-import org.apache.aries.cdi.container.internal.phase.ExtensionPhase;
-import org.apache.aries.cdi.container.internal.phase.Phase;
 
 public class MockCdiContainerAndComponents implements AutoCloseable {
 

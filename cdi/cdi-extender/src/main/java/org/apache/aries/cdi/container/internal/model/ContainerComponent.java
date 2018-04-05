@@ -6,10 +6,14 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
+import org.apache.aries.cdi.container.internal.container.Op.Mode;
+import org.apache.aries.cdi.container.internal.container.Op.Type;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
+import org.osgi.service.log.Logger;
 
 public class ContainerComponent extends Component {
 
@@ -53,7 +57,18 @@ public class ContainerComponent extends Component {
 
 	@Override
 	public boolean close() {
-		return _instanceDTO.close();
+		submit(_instanceDTO.closeOp(), _instanceDTO::close).onFailure(
+			f -> {
+				_log.error(l -> l.error("CCR Error in container component close for {} on {}", _template.name, containerState.bundle()));
+			}
+		);
+
+		return true;
+	}
+
+	@Override
+	public Op closeOp() {
+		return Op.of(Mode.CLOSE, Type.CONTAINER_COMPONENT, _template.name);
 	}
 
 	@Override
@@ -68,7 +83,18 @@ public class ContainerComponent extends Component {
 
 	@Override
 	public boolean open() {
-		return _instanceDTO.open();
+		submit(_instanceDTO.openOp(), _instanceDTO::open).onFailure(
+			f -> {
+				_log.error(l -> l.error("CCR Error in container component open for {} on {}", _template.name, containerState.bundle()));
+			}
+		);
+
+		return true;
+	}
+
+	@Override
+	public Op openOp() {
+		return Op.of(Mode.OPEN, Type.CONTAINER_COMPONENT, _template.name);
 	}
 
 	@Override
@@ -77,19 +103,11 @@ public class ContainerComponent extends Component {
 	}
 
 	@Override
-	public Op openOp() {
-		return Op.CONTAINER_COMPONENT_OPEN;
-	}
-
-	@Override
-	public Op closeOp() {
-		return Op.CONTAINER_COMPONENT_CLOSE;
-	}
-
-	@Override
 	public ComponentTemplateDTO template() {
 		return _template;
 	}
+
+	private static final Logger _log = Logs.getLogger(ContainerComponent.class);
 
 	private final ExtendedComponentInstanceDTO _instanceDTO;
 	private final ComponentDTO _snapshot;

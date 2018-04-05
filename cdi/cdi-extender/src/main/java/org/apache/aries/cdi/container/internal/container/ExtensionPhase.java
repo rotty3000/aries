@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package org.apache.aries.cdi.container.internal.phase;
+package org.apache.aries.cdi.container.internal.container;
 
 import static org.apache.aries.cdi.container.internal.util.Filters.*;
 
@@ -24,8 +24,8 @@ import java.util.concurrent.ConcurrentSkipListSet;
 
 import javax.enterprise.inject.spi.Extension;
 
-import org.apache.aries.cdi.container.internal.container.ContainerState;
-import org.apache.aries.cdi.container.internal.container.Op;
+import org.apache.aries.cdi.container.internal.container.Op.Mode;
+import org.apache.aries.cdi.container.internal.container.Op.Type;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionTemplateDTO;
 import org.apache.aries.cdi.container.internal.util.Conversions;
@@ -60,17 +60,23 @@ public class ExtensionPhase extends Phase {
 		else {
 			return next.map(
 				next -> {
-					try {
-						return next.close();
-					}
-					catch (Throwable t) {
-						_log.error(l -> l.error("CCR Error in extension CLOSE on {}", bundle(), t));
+					submit(next.closeOp(), next::close).onFailure(
+						f -> {
+							_log.error(l -> l.error("CCR Error in extension CLOSE on {}", bundle(), f));
 
-						return false;
-					}
+							error(f);
+						}
+					);
+
+					return true;
 				}
 			).orElse(true);
 		}
+	}
+
+	@Override
+	public Op closeOp() {
+		return Op.of(Mode.CLOSE, Type.EXTENSION, containerState.id());
 	}
 
 	@Override
@@ -80,21 +86,30 @@ public class ExtensionPhase extends Phase {
 				containerState.bundleContext(), createExtensionFilter(), new ExtensionPhaseCustomizer());
 
 			_extensionTracker.open();
+
+			return true;
 		}
 		else {
-			next.ifPresent(
-				next -> submit(Op.CONFIGURATION_OPEN, next::open).then(
-					null,
-					f -> {
-						_log.error(l -> l.error("CCR Error in extension OPEN on {}", bundle(), f.getFailure()));
+			return next.map(
+				next -> {
+					submit(next.openOp(), next::open).then(
+						null,
+						f -> {
+							_log.error(l -> l.error("CCR Error in extension OPEN on {}", bundle(), f.getFailure()));
 
-						error(f.getFailure());
-					}
-				)
-			);
+							error(f.getFailure());
+						}
+					);
+
+					return true;
+				}
+			).orElse(true);
 		}
+	}
 
-		return true;
+	@Override
+	public Op openOp() {
+		return Op.of(Mode.OPEN, Type.EXTENSION, containerState.id());
 	}
 
 	Filter createExtensionFilter() {
@@ -172,9 +187,9 @@ public class ExtensionPhase extends Phase {
 
 			if (snapshots().size() == extensionTemplates().size()) {
 				next.ifPresent(
-					next -> submit(Op.CONFIGURATION_CLOSE, next::close).then(
+					next -> submit(next.closeOp(), next::close).then(
 						s -> {
-							return submit(Op.CONFIGURATION_OPEN, next::open).then(
+							return submit(next.openOp(), next::open).then(
 								null,
 								f -> {
 									_log.error(l -> l.error("CCR Error in extension open TRACKING {} on {}", reference, bundle(), f.getFailure()));
@@ -229,31 +244,29 @@ public class ExtensionPhase extends Phase {
 
 			containerState.incrementChangeCount();
 
-			next.map(
+			next.ifPresent(
 				next -> {
-					try {
-						next.close();
+					submit(next.closeOp(), next::close).then(
+						s -> {
+							if (snapshots().size() == extensionTemplates().size()) {
+								return submit(next.openOp(), next::open).then(
+									null,
+									f -> {
+										_log.error(l -> l.error("CCR Error in extension open {} on {}", reference, bundle()));
 
-						if (snapshots().size() == extensionTemplates().size()) {
-							submit(Op.CONFIGURATION_OPEN, next::open).then(
-								null,
-								f -> {
-									_log.error(l -> l.error("CCR Error in extension open TRACKING {} on {}", reference, bundle()));
+										error(f.getFailure());
+									}
+								);
+							}
 
-									error(f.getFailure());
-								}
-							);
+							return s;
+						},
+						f -> {
+							_log.error(l -> l.error("CCR Error in extension close {} on {}", reference, bundle()));
+
+							error(f.getFailure());
 						}
-
-						return true;
-					}
-					catch (Throwable t) {
-						_log.error(l -> l.error("CCR Error extension close TRACKING {} on {}", reference, bundle()));
-
-						error(t);
-
-						return false;
-					}
+					);
 				}
 			);
 		}

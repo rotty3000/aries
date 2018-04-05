@@ -2,6 +2,8 @@ package org.apache.aries.cdi.container.internal.model;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
+import org.apache.aries.cdi.container.internal.container.Op.Mode;
+import org.apache.aries.cdi.container.internal.container.Op.Type;
 
 public class FactoryActivator extends InstanceActivator {
 
@@ -29,7 +31,7 @@ public class FactoryActivator extends InstanceActivator {
 
 	@Override
 	public Op closeOp() {
-		return Op.FACTORY_INSTANCE_CLOSE;
+		return Op.of(Mode.CLOSE, Type.FACTORY_INSTANCE, instance.template.name);
 	}
 
 	@Override
@@ -39,7 +41,7 @@ public class FactoryActivator extends InstanceActivator {
 
 	@Override
 	public Op openOp() {
-		return Op.FACTORY_INSTANCE_OPEN;
+		return Op.of(Mode.OPEN, Type.FACTORY_INSTANCE, instance.template.name);
 	}
 
 }

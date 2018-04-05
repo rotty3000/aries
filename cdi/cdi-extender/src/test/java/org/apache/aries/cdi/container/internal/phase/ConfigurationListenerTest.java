@@ -68,7 +68,7 @@ public class ConfigurationListenerTest extends BaseCDIBundleTest {
 
 		Promise<Boolean> p0 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) op -> {
-				return op == Op.CONTAINER_COMPONENT_OPEN;
+				return op.mode == Op.Mode.OPEN && op.type == Op.Type.CONTAINER_COMPONENT;
 			}
 		);
 
@@ -104,7 +104,7 @@ public class ConfigurationListenerTest extends BaseCDIBundleTest {
 
 		Promise<Boolean> p1 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) op -> {
-				return op == Op.CONTAINER_COMPONENT_OPEN;
+				return op.mode == Op.Mode.OPEN && op.type == Op.Type.CONTAINER_COMPONENT;
 			}
 		);
 
@@ -118,7 +118,7 @@ public class ConfigurationListenerTest extends BaseCDIBundleTest {
 
 		Promise<Boolean> p2 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) op -> {
-				return op == Op.CONTAINER_COMPONENT_OPEN;
+				return op.mode == Op.Mode.OPEN && op.type == Op.Type.CONTAINER_COMPONENT;
 			}
 		);
 
@@ -132,7 +132,7 @@ public class ConfigurationListenerTest extends BaseCDIBundleTest {
 
 		Promise<Boolean> p3 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) op -> {
-				return op == Op.CONTAINER_COMPONENT_OPEN;
+				return op.mode == Op.Mode.OPEN && op.type == Op.Type.CONTAINER_COMPONENT;
 			}
 		);
 

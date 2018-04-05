@@ -1,11 +1,11 @@
 package org.apache.aries.cdi.container.internal.model;
 
+import java.util.function.Consumer;
+
 import org.osgi.service.cdi.runtime.dto.ActivationDTO;
 
-public abstract class ExtendedActivationDTO extends ActivationDTO {
+public class ExtendedActivationDTO extends ActivationDTO {
 
-	public abstract void stop();
-
-	public abstract void open();
+	public Consumer<ExtendedActivationDTO> onClose;
 
 }
