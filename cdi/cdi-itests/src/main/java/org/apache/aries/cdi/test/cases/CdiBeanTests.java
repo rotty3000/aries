@@ -33,7 +33,6 @@ import org.apache.aries.cdi.test.interfaces.FieldInjectedReference;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.osgi.framework.BundleContext;
-import org.osgi.framework.Filter;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.ComponentType;
 import org.osgi.service.cdi.runtime.CDIComponentRuntime;
@@ -50,24 +49,28 @@ public class CdiBeanTests extends AbstractTestCase {
 		CDIComponentRuntime runtime = runtimeTracker.waitForService(timeout);
 		assertNotNull(runtime);
 
-		Filter filter = filter("(&(objectClass=%s)(objectClass=*.%s))", BeanService.class.getName(), "ConstructorInjectedService");
-		ServiceTracker<BeanService, BeanService> bsTracker = new ServiceTracker<>(bundleContext, filter, null);
-		bsTracker.open();
-		BeanService beanService = bsTracker.waitForService(timeout);
+		ServiceTracker<BeanService, BeanService> tracker = track(
+			"(&(objectClass=%s)(objectClass=*.%s))",
+			BeanService.class.getName(),
+			"ConstructorInjectedService");
+
+		BeanService beanService = tracker.waitForService(timeout);
+
 		assertNotNull(beanService);
 		assertEquals("PREFIXCONSTRUCTOR", beanService.doSomething());
 	}
 
 	@Test
 	public void testFieldInjectedReference_BundleScoped() throws Exception {
-		Filter filter = filter(
+		CDIComponentRuntime runtime = runtimeTracker.waitForService(timeout);
+		assertNotNull(runtime);
+
+		ServiceTracker<FieldInjectedReference, FieldInjectedReference> tracker = track(
 			"(&(objectClass=%s)(objectClass=*.%s))",
 			FieldInjectedReference.class.getName(),
 			"FieldInjectedBundleScopedImpl");
-		ServiceTracker<FieldInjectedReference, FieldInjectedReference> bsTracker = new ServiceTracker<>(bundleContext, filter, null);
-		bsTracker.open();
 
-		FieldInjectedReference fieldInjectedReference = bsTracker.waitForService(timeout);
+		FieldInjectedReference fieldInjectedReference = tracker.waitForService(timeout);
 
 		assertNotNull(fieldInjectedReference);
 		assertNotNull(fieldInjectedReference.getProperties());
@@ -79,18 +82,17 @@ public class CdiBeanTests extends AbstractTestCase {
 		assertEquals("value", fieldInjectedReference.getRawReference().getProperty("key"));
 	}
 
+	@Test
 	public void testFieldInjectedReference_PrototypeScoped() throws Exception {
-		Iterator<ServiceReference<FieldInjectedReference>> iterator = bundleContext.getServiceReferences(
-			FieldInjectedReference.class, String.format("(objectClass=*.%s)","FieldInjectedPrototypeScopedImpl")).iterator();
+		CDIComponentRuntime runtime = runtimeTracker.waitForService(timeout);
+		assertNotNull(runtime);
 
-		assertTrue(iterator.hasNext());
+		ServiceTracker<FieldInjectedReference, FieldInjectedReference> tracker = track(
+			"(&(objectClass=%s)(objectClass=*.%s))",
+			FieldInjectedReference.class.getName(),
+			"FieldInjectedPrototypeScopedImpl");
 
-		ServiceReference<FieldInjectedReference> serviceReference = iterator.next();
-
-		assertNotNull(serviceReference);
-		assertNotNull(serviceReference.getBundle());
-
-		FieldInjectedReference fieldInjectedReference = bundleContext.getService(serviceReference);
+		FieldInjectedReference fieldInjectedReference = tracker.waitForService(timeout);
 
 		assertNotNull(fieldInjectedReference);
 		assertNotNull(fieldInjectedReference.getProperties());
@@ -107,10 +109,13 @@ public class CdiBeanTests extends AbstractTestCase {
 		CDIComponentRuntime runtime = runtimeTracker.waitForService(5000);
 		assertNotNull(runtime);
 
-		Filter filter = filter("(&(objectClass=%s)(objectClass=*.%s))", BeanService.class.getName(), "FieldInjectedService");
-		ServiceTracker<BeanService, BeanService> bsTracker = new ServiceTracker<>(bundleContext, filter, null);
-		bsTracker.open();
-		BeanService beanService = bsTracker.waitForService(5000);
+		ServiceTracker<BeanService, BeanService> tracker = track(
+			"(&(objectClass=%s)(objectClass=*.%s))",
+			BeanService.class.getName(),
+			"FieldInjectedService");
+
+		BeanService beanService = tracker.waitForService(5000);
+
 		assertNotNull(beanService);
 		assertEquals("PREFIXFIELD", beanService.doSomething());
 	}
@@ -120,10 +125,13 @@ public class CdiBeanTests extends AbstractTestCase {
 		CDIComponentRuntime runtime = runtimeTracker.waitForService(5000);
 		assertNotNull(runtime);
 
-		Filter filter = filter("(&(objectClass=%s)(objectClass=*.%s))", BeanService.class.getName(), "MethodInjectedService");
-		ServiceTracker<BeanService, BeanService> bsTracker = new ServiceTracker<>(bundleContext, filter, null);
-		bsTracker.open();
-		BeanService beanService = bsTracker.waitForService(5000);
+		ServiceTracker<BeanService, BeanService> tracker = track(
+			"(&(objectClass=%s)(objectClass=*.%s))",
+			BeanService.class.getName(),
+			"MethodInjectedService");
+
+		BeanService beanService = tracker.waitForService(5000);
+
 		assertNotNull(beanService);
 		assertEquals("PREFIXMETHOD", beanService.doSomething());
 
@@ -144,19 +152,21 @@ public class CdiBeanTests extends AbstractTestCase {
 	}
 
 	@SuppressWarnings("unchecked")
+	@Test
 	public void testBeanAsServiceWithProperties() throws Exception {
-		Iterator<ServiceReference<BeanService>> iterator = bundleContext.getServiceReferences(
-			BeanService.class, String.format("(objectClass=*.%s)","ServiceWithProperties")).iterator();
+		CDIComponentRuntime runtime = runtimeTracker.waitForService(5000);
+		assertNotNull(runtime);
 
-		assertTrue(iterator.hasNext());
+		ServiceTracker<BeanService, BeanService> tracker = track(
+			"(&(objectClass=%s)(objectClass=*.%s))",
+			BeanService.class.getName(),
+			"ServiceWithProperties");
 
-		ServiceReference<BeanService> serviceReference = iterator.next();
+		BeanService beanService = tracker.waitForService(5000);
 
-		assertNotNull(serviceReference);
+		assertNotNull(beanService);
 
-		BeanService bean = bundleContext.getService(serviceReference);
-
-		assertNotNull(bean);
+		ServiceReference<BeanService> serviceReference = tracker.getServiceReference();
 
 		assertEquals("test.value.b2", serviceReference.getProperty("test.key.b2"));
 

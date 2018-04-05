@@ -146,6 +146,16 @@ public class AbstractTestCase {
 		}
 	}
 
+	public <S,T> ServiceTracker<S, T> track(Filter filter) {
+		ServiceTracker<S, T> tracker = new ServiceTracker<>(bundleContext, filter, null);
+		tracker.open();
+		return tracker;
+	}
+
+	public <S,T> ServiceTracker<S, T> track(String pattern, Object... objects) {
+		return track(filter(pattern, objects));
+	}
+
 	BeanManager getBeanManager(Bundle bundle) throws Exception {
 		return getServiceTracker(bundle).waitForService(timeout);
 	}

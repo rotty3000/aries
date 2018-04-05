@@ -69,49 +69,6 @@ import org.osgi.util.tracker.ServiceTracker;
 
 public class TestUtil {
 
-//	public static AbstractModelBuilder getModelBuilder(final String osgiBeansFile) {
-//		return getModelBuilder(
-//			Arrays.asList(
-//				"OSGI-INF/cdi/org.apache.aries.cdi.container.test.beans.Bar.xml",
-//				"OSGI-INF/cdi/org.apache.aries.cdi.container.test.beans.BarAnnotated.xml",
-//				"OSGI-INF/cdi/org.apache.aries.cdi.container.test.beans.BarBadlyAnnotated.xml",
-//				"OSGI-INF/cdi/org.apache.aries.cdi.container.test.beans.FooAnnotated.xml",
-//				"OSGI-INF/cdi/org.apache.aries.cdi.container.test.beans.FooService.xml"
-//			),  osgiBeansFile);
-//	}
-
-//	public static AbstractModelBuilder getModelBuilder(
-//		final List<String> defaultResources, final String osgiBeansFile) {
-//
-//		return new AbstractModelBuilder() {
-//
-//			@Override
-//			public List<String> getDefaultResources() {
-//				return defaultResources;
-//			}
-//
-//			@Override
-//			public URL getResource(String resource) {
-//				return getClassLoader().getResource(resource);
-//			}
-//
-//			@Override
-//			public ClassLoader getClassLoader() {
-//				return getClass().getClassLoader();
-//			}
-//
-//			@Override
-//			public Map<String, Object> getAttributes() {
-//				if (osgiBeansFile == null) {
-//					return Collections.emptyMap();
-//				}
-//
-//				return Collections.singletonMap(
-//					CDIConstants.REQUIREMENT_OSGI_BEANS_ATTRIBUTE, Arrays.asList(osgiBeansFile));
-//			}
-//		};
-//	}
-
 	public static <T extends Comparable<T>> List<T> sort(Collection<T> set) {
 		return sort(set, (c1, c2) -> c1.getClass().getName().compareTo(c2.getClass().getName()));
 	}

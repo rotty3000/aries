@@ -68,7 +68,7 @@ public class ReferenceBean implements Bean<Object> {
 
 	@Override
 	public Object create(CreationalContext<Object> c) {
-		if (_template.collectionType != CollectionType.OBSERVER) return null;
+		if (_template.collectionType == CollectionType.OBSERVER) return null;
 
 		Objects.requireNonNull(_bm);
 		Objects.requireNonNull(_snapshot);

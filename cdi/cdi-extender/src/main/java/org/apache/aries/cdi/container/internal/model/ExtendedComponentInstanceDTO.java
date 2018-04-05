@@ -44,8 +44,6 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 	private final AtomicReference<InstanceActivator> _noRequiredDependenciesActivator = new AtomicReference<>();
 
 	public boolean close() {
-		properties = null;
-
 		containerState.submit(Op.of(Mode.CLOSE, Type.REFERENCES, template.name),
 			() -> {
 				references.removeIf(
@@ -76,6 +74,8 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 				_log.error(l -> l.error("CCR Error in component instance stop on {}", this, f));
 			}
 		);
+
+		properties = null;
 
 		return true;
 	}

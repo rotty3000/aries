@@ -15,8 +15,11 @@ import org.osgi.service.cdi.runtime.dto.ActivationDTO;
 public class ComponentContext implements Context {
 
 	@SuppressWarnings("unchecked")
-	public void destroy(ActivationDTO activationDTO) {
-		Map<Class<?>, BeanInstance<?>> map = _beans.remove(activationDTO);
+	public void destroy() {
+		if (!isActive()) return;
+
+		Map<Class<?>, BeanInstance<?>> map = _beans.computeIfAbsent(
+			_componentModel.get(), k -> new ConcurrentHashMap<>());
 
 		if (map == null) {
 			return;
