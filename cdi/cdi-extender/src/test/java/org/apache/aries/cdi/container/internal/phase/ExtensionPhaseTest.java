@@ -91,8 +91,6 @@ public class ExtensionPhaseTest extends BaseCDIBundleTest {
 
 		slD.getPromise().thenAccept(
 			sl -> {
-				//sl.serviceChanged(new ServiceEvent(ServiceEvent.REGISTERED, regA.getReference()));
-
 				assertEquals(2, containerState.containerDTO().changeCount);
 				assertEquals(1, containerState.containerDTO().extensions.size());
 				long id = (long)regA.getReference().getProperty(Constants.SERVICE_ID);

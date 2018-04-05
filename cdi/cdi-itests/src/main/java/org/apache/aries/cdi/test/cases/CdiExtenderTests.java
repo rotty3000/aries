@@ -16,11 +16,8 @@ package org.apache.aries.cdi.test.cases;
 
 import static org.junit.Assert.*;
 
-import javax.enterprise.inject.spi.BeanManager;
-
 import org.junit.Test;
 import org.osgi.framework.Bundle;
-import org.osgi.util.tracker.ServiceTracker;
 
 public class CdiExtenderTests extends AbstractTestCase {
 
@@ -28,22 +25,15 @@ public class CdiExtenderTests extends AbstractTestCase {
 	public void testStopExtender() throws Exception {
 		Bundle cdiExtenderBundle = getCdiExtenderBundle();
 
-		ServiceTracker<BeanManager,BeanManager> serviceTracker = getServiceTracker(cdiBundle);
+		assertNotNull(getBeanManager(cdiBundle));
 
-		try {
-			assertNotNull(serviceTracker.waitForService(timeout));
+		cdiExtenderBundle.stop();
 
-			cdiExtenderBundle.stop();
+		assertNull(getBeanManager(cdiBundle));
 
-			assertTrue(serviceTracker.isEmpty());
+		cdiExtenderBundle.start();
 
-			cdiExtenderBundle.start();
-
-			assertNotNull(serviceTracker.waitForService(timeout));
-		}
-		finally {
-			serviceTracker.close();
-		}
+		assertNotNull(getBeanManager(cdiBundle));
 	}
 
 }

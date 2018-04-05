@@ -24,7 +24,6 @@ import org.apache.aries.cdi.test.interfaces.Pojo;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.osgi.framework.Bundle;
-import org.osgi.framework.Filter;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.util.tracker.ServiceTracker;
 
@@ -53,13 +52,9 @@ public class JndiExtensionTests extends AbstractTestCase {
 
 	@Test
 	public void testDisableExtensionAndCDIContainerWaits() throws Exception {
-		Filter filter = filter(
+		ServiceTracker<Extension, Extension> et = track(
 			"(&(objectClass=%s)(osgi.cdi.extension=aries.cdi.jndi))",
 			Extension.class.getName());
-		ServiceTracker<Extension, Extension> et = new ServiceTracker<>(
-			bundleContext, filter, null);
-
-		et.open();
 
 		assertFalse(et.isEmpty());
 

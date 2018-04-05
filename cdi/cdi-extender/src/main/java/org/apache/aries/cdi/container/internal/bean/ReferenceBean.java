@@ -80,8 +80,12 @@ public class ReferenceBean implements Bean<Object> {
 				return new Provider<List<Object>>() {
 					@Override
 					public List<Object> get() {
+						Object[] services = _snapshot.serviceTracker.getServices();
+						if (services == null) {
+							return Collections.emptyList();
+						}
 						return Arrays.stream(
-							_snapshot.serviceTracker.getServices()
+							services
 						).map(
 							s -> decorate(c, s)
 						).collect(Collectors.toList());
@@ -108,8 +112,12 @@ public class ReferenceBean implements Bean<Object> {
 		}
 		else {
 			if (_template.maximumCardinality == MaximumCardinality.MANY) {
+				Object[] services = _snapshot.serviceTracker.getServices();
+				if (services == null) {
+					return Collections.emptyList();
+				}
 				return Arrays.stream(
-					_snapshot.serviceTracker.getServices()
+					services
 				).map(
 					s -> decorate(c, s)
 				).collect(Collectors.toList());

@@ -20,6 +20,8 @@ import static java.lang.annotation.RetentionPolicy.*;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import org.apache.aries.cdi.test.interfaces.BeanService;
@@ -78,5 +80,15 @@ public class ServiceWithProperties implements BeanService<Pojo> {
 
 	@Inject
 	private PojoImpl _pojo;
+
+	@PostConstruct
+	private void postConstructed() {
+		System.out.println("PostConstructed " + this);
+	}
+
+	@PreDestroy
+	private void preDestroyed() {
+		System.out.println("PreDestroyed " + this);
+	}
 
 }

@@ -162,7 +162,7 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 			}
 		).then(
 			s -> {
-				if (!s.getValue()) {
+				if (s.getValue()) {
 					// none of the reference dependencies are required
 					_noRequiredDependenciesActivator.set(builder.setInstance(this).build());
 

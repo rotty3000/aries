@@ -17,7 +17,6 @@ package org.apache.aries.cdi.container.internal.container;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.Extension;
 
 import org.apache.aries.cdi.container.internal.container.Op.Mode;
@@ -26,6 +25,7 @@ import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
 import org.apache.aries.cdi.container.internal.model.FactoryComponent;
 import org.apache.aries.cdi.container.internal.model.SingleComponent;
 import org.apache.aries.cdi.container.internal.util.Logs;
+import org.apache.aries.cdi.container.internal.util.Syncro;
 import org.jboss.weld.bootstrap.WeldBootstrap;
 import org.jboss.weld.bootstrap.spi.BeanDeploymentArchive;
 import org.jboss.weld.bootstrap.spi.Deployment;
@@ -50,9 +50,11 @@ public class ContainerBootstrap extends Phase {
 
 	@Override
 	public boolean close() {
-		try {
+		try (Syncro syncro = _lock.open()) {
 			if (_bootstrap != null) {
+				_log.debug(l -> l.debug("CCR container bootstrap shutdown on {}", _bootstrap));
 				_bootstrap.shutdown();
+				_bootstrap = null;
 			}
 
 			return true;
@@ -71,53 +73,56 @@ public class ContainerBootstrap extends Phase {
 
 	@Override
 	public boolean open() {
-		List<Metadata<Extension>> extensions = new CopyOnWriteArrayList<>();
+		try (Syncro syncro = _lock.open()) {
+			if (_bootstrap != null) {
+				return true;
+			}
 
-		// Add the internal extensions
-		extensions.add(
-			new ExtensionMetadata(
-				new BundleContextExtension(containerState.bundleContext()),
-				containerState.id()));
-		extensions.add(
-			new ExtensionMetadata(
-				new RuntimeExtension(containerState, _configurationBuilder, _singleBuilder, _factoryBuilder),
-				containerState.id()));
-		extensions.add(
-			new ExtensionMetadata(
-				new LoggerExtension(containerState),
-				containerState.id()));
+			List<Metadata<Extension>> extensions = new CopyOnWriteArrayList<>();
 
-		// Add extensions found from the bundle's class loader, such as those in the Bundle-ClassPath
-		ServiceLoader.load(Extension.class, containerState.classLoader()).forEach(extensions::add);
+			// Add the internal extensions
+			extensions.add(
+					new ExtensionMetadata(
+							new BundleContextExtension(containerState.bundleContext()),
+							containerState.id()));
+			extensions.add(
+					new ExtensionMetadata(
+							new RuntimeExtension(containerState, _configurationBuilder, _singleBuilder, _factoryBuilder),
+							containerState.id()));
+			extensions.add(
+					new ExtensionMetadata(
+							new LoggerExtension(containerState),
+							containerState.id()));
 
-		// Add external extensions
-		containerState.containerDTO().extensions.stream().map(
-			ExtendedExtensionDTO.class::cast
-		).map(
-			e -> new ExtensionMetadata(e.extension.getService(), e.template.serviceFilter)
-		).forEach(extensions::add);
+			// Add extensions found from the bundle's class loader, such as those in the Bundle-ClassPath
+			ServiceLoader.load(Extension.class, containerState.classLoader()).forEach(extensions::add);
 
-		_bootstrap = new WeldBootstrap();
+			// Add external extensions
+			containerState.containerDTO().extensions.stream().map(
+					ExtendedExtensionDTO.class::cast
+					).map(
+							e -> new ExtensionMetadata(e.extension.getService(), e.template.serviceFilter)
+							).forEach(extensions::add);
 
-		BeanDeploymentArchive beanDeploymentArchive = new ContainerDeploymentArchive(
-			containerState.loader(),
-			containerState.id(),
-			containerState.beansModel().getBeanClassNames(),
-			containerState.beansModel().getBeansXml());
+			_bootstrap = new WeldBootstrap();
 
-		Deployment deployment = new ContainerDeployment(extensions, beanDeploymentArchive);
+			BeanDeploymentArchive beanDeploymentArchive = new ContainerDeploymentArchive(
+					containerState.loader(),
+					containerState.id(),
+					containerState.beansModel().getBeanClassNames(),
+					containerState.beansModel().getBeansXml());
 
-		_bootstrap.startExtensions(extensions);
-		_bootstrap.startContainer(containerState.id(), new ContainerEnvironment(), deployment);
+			Deployment deployment = new ContainerDeployment(extensions, beanDeploymentArchive);
 
-		_beanManager = _bootstrap.getManager(beanDeploymentArchive);
+			_bootstrap.startExtensions(extensions);
+			_bootstrap.startContainer(containerState.id(), new ContainerEnvironment(), deployment);
+			_bootstrap.startInitialization();
+			_bootstrap.deployBeans();
+			_bootstrap.validateBeans();
+			_bootstrap.endInitialization();
 
-		_bootstrap.startInitialization();
-		_bootstrap.deployBeans();
-		_bootstrap.validateBeans();
-		_bootstrap.endInitialization();
-
-		return true;
+			return true;
+		}
 	}
 
 	@Override
@@ -125,20 +130,12 @@ public class ContainerBootstrap extends Phase {
 		return Op.of(Mode.OPEN, Type.CONTAINER_BOOTSTRAP, containerState.id());
 	}
 
-	public BeanManager getBeanManager() {
-		return _beanManager;
-	}
-
-	public WeldBootstrap getBootstrap() {
-		return _bootstrap;
-	}
-
 	private static final Logger _log = Logs.getLogger(ContainerBootstrap.class);
 
-	private volatile BeanManager _beanManager;
 	private volatile WeldBootstrap _bootstrap;
 	private final ConfigurationListener.Builder _configurationBuilder;
 	private final FactoryComponent.Builder _factoryBuilder;
 	private final SingleComponent.Builder _singleBuilder;
+	private final Syncro _lock = new Syncro(true);
 
 }

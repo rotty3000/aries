@@ -52,11 +52,9 @@ import org.apache.aries.cdi.container.internal.model.ExtendedComponentTemplateDT
 import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationTemplateDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceTemplateDTO;
-import org.apache.aries.cdi.container.internal.model.FactoryActivator;
 import org.apache.aries.cdi.container.internal.model.FactoryComponent;
 import org.apache.aries.cdi.container.internal.model.OSGiBean;
 import org.apache.aries.cdi.container.internal.model.ReferenceModel;
-import org.apache.aries.cdi.container.internal.model.SingleActivator;
 import org.apache.aries.cdi.container.internal.model.SingleComponent;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
@@ -84,6 +82,8 @@ public class RuntimeExtension implements Extension {
 		ConfigurationListener.Builder configurationBuilder,
 		SingleComponent.Builder singleBuilder,
 		FactoryComponent.Builder factoryBuilder) {
+
+		_log.debug(l -> l.debug("CCR RuntimeExtension {}", containerState.bundle()));
 
 		_containerState = containerState;
 		_configurationBuilder = configurationBuilder;
@@ -119,6 +119,8 @@ public class RuntimeExtension implements Extension {
 	}
 
 	void applicationScopedInitialized(@Observes @Initialized(ApplicationScoped.class) Object o, BeanManager bm) {
+		_log.debug(l -> l.debug("CCR @Initialized(ApplicationScoped) on {}", _containerState.bundle()));
+
 		registerService(
 			new String[] {BeanManager.class.getName()}, bm,
 			Maps.of(CDIConstants.CDI_CONTAINER_ID, _containerState.id()));
@@ -134,10 +136,11 @@ public class RuntimeExtension implements Extension {
 		).then(
 			s -> initComponents(bm)
 		);
-
 	}
 
 	void applicationScopedBeforeDestroyed(@Observes @BeforeDestroyed(ApplicationScoped.class) Object o) {
+		_log.debug(l -> l.debug("CCR @BeforeDestroy(ApplicationScoped) on {}", _containerState.bundle()));
+
 		_configurationListeners.removeIf(
 			cl -> {
 				_containerState.submit(cl.closeOp(), cl::close).onFailure(
@@ -155,6 +158,8 @@ public class RuntimeExtension implements Extension {
 		_registrations.removeIf(
 			r -> {
 				try {
+					_log.debug(l -> l.debug("CCR Unregistring service {} on {}", r, _containerState.bundle()));
+
 					r.unregister();
 				}
 				catch (Exception e) {
@@ -265,10 +270,8 @@ public class RuntimeExtension implements Extension {
 	}
 
 	private Promise<Boolean> initFactoryComponent(ExtendedComponentTemplateDTO componentTemplateDTO, BeanManager bm) {
-		ConfigurationListener cl = new ConfigurationListener.Builder(_containerState).component(
-			new FactoryComponent.Builder(_containerState,
-				new FactoryActivator.Builder(_containerState)
-			).beanManager(bm).template(componentTemplateDTO).build()
+		ConfigurationListener cl = _configurationBuilder.component(
+			_factoryBuilder.beanManager(bm).template(componentTemplateDTO).build()
 		).build();
 
 		_configurationListeners.add(cl);
@@ -277,10 +280,8 @@ public class RuntimeExtension implements Extension {
 	}
 
 	private Promise<Boolean> initSingleComponent(ExtendedComponentTemplateDTO componentTemplateDTO, BeanManager bm) {
-		ConfigurationListener cl = new ConfigurationListener.Builder(_containerState).component(
-			new SingleComponent.Builder(_containerState,
-				new SingleActivator.Builder(_containerState)
-			).beanManager(bm).template(componentTemplateDTO).build()
+		ConfigurationListener cl = _configurationBuilder.component(
+			_singleBuilder.beanManager(bm).template(componentTemplateDTO).build()
 		).build();
 
 		_configurationListeners.add(cl);
