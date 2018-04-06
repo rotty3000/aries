@@ -191,6 +191,7 @@ public class DiscoveryExtension implements Extension {
 		osgiBean.found(true);
 	}
 
+	@SuppressWarnings("rawtypes")
 	void processBean(@Observes ProcessBean<?> pb) {
 		Entry<Class<?>, Annotated> beanClassAndAnnotated = getBeanClassAndAnnotated(pb);
 
@@ -383,6 +384,12 @@ public class DiscoveryExtension implements Extension {
 					ExtendedActivationTemplateDTO activationTemplate = new ExtendedActivationTemplateDTO();
 					activationTemplate.cdiScope = scope;
 					activationTemplate.declaringClass = annotatedClass;
+					if (pb instanceof ProcessProducerField) {
+						activationTemplate.producer = ((ProcessProducerField) pb).getAnnotatedProducerField();
+					}
+					else if (pb instanceof ProcessProducerMethod) {
+						activationTemplate.producer = ((ProcessProducerMethod) pb).getAnnotatedProducerMethod();
+					}
 					activationTemplate.properties = Maps.componentProperties(annotated);
 					activationTemplate.scope = getScope(annotated);
 					activationTemplate.serviceClasses = serviceTypes.stream().map(

@@ -18,6 +18,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import org.apache.aries.cdi.test.interfaces.BeanService;
@@ -45,5 +47,15 @@ public class Instance_ServiceProperties implements BeanService<Map<String, Objec
 	@Inject
 	@Reference(Integer.class)
 	List<Map<String, Object>> _instance;
+
+	@PostConstruct
+	private void postConstructed() {
+		System.out.println("PostConstructed " + this);
+	}
+
+	@PreDestroy
+	private void preDestroyed() {
+		System.out.println("PreDestroyed " + this);
+	}
 
 }

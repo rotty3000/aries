@@ -18,10 +18,12 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.stream.Collectors;
 
 import javax.enterprise.context.ApplicationScoped;
@@ -45,6 +47,7 @@ import org.jboss.weld.injection.CurrentInjectionPoint;
 import org.jboss.weld.injection.EmptyInjectionPoint;
 import org.jboss.weld.manager.BeanManagerImpl;
 import org.jboss.weld.util.Decorators;
+import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.ComponentType;
 import org.osgi.service.cdi.MaximumCardinality;
 import org.osgi.service.cdi.ReferencePolicy;
@@ -75,29 +78,28 @@ public class ReferenceBean implements Bean<Object> {
 
 		_log.debug(l -> l.debug("Creating {}", this));
 
+		final SortedMap<ServiceReference<Object>, Object> tracked = _snapshot.serviceTracker.getTracked();
+
 		if (_template.policy == ReferencePolicy.DYNAMIC) {
 			if (_template.maximumCardinality == MaximumCardinality.MANY) {
 				return new Provider<List<Object>>() {
 					@Override
 					public List<Object> get() {
-						Object[] services = _snapshot.serviceTracker.getServices();
-						if (services == null) {
-							return Collections.emptyList();
-						}
-						return Arrays.stream(
-							services
-						).map(
+						return tracked.values().stream().map(
 							s -> decorate(c, s)
 						).collect(Collectors.toList());
 					}
-
 				};
 			}
 			else if (_template.minimumCardinality == 0) {
 				return new Provider<Optional<Object>>() {
 					@Override
 					public Optional<Object> get() {
-						return Optional.ofNullable(decorate(c, _snapshot.serviceTracker.getService()));
+						Iterator<Object> iterator = tracked.values().iterator();
+						if (iterator.hasNext()) {
+							return Optional.of(decorate(c, iterator.next()));
+						}
+						return Optional.empty();
 					}
 				};
 			}
@@ -105,28 +107,34 @@ public class ReferenceBean implements Bean<Object> {
 				return new Provider<Object>() {
 					@Override
 					public Object get() {
-						return decorate(c, _snapshot.serviceTracker.getService());
+						Iterator<Object> iterator = tracked.values().iterator();
+						if (iterator.hasNext()) {
+							return decorate(c, iterator.next());
+						}
+						return null;
 					}
 				};
 			}
 		}
 		else {
 			if (_template.maximumCardinality == MaximumCardinality.MANY) {
-				Object[] services = _snapshot.serviceTracker.getServices();
-				if (services == null) {
-					return Collections.emptyList();
-				}
-				return Arrays.stream(
-					services
-				).map(
+				return tracked.values().stream().map(
 					s -> decorate(c, s)
 				).collect(Collectors.toList());
 			}
 			else if (_template.minimumCardinality == 0) {
-				return Optional.ofNullable(decorate(c, _snapshot.serviceTracker.getService()));
+				Iterator<Object> iterator = tracked.values().iterator();
+				if (iterator.hasNext()) {
+					return Optional.of(decorate(c, iterator.next()));
+				}
+				return Optional.empty();
 			}
 			else {
-				return decorate(c, _snapshot.serviceTracker.getService());
+				Iterator<Object> iterator = tracked.values().iterator();
+				if (iterator.hasNext()) {
+					return decorate(c, iterator.next());
+				}
+				return null;
 			}
 		}
 	}

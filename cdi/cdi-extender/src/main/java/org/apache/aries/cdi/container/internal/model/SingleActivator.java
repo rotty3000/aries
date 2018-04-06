@@ -119,6 +119,8 @@ public class SingleActivator extends InstanceActivator {
 
 			if (activationTemplate.serviceClasses.isEmpty() /* immediate */) {
 				activate(bean, activationTemplate);
+
+				_log.debug(l -> l.debug("CCR `immediate component` {} activated on {}", instance.ident(), bundle()));
 			}
 			else if (activationTemplate.scope == ServiceScope.SINGLETON) {
 				Entry<ExtendedActivationDTO, Object> entry = activate(
@@ -128,6 +130,8 @@ public class SingleActivator extends InstanceActivator {
 					entry.getValue(),
 					Maps.dict(instance.properties));
 				entry.getKey().service = SRs.from(serviceRegistration.getReference());
+
+				_log.debug(l -> l.debug("CCR `singleton scope service` {} activated on {}", instance.ident(), bundle()));
 			}
 			else if (activationTemplate.scope == ServiceScope.BUNDLE) {
 				serviceRegistration = containerState.bundleContext().registerService(
@@ -157,6 +161,8 @@ public class SingleActivator extends InstanceActivator {
 					},
 					Maps.dict(instance.properties)
 				);
+
+				_log.debug(l -> l.debug("CCR `bundle scope service` {} activated on {}", instance.ident(), bundle()));
 			}
 			else if (activationTemplate.scope == ServiceScope.PROTOTYPE) {
 				serviceRegistration = containerState.bundleContext().registerService(
@@ -186,6 +192,8 @@ public class SingleActivator extends InstanceActivator {
 					},
 					Maps.dict(instance.properties)
 				);
+
+				_log.debug(l -> l.debug("CCR `prototype scope service` {} activated on {}", instance.ident(), bundle()));
 			}
 
 			instance.active = true;

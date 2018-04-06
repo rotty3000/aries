@@ -13,4 +13,6 @@ public class ExtendedActivationTemplateDTO extends ActivationTemplateDTO {
 
 	public Class<? extends Annotation> cdiScope;
 
+	public Object producer;
+
 }

@@ -140,7 +140,7 @@ public class CdiBeanTests extends AbstractTestCase {
 		ComponentDTO containerComponentDTO = containerDTO.components.stream().filter(
 			c -> c.template.type == ComponentType.CONTAINER).findFirst().orElse(null);
 		assertNotNull(containerComponentDTO);
-		assertEquals(7, containerComponentDTO.template.beans.size());
+		assertEquals(8, containerComponentDTO.template.beans.size());
 
 		// There's only one instance of the Container component
 		ComponentInstanceDTO componentInstanceDTO = containerComponentDTO.instances.get(0);
@@ -229,24 +229,24 @@ public class CdiBeanTests extends AbstractTestCase {
 		assertTrue(bti.get() instanceof BundleContext);
 	}
 
-	@Ignore // This test doesn't make sense because there's only a single bean for the reference!!!
-	public void _testInstanceProperties() throws Exception {
-		Iterator<ServiceReference<BeanService>> iterator = bundleContext.getServiceReferences(
-			BeanService.class, String.format("(objectClass=*.%s)","Instance_ServiceProperties")).iterator();
+	@Test
+	public void testInstanceProperties() throws Exception {
+		CDIComponentRuntime runtime = runtimeTracker.waitForService(timeout);
+		assertNotNull(runtime);
 
-		assertTrue(iterator.hasNext());
+		ServiceTracker<BeanService, BeanService> tracker = track(
+			"(&(objectClass=%s)(objectClass=*.%s))",
+			BeanService.class.getName(),
+			"Instance_ServiceProperties");
 
-		ServiceReference<BeanService> serviceReference = iterator.next();
+		BeanService beanService = tracker.waitForService(timeout);
 
-		assertNotNull(serviceReference);
-
+		assertNotNull(beanService);
+		assertEquals(4, Integer.decode(beanService.doSomething()).intValue());
 		@SuppressWarnings("unchecked")
-		BeanService<Map<String, Object>> bean = bundleContext.getService(serviceReference);
-
-		assertNotNull(bean);
-		assertEquals(3, Integer.decode(bean.doSomething()).intValue());
-		Map<String, Object> map = bean.get();
+		Map<String, Object> map = (Map<String, Object>)beanService.get();
 		assertNotNull(map);
+		assertEquals(100000, (int)map.get("service.ranking"));
 	}
 
 	@Ignore // This test doesn't make sense because there's only a single bean for the reference!!!

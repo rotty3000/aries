@@ -17,6 +17,7 @@ package org.apache.aries.cdi.container.internal.container;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
@@ -38,6 +39,7 @@ import javax.enterprise.inject.spi.BeforeBeanDiscovery;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.enterprise.inject.spi.ProcessInjectionPoint;
+import javax.enterprise.inject.spi.Producer;
 
 import org.apache.aries.cdi.container.internal.bean.ConfigurationBean;
 import org.apache.aries.cdi.container.internal.bean.ReferenceBean;
@@ -231,6 +233,7 @@ public class RuntimeExtension implements Extension {
 						bean.setProperties(_instanceDTO.properties);
 					}
 				}
+
 				_log.debug(l -> l.debug("CCR Adding synthetic bean {} on {}", bean, _containerState.bundle()));
 
 				abd.addBean(bean);
@@ -355,6 +358,7 @@ public class RuntimeExtension implements Extension {
 		).orElse(false);
 	}
 
+	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private void registerService(
 		ExtendedComponentInstanceDTO componentInstance,
 		ExtendedActivationTemplateDTO activationTemplate,
@@ -367,9 +371,20 @@ public class RuntimeExtension implements Extension {
 		}
 
 		final Context context = bm.getContext(activationTemplate.cdiScope);
-		@SuppressWarnings("unchecked")
 		final Bean<Object> bean = (Bean<Object>)bm.resolve(
 			bm.getBeans(activationTemplate.declaringClass, Any.Literal.INSTANCE));
+
+		final Producer producer = Optional.ofNullable(activationTemplate.producer).map(
+			p -> {
+				if (p instanceof AnnotatedField)
+					return bm.getProducerFactory((AnnotatedField)activationTemplate.producer, bean);
+				else if (p instanceof AnnotatedMethod)
+					return bm.getProducerFactory((AnnotatedMethod)activationTemplate.producer, bean);
+				return null;
+			}
+		).filter(Objects::nonNull).map(
+			pf -> pf.createProducer(bean)
+		).orElse(null);
 
 		Object serviceObject;
 
@@ -378,6 +393,9 @@ public class RuntimeExtension implements Extension {
 				@Override
 				public Object getService(Bundle bundle, ServiceRegistration<Object> registration) {
 					CreationalContext<Object> cc = bm.createCreationalContext(bean);
+					if (producer != null) {
+						return producer.produce(cc);
+					}
 					return context.get(bean, cc);
 				}
 
@@ -391,6 +409,9 @@ public class RuntimeExtension implements Extension {
 				@Override
 				public Object getService(Bundle bundle, ServiceRegistration<Object> registration) {
 					CreationalContext<Object> cc = bm.createCreationalContext(bean);
+					if (producer != null) {
+						return producer.produce(cc);
+					}
 					return context.get(bean, cc);
 				}
 
@@ -401,7 +422,12 @@ public class RuntimeExtension implements Extension {
 		}
 		else {
 			CreationalContext<Object> cc = bm.createCreationalContext(bean);
-			serviceObject = context.get(bean, cc);
+			if (producer != null) {
+				serviceObject = producer.produce(cc);
+			}
+			else {
+				serviceObject = context.get(bean, cc);
+			}
 		}
 
 		Objects.requireNonNull(serviceObject, "The service object is somehow null on " + this);
@@ -409,7 +435,7 @@ public class RuntimeExtension implements Extension {
 		ServiceRegistration<?> serviceRegistration = registerService(
 			activationTemplate.serviceClasses.toArray(new String[0]),
 			serviceObject,
-			componentInstance.properties);
+			componentInstance.componentProperties(activationTemplate.properties));
 
 		ExtendedActivationDTO activationDTO = new ExtendedActivationDTO();
 		activationDTO.errors = new CopyOnWriteArrayList<>();
@@ -423,6 +449,8 @@ public class RuntimeExtension implements Extension {
 			serviceTypes, serviceObject, Maps.dict(properties));
 
 		_registrations.add(serviceRegistration);
+
+		_log.debug(l -> l.debug("CCR Registering service {} on {}", serviceRegistration, _containerState.bundle()));
 
 		return serviceRegistration;
 	}

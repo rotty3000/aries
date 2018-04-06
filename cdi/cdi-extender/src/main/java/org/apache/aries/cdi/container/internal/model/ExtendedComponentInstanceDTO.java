@@ -132,7 +132,7 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 			return false;
 		}
 
-		properties = componentProperties();
+		properties = componentProperties(null);
 
 		template.references.stream().map(ExtendedReferenceTemplateDTO.class::cast).forEach(
 			t -> {
@@ -189,8 +189,11 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 		return Op.of(Mode.OPEN, getType(), ident());
 	}
 
-	private Map<String, Object> componentProperties() {
+	public Map<String, Object> componentProperties(Map<String, Object> others) {
 		Map<String, Object> props = new HashMap<>();
+		if (others != null) {
+			props.putAll(others);
+		}
 		props.putAll(template.properties);
 		List<String> servicePids = new ArrayList<>();
 
