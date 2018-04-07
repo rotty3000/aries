@@ -17,7 +17,7 @@ package org.apache.aries.cdi.test.cases;
 import static org.junit.Assert.*;
 
 import java.io.InputStream;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +31,7 @@ import javax.enterprise.inject.spi.BeanManager;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.osgi.annotation.bundle.Requirement;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
@@ -58,29 +59,36 @@ import org.osgi.util.tracker.ServiceTracker;
 )
 public class AbstractTestCase {
 
-	@Before
-	public void setUp() throws Exception {
+	@BeforeClass
+	public static void beforeClass() throws Exception {
 		ServiceTracker<LoggerAdmin, LoggerAdmin> laTracker = new ServiceTracker<>(bundleContext, LoggerAdmin.class, null);
 		laTracker.open();
 		loggerAdmin = laTracker.getService();
-		loggerAdmin.getLoggerContext(null).setLogLevels(Collections.singletonMap(Logger.ROOT_LOGGER_NAME, LogLevel.DEBUG));
-		servicesBundle = bundleContext.installBundle("services-one.jar" , getBundle("services-one.jar"));
-		servicesBundle.start();
-		cdiBundle = bundleContext.installBundle("basic-beans.jar" , getBundle("basic-beans.jar"));
 
+		Map<String, LogLevel> levels = new HashMap<>();
+		levels.put(Logger.ROOT_LOGGER_NAME, LogLevel.DEBUG);
+		levels.put("LogService", LogLevel.DEBUG);
+
+		loggerAdmin.getLoggerContext(null).setLogLevels(levels);
+		servicesBundle = installBundle("services-one.jar");
+		servicesBundle.start();
+	}
+
+	@Before
+	public void setUp() throws Exception {
 		runtimeTracker = new ServiceTracker<>(
 			bundleContext, CDIComponentRuntime.class, null);
 		runtimeTracker.open();
-
-		cdiBundle.start();
 		cdiRuntime = runtimeTracker.waitForService(timeout);
+
+		cdiBundle = installBundle("basic-beans.jar");
+		cdiBundle.start();
 	}
 
 	@After
 	public void tearDown() throws Exception {
 		runtimeTracker.close();
 		cdiBundle.uninstall();
-		servicesBundle.uninstall();
 	}
 
 	void assertBeanExists(Class<?> clazz, BeanManager beanManager) {
@@ -98,10 +106,8 @@ public class AbstractTestCase {
 		assertNotNull(pojo);
 	}
 
-	InputStream getBundle(String name) {
-		Class<?> clazz = this.getClass();
-
-		ClassLoader classLoader = clazz.getClassLoader();
+	static InputStream getBundle(String name) {
+		ClassLoader classLoader = AbstractTestCase.class.getClassLoader();
 
 		return classLoader.getResourceAsStream(name);
 	}
@@ -123,11 +129,11 @@ public class AbstractTestCase {
 		return null;
 	}
 
-	public Bundle installBundle(String url) throws Exception {
+	public static Bundle installBundle(String url) throws Exception {
 		return installBundle(url, true);
 	}
 
-	public Bundle installBundle(String bundleName, boolean start) throws Exception {
+	public static Bundle installBundle(String bundleName, boolean start) throws Exception {
 		Bundle b = bundleContext.installBundle(bundleName, getBundle(bundleName));
 
 		if (start) {
@@ -185,12 +191,12 @@ public class AbstractTestCase {
 	static final Bundle bundle = FrameworkUtil.getBundle(CdiBeanTests.class);
 	static final BundleContext bundleContext = bundle.getBundleContext();
 	static final long timeout = 5000;
+	static LoggerAdmin loggerAdmin;
+	static Bundle servicesBundle;
 
 	Bundle cdiBundle;
 	CDIComponentRuntime cdiRuntime;
-	LoggerAdmin loggerAdmin;
 	final PromiseFactory promiseFactory = new PromiseFactory(null);
 	ServiceTracker<CDIComponentRuntime, CDIComponentRuntime> runtimeTracker;
-	Bundle servicesBundle;
 
 }

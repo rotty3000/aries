@@ -219,17 +219,15 @@ public class DiscoveryExtension implements Extension {
 				ExtendedComponentTemplateDTO componentTemplate = new ExtendedComponentTemplateDTO();
 				componentTemplate.activations = new CopyOnWriteArrayList<>();
 
-				if (!serviceTypes.isEmpty()) {
-					ExtendedActivationTemplateDTO activationTemplate = new ExtendedActivationTemplateDTO();
-					activationTemplate.declaringClass = annotatedClass;
-					activationTemplate.properties = Collections.emptyMap();
-					activationTemplate.scope = getScope(annotated);
-					activationTemplate.serviceClasses = serviceTypes.stream().map(
-						st -> st.getName()
-					).collect(Collectors.toList());
+				ExtendedActivationTemplateDTO activationTemplate = new ExtendedActivationTemplateDTO();
+				activationTemplate.declaringClass = annotatedClass;
+				activationTemplate.properties = Collections.emptyMap();
+				activationTemplate.scope = getScope(annotated);
+				activationTemplate.serviceClasses = serviceTypes.stream().map(
+					st -> st.getName()
+				).collect(Collectors.toList());
 
-					componentTemplate.activations.add(activationTemplate);
-				}
+				componentTemplate.activations.add(activationTemplate);
 
 				componentTemplate.bean = pb.getBean();
 				componentTemplate.beans = new CopyOnWriteArrayList<>();
@@ -293,17 +291,15 @@ public class DiscoveryExtension implements Extension {
 				ExtendedComponentTemplateDTO componentTemplate = new ExtendedComponentTemplateDTO();
 				componentTemplate.activations = new CopyOnWriteArrayList<>();
 
-				if (!serviceTypes.isEmpty()) {
-					ExtendedActivationTemplateDTO activationTemplate = new ExtendedActivationTemplateDTO();
-					activationTemplate.declaringClass = annotatedClass;
-					activationTemplate.properties = Collections.emptyMap();
-					activationTemplate.scope = getScope(annotated);
-					activationTemplate.serviceClasses = serviceTypes.stream().map(
-						st -> st.getName()
-					).collect(Collectors.toList());
+				ExtendedActivationTemplateDTO activationTemplate = new ExtendedActivationTemplateDTO();
+				activationTemplate.declaringClass = annotatedClass;
+				activationTemplate.properties = Collections.emptyMap();
+				activationTemplate.scope = getScope(annotated);
+				activationTemplate.serviceClasses = serviceTypes.stream().map(
+					st -> st.getName()
+				).collect(Collectors.toList());
 
-					componentTemplate.activations.add(activationTemplate);
-				}
+				componentTemplate.activations.add(activationTemplate);
 
 				componentTemplate.bean = pb.getBean();
 				componentTemplate.beans = new CopyOnWriteArrayList<>();

@@ -16,10 +16,8 @@ package org.apache.aries.cdi.test.cases;
 
 import static org.junit.Assert.*;
 
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
 
 import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.inject.spi.Bean;
@@ -29,12 +27,10 @@ import javax.enterprise.util.AnnotationLiteral;
 import org.apache.aries.cdi.test.interfaces.BeanService;
 import org.apache.aries.cdi.test.interfaces.BundleContextBeanQualifier;
 import org.apache.aries.cdi.test.interfaces.FieldInjectedReference;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.ComponentType;
-import org.osgi.service.cdi.runtime.CDIComponentRuntime;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
@@ -45,9 +41,6 @@ public class CdiBeanTests extends AbstractTestCase {
 
 	@Test
 	public void testConstructorInjectedService() throws Exception {
-		CDIComponentRuntime runtime = runtimeTracker.waitForService(timeout);
-		assertNotNull(runtime);
-
 		ServiceTracker<BeanService, BeanService> tracker = track(
 			"(&(objectClass=%s)(objectClass=*.%s))",
 			BeanService.class.getName(),
@@ -61,9 +54,6 @@ public class CdiBeanTests extends AbstractTestCase {
 
 	@Test
 	public void testFieldInjectedReference_BundleScoped() throws Exception {
-		CDIComponentRuntime runtime = runtimeTracker.waitForService(timeout);
-		assertNotNull(runtime);
-
 		ServiceTracker<FieldInjectedReference, FieldInjectedReference> tracker = track(
 			"(&(objectClass=%s)(objectClass=*.%s))",
 			FieldInjectedReference.class.getName(),
@@ -83,9 +73,6 @@ public class CdiBeanTests extends AbstractTestCase {
 
 	@Test
 	public void testFieldInjectedReference_PrototypeScoped() throws Exception {
-		CDIComponentRuntime runtime = runtimeTracker.waitForService(timeout);
-		assertNotNull(runtime);
-
 		ServiceTracker<FieldInjectedReference, FieldInjectedReference> tracker = track(
 			"(&(objectClass=%s)(objectClass=*.%s))",
 			FieldInjectedReference.class.getName(),
@@ -105,9 +92,6 @@ public class CdiBeanTests extends AbstractTestCase {
 
 	@Test
 	public void testFieldInjectedService() throws Exception {
-		CDIComponentRuntime runtime = runtimeTracker.waitForService(timeout);
-		assertNotNull(runtime);
-
 		ServiceTracker<BeanService, BeanService> tracker = track(
 			"(&(objectClass=%s)(objectClass=*.%s))",
 			BeanService.class.getName(),
@@ -121,9 +105,6 @@ public class CdiBeanTests extends AbstractTestCase {
 
 	@Test
 	public void testMethodInjectedService() throws Exception {
-		CDIComponentRuntime runtime = runtimeTracker.waitForService(timeout);
-		assertNotNull(runtime);
-
 		ServiceTracker<BeanService, BeanService> tracker = track(
 			"(&(objectClass=%s)(objectClass=*.%s))",
 			BeanService.class.getName(),
@@ -134,7 +115,7 @@ public class CdiBeanTests extends AbstractTestCase {
 		assertNotNull(beanService);
 		assertEquals("PREFIXMETHOD", beanService.doSomething());
 
-		ContainerDTO containerDTO = runtime.getContainerDTO(cdiBundle);
+		ContainerDTO containerDTO = cdiRuntime.getContainerDTO(cdiBundle);
 		assertNotNull(containerDTO);
 
 		ComponentDTO containerComponentDTO = containerDTO.components.stream().filter(
@@ -152,9 +133,6 @@ public class CdiBeanTests extends AbstractTestCase {
 
 	@Test
 	public void testBeanAsServiceWithProperties() throws Exception {
-		CDIComponentRuntime runtime = runtimeTracker.waitForService(timeout);
-		assertNotNull(runtime);
-
 		ServiceTracker<BeanService, BeanService> tracker = track(
 			"(&(objectClass=%s)(objectClass=*.%s))",
 			BeanService.class.getName(),
@@ -231,9 +209,6 @@ public class CdiBeanTests extends AbstractTestCase {
 
 	@Test
 	public void testInstanceProperties() throws Exception {
-		CDIComponentRuntime runtime = runtimeTracker.waitForService(timeout);
-		assertNotNull(runtime);
-
 		ServiceTracker<BeanService, BeanService> tracker = track(
 			"(&(objectClass=%s)(objectClass=*.%s))",
 			BeanService.class.getName(),
@@ -249,43 +224,34 @@ public class CdiBeanTests extends AbstractTestCase {
 		assertEquals(100000, (int)map.get("service.ranking"));
 	}
 
-	@Ignore // This test doesn't make sense because there's only a single bean for the reference!!!
-	public void _testInstanceServiceReference() throws Exception {
-		Iterator<ServiceReference<BeanService>> iterator = bundleContext.getServiceReferences(
-			BeanService.class, String.format("(objectClass=*.%s)","Instance_ServiceReference")).iterator();
+	@Test
+	public void testInstanceServiceReference() throws Exception {
+		ServiceTracker<BeanService, BeanService> tracker = track(
+			"(&(objectClass=%s)(objectClass=*.%s))",
+			BeanService.class.getName(),
+			"Instance_ServiceReference");
 
-		assertTrue(iterator.hasNext());
+		BeanService beanService = tracker.waitForService(timeout);
 
-		ServiceReference<BeanService> serviceReference = iterator.next();
-
-		assertNotNull(serviceReference);
-
-		@SuppressWarnings("unchecked")
-		BeanService<ServiceReference<?>> bean = bundleContext.getService(serviceReference);
-
-		assertNotNull(bean);
-		assertEquals(3, Integer.decode(bean.doSomething()).intValue());
-		ServiceReference<?> sr = bean.get();
+		assertNotNull(beanService);
+		assertEquals(4, Integer.decode(beanService.doSomething()).intValue());
+		ServiceReference<?> sr = (ServiceReference<?>)beanService.get();
 		assertNotNull(sr);
+		assertEquals(4, (int)sr.getProperty("service.ranking"));
 	}
 
-	@Ignore // This test doesn't make sense because there's only a single bean for the reference!!!
-	public void _testInstance_Optional() throws Exception {
-		Iterator<ServiceReference<BeanService>> iterator = bundleContext.getServiceReferences(
-			BeanService.class, String.format("(objectClass=*.%s)","Instance_Optional")).iterator();
+	@Test
+	public void testInstance_Optional() throws Exception {
+		ServiceTracker<BeanService, BeanService> tracker = track(
+			"(&(objectClass=%s)(objectClass=*.%s))",
+			BeanService.class.getName(),
+			"Instance_Optional");
 
-		assertTrue(iterator.hasNext());
+		BeanService beanService = tracker.waitForService(timeout);
 
-		ServiceReference<BeanService> serviceReference = iterator.next();
-
-		assertNotNull(serviceReference);
-
-		@SuppressWarnings("unchecked")
-		BeanService<Callable<String>> bean = bundleContext.getService(serviceReference);
-
-		assertNotNull(bean);
-		assertEquals(0, Integer.decode(bean.doSomething()).intValue());
-		assertNull(bean.get());
+		assertNotNull(beanService);
+		assertEquals(0, Integer.decode(beanService.doSomething()).intValue());
+		assertNull(beanService.get());
 	}
 
 }

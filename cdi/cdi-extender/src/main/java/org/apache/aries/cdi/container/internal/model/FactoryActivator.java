@@ -31,7 +31,7 @@ public class FactoryActivator extends InstanceActivator {
 
 	@Override
 	public Op closeOp() {
-		return Op.of(Mode.CLOSE, Type.FACTORY_INSTANCE, instance.template.name);
+		return Op.of(Mode.CLOSE, Type.FACTORY_ACTIVATOR, instance.template.name);
 	}
 
 	@Override
@@ -41,7 +41,7 @@ public class FactoryActivator extends InstanceActivator {
 
 	@Override
 	public Op openOp() {
-		return Op.of(Mode.OPEN, Type.FACTORY_INSTANCE, instance.template.name);
+		return Op.of(Mode.OPEN, Type.FACTORY_ACTIVATOR, instance.template.name);
 	}
 
 }

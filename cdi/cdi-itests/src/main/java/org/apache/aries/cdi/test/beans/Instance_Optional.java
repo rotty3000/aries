@@ -42,7 +42,7 @@ public class Instance_Optional implements BeanService<Integer> {
 	}
 
 	@Inject
-	@Reference
+	@Reference(target = "(foo=bar)")
 	Collection<Integer> _instance;
 
 }

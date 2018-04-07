@@ -61,6 +61,7 @@ public class SingleActivator extends InstanceActivator {
 				_log.debug(l -> l.debug("CCR Unregistering service {} on {}", serviceRegistration.getReference(), bundle()));
 
 				serviceRegistration.unregister();
+				serviceRegistration = null;
 			}
 
 			instance.activations.removeIf(
@@ -204,12 +205,12 @@ public class SingleActivator extends InstanceActivator {
 
 	@Override
 	public Op closeOp() {
-		return Op.of(Mode.CLOSE, Op.Type.SINGLE_INSTANCE, instance.template.name);
+		return Op.of(Mode.CLOSE, Op.Type.SINGLE_ACTIVATOR, instance.template.name);
 	}
 
 	@Override
 	public Op openOp() {
-		return Op.of(Mode.OPEN, Op.Type.SINGLE_INSTANCE, instance.template.name);
+		return Op.of(Mode.OPEN, Op.Type.SINGLE_ACTIVATOR, instance.template.name);
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })

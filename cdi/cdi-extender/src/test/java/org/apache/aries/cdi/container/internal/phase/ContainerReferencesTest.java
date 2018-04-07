@@ -313,7 +313,7 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 
 		p0 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) op -> {
-				return op.mode == Op.Mode.OPEN && op.type == Op.Type.CONTAINER_INSTANCE;
+				return op.mode == Op.Mode.OPEN && op.type == Op.Type.CONTAINER_ACTIVATOR;
 			}
 		);
 
@@ -354,12 +354,12 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 
 		p0 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) op -> {
-				return op.mode == Op.Mode.CLOSE && op.type == Op.Type.CONTAINER_INSTANCE;
+				return op.mode == Op.Mode.CLOSE && op.type == Op.Type.CONTAINER_ACTIVATOR;
 			}
 		);
 		Promise<Boolean> p1 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) op -> {
-				return op.mode == Op.Mode.OPEN && op.type == Op.Type.CONTAINER_INSTANCE;
+				return op.mode == Op.Mode.OPEN && op.type == Op.Type.CONTAINER_ACTIVATOR;
 			}
 		);
 
@@ -456,7 +456,7 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 
 		p0 = containerState.addCallback(
 			(CheckedCallback<Boolean, Boolean>) op -> {
-				return op.mode == Op.Mode.OPEN && op.type == Op.Type.CONTAINER_INSTANCE;
+				return op.mode == Op.Mode.OPEN && op.type == Op.Type.CONTAINER_ACTIVATOR;
 			}
 		);
 

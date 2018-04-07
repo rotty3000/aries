@@ -82,6 +82,8 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 
 	@Override
 	public void configurationEvent(ConfigurationEvent event) {
+		_log.debug(l -> l.debug("CCR ConfigurationEvent {} on {}", event, bundle()));
+
 		next.map(next -> (Component)next).ifPresent(
 			next -> next.configurationTemplates().stream().filter(
 				t -> Predicates.isMatchingConfiguration(event).test(t)
@@ -94,11 +96,13 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 	@Override
 	public boolean open() {
 		_listenerService = containerState.bundleContext().registerService(
-			ConfigurationListener.class, this, null);
+			org.osgi.service.cm.ConfigurationListener.class, this, null);
 
 		return next.map(next -> (Component)next).map(
 			component -> {
-				component.configurationTemplates().forEach(
+				component.configurationTemplates().stream().filter(
+					ct -> Objects.nonNull(ct.pid)
+				).forEach(
 					template -> {
 						if (template.maximumCardinality == MaximumCardinality.ONE) {
 							containerState.findConfig(template.pid).ifPresent(
@@ -144,6 +148,11 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 	@Override
 	public Op openOp() {
 		return Op.of(Mode.OPEN, Type.CONFIGURATION_LISTENER, _component.template().name);
+	}
+
+	@Override
+	public String toString() {
+		return Arrays.asList(getClass().getSimpleName(), _component).toString();
 	}
 
 	private void processEvent(Component component, ConfigurationTemplateDTO t, ConfigurationEvent event) {
@@ -250,7 +259,7 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 
 	private static final Logger _log = Logs.getLogger(ConfigurationListener.class);
 
-	private volatile ServiceRegistration<ConfigurationListener> _listenerService;
+	private volatile ServiceRegistration<org.osgi.service.cm.ConfigurationListener> _listenerService;
 
 	private final Component _component;
 

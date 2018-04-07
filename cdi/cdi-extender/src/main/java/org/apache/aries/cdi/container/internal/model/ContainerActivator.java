@@ -48,7 +48,7 @@ public class ContainerActivator extends InstanceActivator {
 
 	@Override
 	public Op closeOp() {
-		return Op.of(Mode.CLOSE, Type.CONTAINER_INSTANCE, instance.template.name);
+		return Op.of(Mode.CLOSE, Type.CONTAINER_ACTIVATOR, instance.template.name);
 	}
 
 	@Override
@@ -78,7 +78,7 @@ public class ContainerActivator extends InstanceActivator {
 
 	@Override
 	public Op openOp() {
-		return Op.of(Mode.OPEN, Type.CONTAINER_INSTANCE, instance.template.name);
+		return Op.of(Mode.OPEN, Type.CONTAINER_ACTIVATOR, instance.template.name);
 	}
 
 	private static final Logger _log = Logs.getLogger(ContainerActivator.class);

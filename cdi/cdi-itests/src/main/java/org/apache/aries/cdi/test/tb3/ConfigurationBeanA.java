@@ -28,11 +28,13 @@ import org.osgi.service.cdi.ConfigurationPolicy;
 import org.osgi.service.cdi.annotations.ComponentPropertyType;
 import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.PID;
+import org.osgi.service.cdi.annotations.Service;
 import org.osgi.service.cdi.annotations.SingleComponent;
 
-@SingleComponent
-@PID(policy = ConfigurationPolicy.REQUIRED)
 @ConfigurationBeanA.Props
+@PID(policy = ConfigurationPolicy.REQUIRED)
+@Service(BeanService.class)
+@SingleComponent
 public class ConfigurationBeanA implements BeanService<Callable<int[]>> {
 
 	@Retention(RUNTIME) @Target(TYPE )

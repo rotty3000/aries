@@ -24,6 +24,9 @@ public class Predicates {
 
 		@Override
 		public boolean test(ConfigurationTemplateDTO t) {
+			if (t.pid == null) {
+				return false;
+			}
 			if (((t.maximumCardinality == MaximumCardinality.MANY) && t.pid.equals(event.getFactoryPid())) ||
 					((t.maximumCardinality == MaximumCardinality.ONE) && t.pid.equals(event.getPid()))) {
 				return true;

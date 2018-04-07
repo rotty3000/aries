@@ -1,5 +1,6 @@
 package org.apache.aries.cdi.container.internal.model;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
@@ -44,5 +45,10 @@ public abstract class Component extends Phase {
 	public abstract ComponentDTO snapshot();
 
 	public abstract ComponentTemplateDTO template();
+
+	@Override
+	public String toString() {
+		return Arrays.asList(getClass().getSimpleName(), template().name).toString();
+	}
 
 }

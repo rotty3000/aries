@@ -33,7 +33,6 @@ import org.apache.http.protocol.BasicHttpContext;
 import org.apache.http.protocol.HttpContext;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.ServiceReference;
@@ -43,7 +42,6 @@ import org.osgi.util.tracker.ServiceTracker;
 
 public class HttpTestCase extends AbstractTestCase {
 
-	@Ignore
 	@Test
 	public void testSessionScoped() throws Exception {
 		Bundle tb6Bundle = installBundle("tb6.jar");
@@ -108,6 +106,7 @@ public class HttpTestCase extends AbstractTestCase {
 		}
 	}
 
+	@Test
 	public void testRequestScopedWithReference() throws Exception {
 		Bundle tb6Bundle = installBundle("tb6.jar");
 		Bundle tb2Bundle = installBundle("tb2.jar");

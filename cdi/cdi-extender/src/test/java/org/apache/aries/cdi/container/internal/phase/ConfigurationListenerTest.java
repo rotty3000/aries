@@ -80,10 +80,11 @@ public class ConfigurationListenerTest extends BaseCDIBundleTest {
 		assertTrue(containerDTO.errors + "", containerDTO.errors.isEmpty());
 		assertNotNull(containerDTO.template);
 
-		final Filter filter = FrameworkUtil.createFilter("(objectClass=" + ConfigurationListener.class.getName() + ")");
+		final Filter filter = FrameworkUtil.createFilter("(objectClass=" + org.osgi.service.cm.ConfigurationListener.class.getName() + ")");
 
-		AtomicReference<ConfigurationListener> listener = new AtomicReference<>();
+		AtomicReference<org.osgi.service.cm.ConfigurationListener> listener = new AtomicReference<>();
 
+		int attempts = 100;
 		do {
 			TestUtil.serviceRegistrations.stream().filter(
 				reg ->
@@ -93,9 +94,9 @@ public class ConfigurationListenerTest extends BaseCDIBundleTest {
 			);
 
 			Thread.sleep(10);
-		} while(listener.get() == null);
+		} while(listener.get() == null && (attempts-- > 0));
 
-		p0.getValue();
+		p0.timeout(200).getValue();
 
 		final String pid = containerState.containerDTO().components.get(0).template.configurations.get(0).pid;
 
@@ -111,7 +112,7 @@ public class ConfigurationListenerTest extends BaseCDIBundleTest {
 		listener.get().configurationEvent(
 			new ConfigurationEvent(caTracker.getServiceReference(), ConfigurationEvent.CM_DELETED, null, pid));
 
-		p1.getValue();
+		p1.timeout(200).getValue();
 
 		assertNotNull(containerState.containerDTO().components.get(0).instances.get(0).properties);
 		assertNull(containerState.containerDTO().components.get(0).instances.get(0).properties.get("foo"));
@@ -125,7 +126,7 @@ public class ConfigurationListenerTest extends BaseCDIBundleTest {
 		listener.get().configurationEvent(
 			new ConfigurationEvent(caTracker.getServiceReference(), ConfigurationEvent.CM_UPDATED, null, pid));
 
-		p2.getValue();
+		p2.timeout(200).getValue();
 
 		assertNotNull(containerState.containerDTO().components.get(0).instances.get(0).properties);
 		assertEquals("bar", containerState.containerDTO().components.get(0).instances.get(0).properties.get("foo"));
@@ -139,7 +140,7 @@ public class ConfigurationListenerTest extends BaseCDIBundleTest {
 		listener.get().configurationEvent(
 			new ConfigurationEvent(caTracker.getServiceReference(), ConfigurationEvent.CM_UPDATED, null, "foo.config"));
 
-		p3.getValue();
+		p3.timeout(200).getValue();
 
 		Map<String, Object> properties = containerState.containerDTO().components.get(0).instances.get(0).properties;
 		assertNotNull(properties);
