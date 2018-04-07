@@ -15,13 +15,13 @@ import javax.enterprise.context.Destroyed;
 import javax.enterprise.context.Initialized;
 import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.inject.spi.Bean;
+import javax.enterprise.inject.spi.BeanManager;
 
 import org.apache.aries.cdi.container.internal.bean.ReferenceBean;
 import org.apache.aries.cdi.container.internal.container.ComponentContext.With;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.container.Op.Mode;
-import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.internal.util.SRs;
 import org.apache.aries.cdi.container.internal.util.Sets;
@@ -43,15 +43,25 @@ public class SingleActivator extends InstanceActivator {
 			super(containerState, null);
 		}
 
+		public Builder beanManager(BeanManager beanManager) {
+			this.beanManager = beanManager;
+			return this;
+		}
+
 		@Override
 		public SingleActivator build() {
+			Objects.requireNonNull(beanManager);
 			return new SingleActivator(this);
 		}
+
+		protected BeanManager beanManager;
 
 	}
 
 	private SingleActivator(Builder builder) {
 		super(builder);
+		_beanManager = builder.beanManager;
+		_log = containerState.containerLogs().getLogger(getClass());
 	}
 
 	@Override
@@ -98,7 +108,7 @@ public class SingleActivator extends InstanceActivator {
 					).ifPresent(
 						r -> {
 							ReferenceBean bean = t.bean;
-							bean.setBeanManager(instance.beanManager);
+							bean.setBeanManager(_beanManager);
 							bean.setReferenceDTO(r);
 						}
 					);
@@ -114,9 +124,9 @@ public class SingleActivator extends InstanceActivator {
 
 			ExtendedComponentTemplateDTO extended = (ExtendedComponentTemplateDTO)instance.template;
 
-			Set<Bean<?>> beans = instance.beanManager.getBeans(
+			Set<Bean<?>> beans = _beanManager.getBeans(
 				extended.bean.getBeanClass(), extended.bean.getQualifiers().toArray(new Annotation[0]));
-			Bean<? extends Object> bean = instance.beanManager.resolve(beans);
+			Bean<? extends Object> bean = _beanManager.resolve(beans);
 
 			if (activationTemplate.serviceClasses.isEmpty() /* immediate */) {
 				activate(bean, activationTemplate);
@@ -227,14 +237,14 @@ public class SingleActivator extends InstanceActivator {
 			try {
 				final Object object = containerState.componentContext().get(
 					(Bean)bean,
-					(CreationalContext)instance.beanManager.createCreationalContext(bean));
+					(CreationalContext)_beanManager.createCreationalContext(bean));
 				final Set<Annotation> qualifiers = bean.getQualifiers();
-				instance.beanManager.fireEvent(object, Sets.hashSet(qualifiers, Initialized.Literal.of(ComponentScoped.class)).toArray(new Annotation[0]));
+				_beanManager.fireEvent(object, Sets.hashSet(qualifiers, Initialized.Literal.of(ComponentScoped.class)).toArray(new Annotation[0]));
 				activationDTO.onClose = a -> {
 					try (With with2 = new With(a)) {
-						instance.beanManager.fireEvent(object, Sets.hashSet(qualifiers, BeforeDestroyed.Literal.of(ComponentScoped.class)).toArray(new Annotation[0]));
+						_beanManager.fireEvent(object, Sets.hashSet(qualifiers, BeforeDestroyed.Literal.of(ComponentScoped.class)).toArray(new Annotation[0]));
 						containerState.componentContext().destroy();
-						instance.beanManager.fireEvent(object, Sets.hashSet(qualifiers, Destroyed.Literal.of(ComponentScoped.class)).toArray(new Annotation[0]));
+						_beanManager.fireEvent(object, Sets.hashSet(qualifiers, Destroyed.Literal.of(ComponentScoped.class)).toArray(new Annotation[0]));
 						instance.activations.remove(a);
 					}
 				};
@@ -253,9 +263,9 @@ public class SingleActivator extends InstanceActivator {
 		return Arrays.asList(getClass().getSimpleName(), instance.ident()).toString();
 	}
 
-	private static final Logger _log = Logs.getLogger(SingleActivator.class);
-
-	private volatile ServiceRegistration<?> serviceRegistration;
+	private final BeanManager _beanManager;
 	private final Syncro _lock = new Syncro(true);
+	private final Logger _log;
+	private volatile ServiceRegistration<?> serviceRegistration;
 
 }

@@ -23,6 +23,7 @@ import org.apache.aries.cdi.container.internal.model.ContainerActivator;
 import org.apache.aries.cdi.container.internal.model.ContainerComponent;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceTemplateDTO;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.internal.util.SRs;
 import org.apache.aries.cdi.container.test.BaseCDIBundleTest;
@@ -47,7 +48,6 @@ import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.service.cdi.runtime.dto.ReferenceDTO;
 import org.osgi.service.cm.ConfigurationAdmin;
-import org.osgi.service.log.LoggerFactory;
 import org.osgi.util.converter.TypeReference;
 import org.osgi.util.promise.Promise;
 import org.osgi.util.promise.TimeoutException;
@@ -58,13 +58,12 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 	@Test
 	public void reference_tracking() throws Exception {
 		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = TestUtil.mockCaSt(bundle);
-		ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker = TestUtil.mockLoggerFactory(bundle);
 
 		MockConfiguration mockConfiguration = new MockConfiguration("foo.config", null);
 		mockConfiguration.update(Maps.dict("fiz", "buz"));
 		TestUtil.configurations.add(mockConfiguration);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, loggerTracker);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, new Logs.Builder(null).build());
 
 		ConfigurationListener configurationListener = new ConfigurationListener.Builder(containerState
 		).component(
@@ -250,13 +249,12 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		).thenReturn(attributes);
 
 		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = TestUtil.mockCaSt(bundle);
-		ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker = TestUtil.mockLoggerFactory(bundle);
 
 		MockConfiguration mockConfiguration = new MockConfiguration("foo.config", null);
 		mockConfiguration.update(Maps.dict("fiz", "buz"));
 		TestUtil.configurations.add(mockConfiguration);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, loggerTracker);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, new Logs.Builder(null).build());
 
 		ContainerComponent containerComponent = new ContainerComponent.Builder(containerState,
 			new ContainerActivator.Builder(containerState, null)
@@ -393,13 +391,12 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		).thenReturn(attributes);
 
 		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = TestUtil.mockCaSt(bundle);
-		ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker = TestUtil.mockLoggerFactory(bundle);
 
 		MockConfiguration mockConfiguration = new MockConfiguration("foo.config", null);
 		mockConfiguration.update(Maps.dict("fiz", "buz"));
 		TestUtil.configurations.add(mockConfiguration);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, loggerTracker);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, new Logs.Builder(null).build());
 
 		ContainerComponent containerComponent = new ContainerComponent.Builder(containerState,
 			new ContainerActivator.Builder(containerState, null)

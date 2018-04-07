@@ -17,7 +17,7 @@ public class LoggerExtension implements Extension {
 	}
 
 	void afterBeanDiscovery(@Observes AfterBeanDiscovery abd) {
-		LoggerFactory lf = _containerState.loggerTracker().getService();
+		final LoggerFactory lf = _containerState.containerLogs().getLoggerFactory();
 
 		BeanConfigurator<FormatterLogger> formatterLoggerBean = abd.addBean();
 		formatterLoggerBean.addType(FormatterLogger.class);
@@ -25,7 +25,6 @@ public class LoggerExtension implements Extension {
 			i -> {
 				InjectionPoint ip = i.select(InjectionPoint.class).get();
 				return lf.getLogger(
-					_containerState.bundle(),
 					ip.getMember().getDeclaringClass().getName(),
 					FormatterLogger.class);
 			}
@@ -37,7 +36,6 @@ public class LoggerExtension implements Extension {
 			i -> {
 				InjectionPoint ip = i.select(InjectionPoint.class).get();
 				return lf.getLogger(
-					_containerState.bundle(),
 					ip.getMember().getDeclaringClass().getName(),
 					Logger.class);
 			}

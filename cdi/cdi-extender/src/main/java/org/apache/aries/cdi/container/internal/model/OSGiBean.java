@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.aries.cdi.container.internal.bean.ConfigurationBean;
 import org.apache.aries.cdi.container.internal.bean.ReferenceBean;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Syncro;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
@@ -30,22 +31,23 @@ public class OSGiBean implements Comparable<OSGiBean> {
 
 	public static class Builder {
 
-		public Builder(Class<?> beanClass) {
+		public Builder(Logs logs, Class<?> beanClass) {
 			Objects.requireNonNull(beanClass);
+			_logs = logs;
 			_beanClass = beanClass;
 		}
 
 		public OSGiBean build() {
-			return new OSGiBean(_beanClass);
+			return new OSGiBean(_logs, _beanClass);
 		}
 
-		private Class<?> _beanClass;
+		private final Class<?> _beanClass;
+		private final Logs _logs;
 
 	}
 
-	private OSGiBean(
-		Class<?> beanClass) {
-
+	private OSGiBean(Logs logs, Class<?> beanClass) {
+		_logs = logs;
 		_beanClass = beanClass;
 	}
 
@@ -70,7 +72,7 @@ public class OSGiBean implements Comparable<OSGiBean> {
 			}
 			else {
 				((ExtendedReferenceTemplateDTO)dto).bean = new ReferenceBean(
-					_componentTemplate, (ExtendedReferenceTemplateDTO)dto);
+					_logs, _componentTemplate, (ExtendedReferenceTemplateDTO)dto);
 
 				_componentTemplate.references.add(dto);
 			}
@@ -122,7 +124,7 @@ public class OSGiBean implements Comparable<OSGiBean> {
 			_referencesQueue.removeIf(
 				dto -> {
 					((ExtendedReferenceTemplateDTO)dto).bean = new ReferenceBean(
-						_componentTemplate, (ExtendedReferenceTemplateDTO)dto);
+						_logs, _componentTemplate, (ExtendedReferenceTemplateDTO)dto);
 
 					_componentTemplate.references.add(dto);
 					return true;
@@ -140,6 +142,7 @@ public class OSGiBean implements Comparable<OSGiBean> {
 	}
 
 	private final Syncro _lock = new Syncro(true);
+	private final Logs _logs;
 	private final Class<?> _beanClass;
 	private final List<ConfigurationTemplateDTO> _configurationsQueue = new CopyOnWriteArrayList<>();
 	private final List<ReferenceTemplateDTO> _referencesQueue = new CopyOnWriteArrayList<>();

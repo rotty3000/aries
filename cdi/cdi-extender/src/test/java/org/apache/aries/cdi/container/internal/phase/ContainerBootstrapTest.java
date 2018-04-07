@@ -17,6 +17,7 @@ import org.apache.aries.cdi.container.internal.model.ContainerActivator;
 import org.apache.aries.cdi.container.internal.model.ExtendedComponentInstanceDTO;
 import org.apache.aries.cdi.container.internal.model.FactoryComponent;
 import org.apache.aries.cdi.container.internal.model.SingleComponent;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.test.BaseCDIBundleTest;
 import org.apache.aries.cdi.container.test.TestUtil;
 import org.apache.aries.cdi.container.test.beans.FooService;
@@ -27,7 +28,6 @@ import org.osgi.service.cdi.CDIConstants;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.service.cm.ConfigurationAdmin;
-import org.osgi.service.log.LoggerFactory;
 import org.osgi.util.promise.Promise;
 import org.osgi.util.tracker.ServiceTracker;
 
@@ -52,22 +52,12 @@ public class ContainerBootstrapTest extends BaseCDIBundleTest {
 		).thenReturn(attributes);
 
 		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = TestUtil.mockCaSt(bundle);
-		ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker = TestUtil.mockLoggerFactory(bundle);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, loggerTracker);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, new Logs.Builder(null).build());
 
 		ComponentDTO componentDTO = new ComponentDTO();
 		componentDTO.instances = new CopyOnWriteArrayList<>();
 		componentDTO.template = containerState.containerDTO().template.components.get(0);
-
-		ExtendedComponentInstanceDTO componentInstanceDTO = new ExtendedComponentInstanceDTO();
-		componentInstanceDTO.activations = new CopyOnWriteArrayList<>();
-		componentInstanceDTO.configurations = new CopyOnWriteArrayList<>();
-		componentInstanceDTO.containerState = containerState;
-		componentInstanceDTO.pid = componentDTO.template.configurations.get(0).pid;
-		componentInstanceDTO.properties = null;
-		componentInstanceDTO.references = new CopyOnWriteArrayList<>();
-		componentInstanceDTO.template = componentDTO.template;
 
 		ContainerBootstrap containerBootstrap = new ContainerBootstrap(
 			containerState,
@@ -75,7 +65,13 @@ public class ContainerBootstrapTest extends BaseCDIBundleTest {
 			new SingleComponent.Builder(containerState, null),
 			new FactoryComponent.Builder(containerState, null));
 
-		componentInstanceDTO.builder = new ContainerActivator.Builder(containerState, containerBootstrap);
+		ExtendedComponentInstanceDTO componentInstanceDTO = new ExtendedComponentInstanceDTO(containerState, new ContainerActivator.Builder(containerState, containerBootstrap));
+		componentInstanceDTO.activations = new CopyOnWriteArrayList<>();
+		componentInstanceDTO.configurations = new CopyOnWriteArrayList<>();
+		componentInstanceDTO.pid = componentDTO.template.configurations.get(0).pid;
+		componentInstanceDTO.properties = null;
+		componentInstanceDTO.references = new CopyOnWriteArrayList<>();
+		componentInstanceDTO.template = componentDTO.template;
 
 		componentDTO.instances.add(componentInstanceDTO);
 

@@ -9,7 +9,6 @@ import org.apache.aries.cdi.container.internal.model.ExtendedReferenceTemplateDT
 import org.apache.aries.cdi.container.internal.model.InstanceActivator;
 import org.apache.aries.cdi.container.internal.model.ReferenceEventImpl;
 import org.apache.aries.cdi.container.internal.util.Conversions;
-import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.internal.util.SRs;
 import org.osgi.framework.ServiceReference;
@@ -22,15 +21,17 @@ import org.osgi.util.tracker.ServiceTrackerCustomizer;
 public class ReferenceSync implements ServiceTrackerCustomizer<Object, Object> {
 
 	public ReferenceSync(
+		ContainerState containerState,
 		ExtendedReferenceDTO referenceDTO,
 		ExtendedComponentInstanceDTO componentInstanceDTO,
 		InstanceActivator.Builder<?> builder) {
 
+		_containerState = containerState;
 		_referenceDTO = referenceDTO;
 		_componentInstanceDTO = componentInstanceDTO;
-		_containerState = _componentInstanceDTO.containerState;
 		_builder = builder;
 		_template = (ExtendedReferenceTemplateDTO)_referenceDTO.template;
+		_log = _containerState.containerLogs().getLogger(getClass());
 	}
 
 	@Override
@@ -50,7 +51,7 @@ public class ReferenceSync implements ServiceTrackerCustomizer<Object, Object> {
 
 		try {
 			if (collectionType == CollectionType.OBSERVER) {
-				ReferenceEventImpl<Object> event = new ReferenceEventImpl<>(_containerState.bundleContext());
+				ReferenceEventImpl<Object> event = new ReferenceEventImpl<>(_containerState);
 				event.addingService(reference);
 				return event;
 			}
@@ -185,11 +186,10 @@ public class ReferenceSync implements ServiceTrackerCustomizer<Object, Object> {
 		);
 	}
 
-	private static final Logger _log = Logs.getLogger(ReferenceSync.class);
-
 	private final InstanceActivator.Builder<?> _builder;
 	private final ExtendedComponentInstanceDTO _componentInstanceDTO;
 	private final ContainerState _containerState;
+	private final Logger _log;
 	private final ExtendedReferenceDTO _referenceDTO;
 	private volatile String _string;
 	private final ExtendedReferenceTemplateDTO _template;

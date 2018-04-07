@@ -12,7 +12,6 @@ import org.apache.aries.cdi.container.internal.model.Component;
 import org.apache.aries.cdi.container.internal.model.ExtendedComponentInstanceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationDTO;
 import org.apache.aries.cdi.container.internal.model.FactoryActivator;
-import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.internal.util.Predicates;
 import org.osgi.framework.ServiceRegistration;
@@ -51,6 +50,7 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 
 		super(containerState, component);
 		_component = component;
+		_log = containerState.containerLogs().getLogger(getClass());
 	}
 
 	@Override
@@ -200,15 +200,13 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 						instance -> event.getPid().equals(instance.pid)
 					).findFirst().isPresent()) {
 
-					ExtendedComponentInstanceDTO instanceDTO = new ExtendedComponentInstanceDTO();
+					ExtendedComponentInstanceDTO instanceDTO = new ExtendedComponentInstanceDTO(containerState, new FactoryActivator.Builder(containerState));
 					instanceDTO.activations = new CopyOnWriteArrayList<>();
 					instanceDTO.configurations = new CopyOnWriteArrayList<>();
-					instanceDTO.containerState = containerState;
 					instanceDTO.pid = event.getPid();
 					instanceDTO.properties = null;
 					instanceDTO.references = new CopyOnWriteArrayList<>();
 					instanceDTO.template = component.template();
-					instanceDTO.builder = new FactoryActivator.Builder(containerState);
 
 					if (instances.add(instanceDTO)) {
 						instanceDTO.open();
@@ -257,10 +255,10 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 		);
 	}
 
-	private static final Logger _log = Logs.getLogger(ConfigurationListener.class);
 
 	private volatile ServiceRegistration<org.osgi.service.cm.ConfigurationListener> _listenerService;
 
 	private final Component _component;
+	private final Logger _log;
 
 }

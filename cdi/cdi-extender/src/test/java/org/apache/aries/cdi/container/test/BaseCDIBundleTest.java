@@ -9,6 +9,7 @@ import java.util.concurrent.Executors;
 
 import org.apache.aries.cdi.container.internal.CCR;
 import org.apache.aries.cdi.container.internal.ChangeCount;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.junit.Before;
 import org.osgi.framework.Bundle;
@@ -37,7 +38,7 @@ public class BaseCDIBundleTest {
 		TestUtil.serviceListeners.clear();
 		TestUtil.serviceRegistrations.clear();
 		promiseFactory = new PromiseFactory(Executors.newFixedThreadPool(1));
-		ccr = new CCR(promiseFactory);
+		ccr = new CCR(promiseFactory, new Logs.Builder(null).build());
 		ccrChangeCount = new ChangeCount();
 
 		BundleDTO ccrBundleDTO = new BundleDTO();

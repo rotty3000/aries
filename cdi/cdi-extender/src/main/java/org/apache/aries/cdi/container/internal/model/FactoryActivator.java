@@ -1,5 +1,7 @@
 package org.apache.aries.cdi.container.internal.model;
 
+import javax.enterprise.inject.spi.BeanManager;
+
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.container.Op.Mode;
@@ -13,10 +15,17 @@ public class FactoryActivator extends InstanceActivator {
 			super(containerState, null);
 		}
 
+		public Builder beanManager(BeanManager beanManager) {
+			this.beanManager = beanManager;
+			return this;
+		}
+
 		@Override
 		public FactoryActivator build() {
 			return new FactoryActivator(this);
 		}
+
+		protected BeanManager beanManager;
 
 	}
 

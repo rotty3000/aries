@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.test.BaseCDIBundleTest;
 import org.apache.aries.cdi.container.test.TestUtil;
@@ -36,7 +37,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 
 	@Test
 	public void components_simple() throws Exception {
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, null);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(null).build());
 
 		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
@@ -110,7 +111,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 						0).getRequirement().getAttributes()
 		).thenReturn(attributes);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, null);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(null).build());
 
 		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
@@ -195,7 +196,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 						0).getRequirement().getAttributes()
 		).thenReturn(attributes);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, null);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(null).build());
 
 		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
@@ -422,7 +423,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 						0).getRequirement().getAttributes()
 		).thenReturn(attributes);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, null);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(null).build());
 
 		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);

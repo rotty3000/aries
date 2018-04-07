@@ -59,12 +59,14 @@ import org.osgi.service.log.Logger;
 public class ReferenceBean implements Bean<Object> {
 
 	public ReferenceBean(
+		Logs logs,
 		ComponentTemplateDTO component,
 		ExtendedReferenceTemplateDTO template) {
 
 		_component = component;
 		_template = template;
 
+		_log = logs.getLogger(getClass());
 		_qualifiers = Sets.hashSet(Reference.Literal.of(Object.class, ""), Default.Literal.INSTANCE);
 		_types = Sets.hashSet(_template.injectionPointType, Object.class);
 	}
@@ -259,14 +261,13 @@ public class ReferenceBean implements Bean<Object> {
 		return _string;
 	}
 
-	private static final Logger _log = Logs.getLogger(ReferenceBean.class);
-
 	private volatile BeanManager _bm;
 	private final ComponentTemplateDTO _component;
+	private final Logger _log;
 	private final Set<Annotation> _qualifiers;
-	private final ExtendedReferenceTemplateDTO _template;
-	private final Set<Type> _types;
 	private volatile ExtendedReferenceDTO _snapshot;
 	private volatile String _string;
+	private final ExtendedReferenceTemplateDTO _template;
+	private final Set<Type> _types;
 
 }

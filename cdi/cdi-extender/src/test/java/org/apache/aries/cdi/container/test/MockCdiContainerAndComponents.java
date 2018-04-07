@@ -25,6 +25,7 @@ import org.apache.aries.cdi.container.internal.container.ExtensionPhase;
 import org.apache.aries.cdi.container.internal.container.Phase;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
 import org.apache.aries.cdi.container.internal.model.OSGiBean;
+import org.apache.aries.cdi.container.internal.util.Logs;
 
 public class MockCdiContainerAndComponents implements AutoCloseable {
 
@@ -34,7 +35,7 @@ public class MockCdiContainerAndComponents implements AutoCloseable {
 		for (String className : beanClasses) {
 			Class<?> clazz = Class.forName(className);
 
-			beans.put(className, new OSGiBean.Builder(clazz).build());
+			beans.put(className, new OSGiBean.Builder(new Logs.Builder(null).build(), clazz).build());
 		}
 
 		_beansModel = new BeansModel(beans, Collections.emptyList());

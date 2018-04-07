@@ -32,10 +32,10 @@ public abstract class InstanceActivator extends Phase {
 		}
 
 		private ContainerState _containerState;
-		private Phase _next;
 		private ExtendedComponentInstanceDTO _instance;
-		private ExtendedReferenceDTO _referenceDTO;
+		private Phase _next;
 		private ServiceReference<Object> _reference;
+		private ExtendedReferenceDTO _referenceDTO;
 	}
 
 	protected InstanceActivator(Builder<?> builder) {
@@ -46,8 +46,10 @@ public abstract class InstanceActivator extends Phase {
 		this.reference = builder._reference;
 	}
 
+	@Override
 	public abstract Op closeOp();
 
+	@Override
 	public abstract Op openOp();
 
 	protected final ExtendedComponentInstanceDTO instance;

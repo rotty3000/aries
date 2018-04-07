@@ -64,6 +64,7 @@ public class JndiExtensionTests extends AbstractTestCase {
 
 		extensionBundle.stop();
 
+		Thread.sleep(1000); // <-- TODO fix this...
 		assertNull(getBeanManager(cdiBundle));
 
 		extensionBundle.start();

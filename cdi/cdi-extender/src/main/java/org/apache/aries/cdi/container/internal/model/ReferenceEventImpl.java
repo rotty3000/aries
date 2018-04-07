@@ -22,8 +22,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
+import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.ReferenceServiceObjectsImpl;
-import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
@@ -33,7 +33,7 @@ import org.osgi.service.log.Logger;
 
 public class ReferenceEventImpl<T> implements ReferenceEvent<T> {
 
-	private final BundleContext _bundleContext;
+	private final ContainerState _containerState;
 	private final List<ServiceReference<T>> _queue = new CopyOnWriteArrayList<>();
 	private final AtomicBoolean _enqueue = new AtomicBoolean(true);
 	private List<Consumer<T>> onAdding = new CopyOnWriteArrayList<>();
@@ -55,8 +55,9 @@ public class ReferenceEventImpl<T> implements ReferenceEvent<T> {
 	private volatile T service;
 	private volatile ReferenceServiceObjects<T> serviceObjects;
 
-	public ReferenceEventImpl(BundleContext bundleContext) {
-		_bundleContext = bundleContext;
+	public ReferenceEventImpl(ContainerState containerState) {
+		_containerState = containerState;
+		_log = _containerState.containerLogs().getLogger(getClass());
 	}
 
 	public ReferenceEventImpl<T> addingService(ServiceReference<T> reference) {
@@ -65,8 +66,9 @@ public class ReferenceEventImpl<T> implements ReferenceEvent<T> {
 			return this;
 		}
 
-		service = _bundleContext.getService(reference);
-		serviceObjects = new ReferenceServiceObjectsImpl<T>(_bundleContext.getServiceObjects(reference));
+		BundleContext bundleContext = _containerState.bundleContext();
+		service = bundleContext.getService(reference);
+		serviceObjects = new ReferenceServiceObjectsImpl<T>(bundleContext.getServiceObjects(reference));
 		Map<String, Object> map = Maps.of(reference.getProperties());
 		Entry<Map<String, ?>, T> tuple = new AbstractMap.SimpleImmutableEntry<>(map, service);
 
@@ -349,6 +351,6 @@ public class ReferenceEventImpl<T> implements ReferenceEvent<T> {
 		onRemoveTuple.add(consumer);
 	}
 
-	private static final Logger _log = Logs.getLogger(ReferenceEventImpl.class);
+	private final Logger _log;
 
 }

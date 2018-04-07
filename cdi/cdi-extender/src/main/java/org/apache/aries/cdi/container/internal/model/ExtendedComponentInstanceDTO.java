@@ -11,15 +11,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import javax.enterprise.inject.spi.BeanManager;
-
-import org.apache.aries.cdi.container.internal.bean.ReferenceBean;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.container.Op.Mode;
 import org.apache.aries.cdi.container.internal.container.Op.Type;
 import org.apache.aries.cdi.container.internal.container.ReferenceSync;
-import org.apache.aries.cdi.container.internal.util.Logs;
 import org.osgi.framework.Constants;
 import org.osgi.service.cdi.ConfigurationPolicy;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
@@ -34,17 +30,27 @@ import org.osgi.util.tracker.ServiceTracker;
 public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 
 	public boolean active;
-	public BeanManager beanManager;
-	public InstanceActivator.Builder<?> builder;
-	public Long componentId = _componentIds.incrementAndGet();
-	public ContainerState containerState;
 	public String pid;
 	public ComponentTemplateDTO template;
-	public List<ReferenceBean> _referenceBeans = new CopyOnWriteArrayList<>();
+
+	private final InstanceActivator.Builder<?> _builder;
+	private final Long _componentId = _componentIds.incrementAndGet();
+	private final ContainerState _containerState;
+	private final Logger _log;
 	private final AtomicReference<InstanceActivator> _noRequiredDependenciesActivator = new AtomicReference<>();
 
+	public ExtendedComponentInstanceDTO(
+		ContainerState containerState,
+		InstanceActivator.Builder<?> builder) {
+
+		_containerState = containerState;
+		_builder = builder;
+
+		_log = _containerState.containerLogs().getLogger(getClass());
+	}
+
 	public boolean close() {
-		containerState.submit(Op.of(Mode.CLOSE, Type.REFERENCES, template.name),
+		_containerState.submit(Op.of(Mode.CLOSE, Type.REFERENCES, template.name),
 			() -> {
 				references.removeIf(
 					r -> {
@@ -55,14 +61,14 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 				);
 
 				if (_noRequiredDependenciesActivator.get() != null) {
-					containerState.submit(
+					_containerState.submit(
 						_noRequiredDependenciesActivator.get().closeOp(),
 						() -> _noRequiredDependenciesActivator.get().close()
 					).onFailure(
 						f -> {
 							_log.error(l -> l.error("CCR Error in CLOSE on {}", ident(), f));
 
-							containerState.error(f);
+							_containerState.error(f);
 						}
 					);
 				}
@@ -143,15 +149,15 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 				referenceDTO.targetFilter = targetFilter(t.serviceType, t.name, t.targetFilter);
 				referenceDTO.template = t;
 				referenceDTO.serviceTracker = new ServiceTracker<>(
-					containerState.bundleContext(),
+					_containerState.bundleContext(),
 					asFilter(referenceDTO.targetFilter),
-					new ReferenceSync(referenceDTO, this, builder));
+					new ReferenceSync(_containerState, referenceDTO, this, _builder));
 
 				references.add(referenceDTO);
 			}
 		);
 
-		containerState.submit(
+		_containerState.submit(
 			Op.of(Mode.OPEN, Type.REFERENCES, template.name),
 			() -> {
 				references.stream().map(ExtendedReferenceDTO.class::cast).forEach(
@@ -164,16 +170,16 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 			s -> {
 				if (s.getValue()) {
 					// none of the reference dependencies are required
-					_noRequiredDependenciesActivator.set(builder.setInstance(this).build());
+					_noRequiredDependenciesActivator.set(_builder.setInstance(this).build());
 
-					return containerState.submit(
+					return _containerState.submit(
 						_noRequiredDependenciesActivator.get().openOp(),
 						() -> _noRequiredDependenciesActivator.get().open()
 					).onFailure(
 						f -> {
 							_log.error(l -> l.error("CCR Error in OPEN on {}", ident(), f));
 
-							containerState.error(f);
+							_containerState.error(f);
 						}
 					);
 				}
@@ -216,7 +222,7 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 		}
 
 		props.put(Constants.SERVICE_PID, servicePids);
-		props.put("component.id", componentId);
+		props.put("component.id", _componentId);
 		props.put("component.name", template.name);
 
 		return props;
@@ -255,10 +261,9 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 	}
 
 	public String ident() {
-		return template.name + "[" + componentId + "]";
+		return template.name + "[" + _componentId + "]";
 	}
 
-	private static Logger _log = Logs.getLogger(ExtendedComponentInstanceDTO.class);
 	private static final AtomicLong _componentIds = new AtomicLong();
 
 }

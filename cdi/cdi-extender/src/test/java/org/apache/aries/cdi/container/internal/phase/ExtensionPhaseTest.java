@@ -13,6 +13,7 @@ import javax.enterprise.inject.spi.Extension;
 import org.apache.aries.cdi.container.internal.container.CDIBundle;
 import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.ExtensionPhase;
+import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.test.BaseCDIBundleTest;
 import org.apache.aries.cdi.container.test.MockServiceRegistration;
@@ -43,7 +44,7 @@ public class ExtensionPhaseTest extends BaseCDIBundleTest {
 						0).getRequirement().getAttributes()
 		).thenReturn(attributes);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, null);
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(null).build());
 
 		CDIBundle cdiBundle = new CDIBundle(
 			ccr, containerState,

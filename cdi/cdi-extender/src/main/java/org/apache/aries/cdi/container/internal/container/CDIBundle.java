@@ -16,7 +16,6 @@ package org.apache.aries.cdi.container.internal.container;
 
 import org.apache.aries.cdi.container.internal.CCR;
 import org.apache.aries.cdi.container.internal.container.Op.Mode;
-import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.felix.utils.extender.Extension;
 import org.osgi.service.log.Logger;
 
@@ -25,6 +24,7 @@ public class CDIBundle extends Phase implements Extension {
 	public CDIBundle(CCR ccr, ContainerState containerState, Phase next) {
 		super(containerState, next);
 		_ccr = ccr;
+		_log = containerState.containerLogs().getLogger(getClass());
 	}
 
 	@Override
@@ -97,8 +97,8 @@ public class CDIBundle extends Phase implements Extension {
 		);
 	}
 
-	private static final Logger _log = Logs.getLogger(CDIBundle.class);
 
 	private final CCR _ccr;
+	private final Logger _log;
 
 }

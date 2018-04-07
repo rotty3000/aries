@@ -37,8 +37,9 @@ import org.osgi.util.promise.PromiseFactory;
 
 public class CCR implements CDIComponentRuntime {
 
-	public CCR(PromiseFactory promiseFactory) {
+	public CCR(PromiseFactory promiseFactory, Logs logs) {
 		_promiseFactory = promiseFactory;
+		_log = logs.getLogger(getClass());
 	}
 
 	public void add(Bundle bundle, ContainerState containerState) {
@@ -115,8 +116,8 @@ public class CCR implements CDIComponentRuntime {
 		}
 	}
 
-	private static final Logger _log = Logs.getLogger(CCR.class);
 
+	private final Logger _log;
 	private final PromiseFactory _promiseFactory;
 	private final Map<Bundle, ContainerState> _states = new ConcurrentHashMap<>();
 

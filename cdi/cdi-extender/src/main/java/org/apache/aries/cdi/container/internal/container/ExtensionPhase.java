@@ -29,7 +29,6 @@ import org.apache.aries.cdi.container.internal.container.Op.Type;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionTemplateDTO;
 import org.apache.aries.cdi.container.internal.util.Conversions;
-import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.SRs;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.Filter;
@@ -44,6 +43,7 @@ public class ExtensionPhase extends Phase {
 
 	public ExtensionPhase(ContainerState containerState, Phase next) {
 		super(containerState, next);
+		_log = containerState.containerLogs().getLogger(getClass());
 	}
 
 	@Override
@@ -138,9 +138,9 @@ public class ExtensionPhase extends Phase {
 		return containerState.containerDTO().extensions;
 	}
 
-	private static final Logger _log = Logs.getLogger(ExtensionPhase.class);
 
 	private ServiceTracker<Extension, ExtendedExtensionDTO> _extensionTracker;
+	private final Logger _log;
 	private final SortedSet<ExtendedExtensionDTO> _references = new ConcurrentSkipListSet<>(
 		(e1, e2) -> e1.serviceReference.compareTo(e2.serviceReference)
 	);

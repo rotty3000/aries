@@ -8,7 +8,6 @@ import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.container.Op.Mode;
 import org.apache.aries.cdi.container.internal.container.Op.Type;
-import org.apache.aries.cdi.container.internal.util.Logs;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
@@ -34,21 +33,21 @@ public class ContainerComponent extends Component {
 	protected ContainerComponent(Builder builder) {
 		super(builder);
 
+		_log = containerState.containerLogs().getLogger(getClass());
+
 		_template = builder._templateDTO;
 
 		_snapshot = new ComponentDTO();
 		_snapshot.instances = new CopyOnWriteArrayList<>();
 		_snapshot.template = _template;
 
-		_instanceDTO = new ExtendedComponentInstanceDTO();
+		_instanceDTO = new ExtendedComponentInstanceDTO(containerState, builder._activatorBuilder);
 		_instanceDTO.activations = new CopyOnWriteArrayList<>();
 		_instanceDTO.configurations = new CopyOnWriteArrayList<>();
-		_instanceDTO.containerState = containerState;
 		_instanceDTO.pid = _template.configurations.get(0).pid;
 		_instanceDTO.properties = null;
 		_instanceDTO.references = new CopyOnWriteArrayList<>();
 		_instanceDTO.template = _template;
-		_instanceDTO.builder = builder._activatorBuilder;
 
 		_snapshot.instances.add(_instanceDTO);
 
@@ -107,9 +106,9 @@ public class ContainerComponent extends Component {
 		return _template;
 	}
 
-	private static final Logger _log = Logs.getLogger(ContainerComponent.class);
 
 	private final ExtendedComponentInstanceDTO _instanceDTO;
+	private final Logger _log;
 	private final ComponentDTO _snapshot;
 	private final ComponentTemplateDTO _template;
 

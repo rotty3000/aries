@@ -64,7 +64,6 @@
 -runproperties: \
 	logback.configurationFile=file:${.}/logback.xml,\
 	org.jboss.logging.provider=slf4j,\
-	eclipse.consoleLog=true,\
 	org.osgi.service.http.port=8080,\
 	osgi.console.enable.builtin=false, \
 	osgi.console=

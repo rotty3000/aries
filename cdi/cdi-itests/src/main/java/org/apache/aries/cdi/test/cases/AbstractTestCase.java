@@ -67,9 +67,8 @@ public class AbstractTestCase {
 
 		Map<String, LogLevel> levels = new HashMap<>();
 		levels.put(Logger.ROOT_LOGGER_NAME, LogLevel.DEBUG);
-		levels.put("LogService", LogLevel.DEBUG);
-
 		loggerAdmin.getLoggerContext(null).setLogLevels(levels);
+
 		servicesBundle = installBundle("services-one.jar");
 		servicesBundle.start();
 	}

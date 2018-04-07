@@ -10,7 +10,6 @@ import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.container.Op.Mode;
 import org.apache.aries.cdi.container.internal.container.Op.Type;
-import org.apache.aries.cdi.container.internal.util.Logs;
 import org.osgi.service.cdi.MaximumCardinality;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
@@ -26,8 +25,8 @@ public class FactoryComponent extends Component {
 			super(containerState, activatorBuilder);
 		}
 
-		public Builder beanManager(BeanManager bm) {
-			_bm = bm;
+		public Builder beanManager(BeanManager beanManager) {
+			((FactoryActivator.Builder)_activatorBuilder).beanManager(beanManager);
 			return this;
 		}
 
@@ -36,12 +35,12 @@ public class FactoryComponent extends Component {
 			return new FactoryComponent(this);
 		}
 
-		private BeanManager _bm;
-
 	}
 
 	protected FactoryComponent(Builder builder) {
 		super(builder);
+
+		_log = containerState.containerLogs().getLogger(getClass());
 
 		_template = builder._templateDTO;
 
@@ -58,16 +57,13 @@ public class FactoryComponent extends Component {
 				containerState.findConfigs(t.pid, true).ifPresent(
 					arr -> Arrays.stream(arr).forEach(
 						c -> {
-							ExtendedComponentInstanceDTO instanceDTO = new ExtendedComponentInstanceDTO();
+							ExtendedComponentInstanceDTO instanceDTO = new ExtendedComponentInstanceDTO(containerState, builder._activatorBuilder);
 							instanceDTO.activations = new CopyOnWriteArrayList<>();
-							instanceDTO.beanManager = builder._bm;
 							instanceDTO.configurations = new CopyOnWriteArrayList<>();
-							instanceDTO.containerState = containerState;
 							instanceDTO.pid = c.getPid();
 							instanceDTO.properties = null;
 							instanceDTO.references = new CopyOnWriteArrayList<>();
 							instanceDTO.template = builder._templateDTO;
-							instanceDTO.builder = builder._activatorBuilder;
 
 							_snapshot.instances.add(instanceDTO);
 						}
@@ -141,8 +137,7 @@ public class FactoryComponent extends Component {
 		return _template;
 	}
 
-	private static final Logger _log = Logs.getLogger(FactoryComponent.class);
-
+	private final Logger _log;
 	private final ComponentDTO _snapshot;
 	private final ComponentTemplateDTO _template;
 

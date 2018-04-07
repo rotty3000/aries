@@ -58,7 +58,6 @@ import org.apache.aries.cdi.container.internal.model.FactoryComponent;
 import org.apache.aries.cdi.container.internal.model.OSGiBean;
 import org.apache.aries.cdi.container.internal.model.ReferenceModel;
 import org.apache.aries.cdi.container.internal.model.SingleComponent;
-import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.internal.util.SRs;
 import org.osgi.framework.Bundle;
@@ -85,9 +84,11 @@ public class RuntimeExtension implements Extension {
 		SingleComponent.Builder singleBuilder,
 		FactoryComponent.Builder factoryBuilder) {
 
+		_containerState = containerState;
+
+		_log = _containerState.containerLogs().getLogger(getClass());
 		_log.debug(l -> l.debug("CCR RuntimeExtension {}", containerState.bundle()));
 
-		_containerState = containerState;
 		_configurationBuilder = configurationBuilder;
 		_singleBuilder = singleBuilder;
 		_factoryBuilder = factoryBuilder;
@@ -465,14 +466,13 @@ public class RuntimeExtension implements Extension {
 		return true;
 	}
 
-	private static final Logger _log = Logs.getLogger(RuntimeExtension.class);
-
 	private final ComponentDTO _componentDTO;
 	private final ConfigurationListener.Builder _configurationBuilder;
 	private final List<ConfigurationListener> _configurationListeners = new CopyOnWriteArrayList<>();
 	private final ContainerState _containerState;
 	private final FactoryComponent.Builder _factoryBuilder;
 	private final ExtendedComponentInstanceDTO _instanceDTO;
+	private final Logger _log;
 	private final List<ServiceRegistration<?>> _registrations = new CopyOnWriteArrayList<>();
 	private final SingleComponent.Builder _singleBuilder;
 

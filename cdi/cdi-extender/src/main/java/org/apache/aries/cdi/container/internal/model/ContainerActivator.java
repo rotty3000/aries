@@ -5,7 +5,6 @@ import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.container.Op.Mode;
 import org.apache.aries.cdi.container.internal.container.Op.Type;
-import org.apache.aries.cdi.container.internal.util.Logs;
 import org.osgi.service.log.Logger;
 
 public class ContainerActivator extends InstanceActivator {
@@ -25,6 +24,7 @@ public class ContainerActivator extends InstanceActivator {
 
 	private ContainerActivator(Builder builder) {
 		super(builder);
+		_log = containerState.containerLogs().getLogger(getClass());
 	}
 
 	@Override
@@ -81,6 +81,6 @@ public class ContainerActivator extends InstanceActivator {
 		return Op.of(Mode.OPEN, Type.CONTAINER_ACTIVATOR, instance.template.name);
 	}
 
-	private static final Logger _log = Logs.getLogger(ContainerActivator.class);
+	private final Logger _log;
 
 }

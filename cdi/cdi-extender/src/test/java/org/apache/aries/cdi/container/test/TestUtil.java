@@ -62,7 +62,6 @@ import org.osgi.namespace.extender.ExtenderNamespace;
 import org.osgi.service.cdi.CDIConstants;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
-import org.osgi.service.log.Logger;
 import org.osgi.service.log.LoggerFactory;
 import org.osgi.util.promise.PromiseFactory;
 import org.osgi.util.tracker.ServiceTracker;
@@ -81,7 +80,7 @@ public class TestUtil {
 		return list;
 	}
 
-	public static ContainerState getContainerState(BeansModel beansModel) throws Exception {
+	public static ContainerState getContainerState(final BeansModel beansModel) throws Exception {
 		BundleDTO ccrBundleDTO = new BundleDTO();
 		ccrBundleDTO.id = 1;
 		ccrBundleDTO.lastModified = 2300l;
@@ -124,7 +123,7 @@ public class TestUtil {
 		LoggerFactory lf = mock(LoggerFactory.class);
 		bundle.getBundleContext().registerService(LoggerFactory.class, lf, null);
 
-		return new ContainerState(bundle, ccrBundle, new ChangeCount(), new PromiseFactory(Executors.newFixedThreadPool(1)), caTracker, loggerTracker) {
+		return new ContainerState(bundle, ccrBundle, new ChangeCount(), new PromiseFactory(Executors.newFixedThreadPool(1)), caTracker, new Logs.Builder(null).build()) {
 
 			@Override
 			public BeansModel beansModel() {
@@ -254,39 +253,6 @@ public class TestUtil {
 		extra.accept(bundle);
 
 		return bundle;
-	}
-
-	public static ServiceTracker<LoggerFactory, LoggerFactory> mockLoggerFactory(Bundle bundle) throws Exception {
-		ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker = new ServiceTracker<>(bundle.getBundleContext(), LoggerFactory.class, null);
-		loggerTracker.open();
-		LoggerFactory lf = mock(LoggerFactory.class);
-		bundle.getBundleContext().registerService(LoggerFactory.class, lf, null);
-
-		when(lf.getLogger((Class<?>)any())).then(
-			(Answer<Logger>) getLogger -> {
-				Class<?> clazz = getLogger.getArgument(0);
-
-				return Logs.getLogger(clazz);
-			}
-		);
-
-		when(lf.getLogger((Class<?>)any(), any())).then(
-			(Answer<Logger>) getLogger -> {
-				Class<?> clazz = getLogger.getArgument(0);
-
-				return Logs.getLogger(clazz);
-			}
-		);
-
-		when(lf.getLogger(any(), anyString(), any())).then(
-			(Answer<Logger>) getLogger -> {
-				Class<?> clazz = getLogger.getArgument(2);
-
-				return Logs.getLogger(clazz);
-			}
-		);
-
-		return loggerTracker;
 	}
 
 	public static ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> mockCaSt(Bundle bundle) throws Exception {

@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.apache.aries.cdi.container.internal.container.ContainerState;
-import org.apache.aries.cdi.container.internal.util.Logs;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.service.log.Logger;
@@ -44,6 +43,7 @@ public class BeansModelBuilder {
 		_bundleWiring = bundleWiring;
 		_attributes = cdiAttributes;
 		_bundle = _bundleWiring.getBundle();
+		_log = containerState.containerLogs().getLogger(getClass());
 	}
 
 	public BeansModel build() {
@@ -73,7 +73,7 @@ public class BeansModelBuilder {
 			try {
 				Class<?> clazz = _aggregateClassLoader.loadClass(beanClassName);
 
-				beans.put(beanClassName, new OSGiBean.Builder(clazz).build());
+				beans.put(beanClassName, new OSGiBean.Builder(_containerState.containerLogs(), clazz).build());
 
 				_log.debug(l -> l.debug("CCR found bean {} on {}", beanClassName, _containerState.bundle()));
 			}
@@ -95,12 +95,12 @@ public class BeansModelBuilder {
 		return _bundle.getResource(resource);
 	}
 
-	private final Logger _log = Logs.getLogger(BeansModelBuilder.class);
 
 	private final ClassLoader _aggregateClassLoader;
 	private final Map<String, Object> _attributes;
 	private final Bundle _bundle;
 	private final BundleWiring _bundleWiring;
 	private final ContainerState _containerState;
+	private final Logger _log;
 
 }

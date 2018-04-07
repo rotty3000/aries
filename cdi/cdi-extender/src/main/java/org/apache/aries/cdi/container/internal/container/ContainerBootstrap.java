@@ -24,7 +24,6 @@ import org.apache.aries.cdi.container.internal.container.Op.Type;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
 import org.apache.aries.cdi.container.internal.model.FactoryComponent;
 import org.apache.aries.cdi.container.internal.model.SingleComponent;
-import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Syncro;
 import org.jboss.weld.bootstrap.WeldBootstrap;
 import org.jboss.weld.bootstrap.spi.BeanDeploymentArchive;
@@ -46,6 +45,7 @@ public class ContainerBootstrap extends Phase {
 		_configurationBuilder = configurationBuilder;
 		_singleBuilder = singleBuilder;
 		_factoryBuilder = factoryBuilder;
+		_log = containerState.containerLogs().getLogger(getClass());
 	}
 
 	@Override
@@ -130,12 +130,12 @@ public class ContainerBootstrap extends Phase {
 		return Op.of(Mode.OPEN, Type.CONTAINER_BOOTSTRAP, containerState.id());
 	}
 
-	private static final Logger _log = Logs.getLogger(ContainerBootstrap.class);
 
 	private volatile WeldBootstrap _bootstrap;
 	private final ConfigurationListener.Builder _configurationBuilder;
 	private final FactoryComponent.Builder _factoryBuilder;
 	private final SingleComponent.Builder _singleBuilder;
 	private final Syncro _lock = new Syncro(true);
+	private final Logger _log;
 
 }

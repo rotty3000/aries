@@ -61,7 +61,6 @@ import org.osgi.service.cdi.runtime.dto.template.ContainerTemplateDTO;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.log.Logger;
-import org.osgi.service.log.LoggerFactory;
 import org.osgi.util.promise.Deferred;
 import org.osgi.util.promise.Promise;
 import org.osgi.util.promise.PromiseFactory;
@@ -80,17 +79,19 @@ public class ContainerState {
 		ChangeCount ccrChangeCount,
 		PromiseFactory promiseFactory,
 		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker,
-		ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker) {
+		Logs ccrLogs) {
 
 		_bundle = bundle;
 		_extenderBundle = extenderBundle;
+		_ccrLogs = ccrLogs;
+		_log = _ccrLogs.getLogger(getClass());
+		_containerLogs = new Logs.Builder(_bundle.getBundleContext()).build();
 
 		_changeCount = new ChangeCount();
 		_changeCount.addObserver(ccrChangeCount);
 
 		_promiseFactory = promiseFactory;
 		_caTracker = caTracker;
-		_loggerTracker = loggerTracker;
 
 		BundleWiring bundleWiring = _bundle.adapt(BundleWiring.class);
 
@@ -210,6 +211,10 @@ public class ContainerState {
 		return _caTracker;
 	}
 
+	public Logs ccrLogs() {
+		return _ccrLogs;
+	}
+
 	public ClassLoader classLoader() {
 		return _aggregateClassLoader;
 	}
@@ -226,13 +231,17 @@ public class ContainerState {
 		return _componentContext;
 	}
 
+	public ComponentTemplateDTO containerComponentTemplateDTO() {
+		return _containerComponentTemplateDTO;
+	}
+
 	public ContainerDTO containerDTO() {
 		_containerDTO.changeCount = _changeCount.get();
 		return _containerDTO;
 	}
 
-	public ComponentTemplateDTO containerComponentTemplateDTO() {
-		return _containerComponentTemplateDTO;
+	public Logs containerLogs() {
+		return _containerLogs;
 	}
 
 	public void error(Throwable t) {
@@ -277,10 +286,6 @@ public class ContainerState {
 	@SuppressWarnings("unchecked")
 	public <T extends ResourceLoader & ProxyServices> T loader() {
 		return (T)new BundleResourcesLoader(_bundle, _extenderBundle);
-	}
-
-	public ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker() {
-		return _loggerTracker;
 	}
 
 	public PromiseFactory promiseFactory() {
@@ -355,7 +360,6 @@ public class ContainerState {
 		return bundles.toArray(new Bundle[0]);
 	}
 
-	private static final Logger _log = Logs.getLogger(ContainerState.class);
 
 	private final ClassLoader _aggregateClassLoader;
 	private final BeansModel _beansModel;
@@ -363,13 +367,15 @@ public class ContainerState {
 	private final ClassLoader _bundleClassLoader;
 	private final Map<CheckedCallback<?, ?>, Deferred<?>> _callbacks = new ConcurrentHashMap<>();
 	private final ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> _caTracker;
+	private final Logger _log;
+	private final Logs _ccrLogs;
 	private final ChangeCount _changeCount;
 	private final AtomicBoolean _closing = new AtomicBoolean(false);
 	private final ComponentContext _componentContext = new ComponentContext();
 	private final ContainerDTO _containerDTO;
+	private final Logs _containerLogs;
 	private final ComponentTemplateDTO _containerComponentTemplateDTO;
 	private final Bundle _extenderBundle;
-	private final ServiceTracker<LoggerFactory, LoggerFactory> _loggerTracker;
 	private final PromiseFactory _promiseFactory;
 
 }
