@@ -17,7 +17,6 @@ package org.apache.aries.cdi.test.cases;
 import static org.junit.Assert.*;
 
 import java.io.InputStream;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +29,7 @@ import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
 
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.osgi.annotation.bundle.Requirement;
@@ -46,9 +46,6 @@ import org.osgi.namespace.extender.ExtenderNamespace;
 import org.osgi.namespace.service.ServiceNamespace;
 import org.osgi.service.cdi.CDIConstants;
 import org.osgi.service.cdi.runtime.CDIComponentRuntime;
-import org.osgi.service.log.LogLevel;
-import org.osgi.service.log.Logger;
-import org.osgi.service.log.admin.LoggerAdmin;
 import org.osgi.util.promise.PromiseFactory;
 import org.osgi.util.tracker.ServiceTracker;
 
@@ -61,33 +58,28 @@ public class AbstractTestCase {
 
 	@BeforeClass
 	public static void beforeClass() throws Exception {
-		ServiceTracker<LoggerAdmin, LoggerAdmin> laTracker = new ServiceTracker<>(bundleContext, LoggerAdmin.class, null);
-		laTracker.open();
-		loggerAdmin = laTracker.getService();
-
-		Map<String, LogLevel> levels = new HashMap<>();
-		levels.put(Logger.ROOT_LOGGER_NAME, LogLevel.DEBUG);
-		loggerAdmin.getLoggerContext(null).setLogLevels(levels);
-
+		runtimeTracker = new ServiceTracker<>(
+				bundleContext, CDIComponentRuntime.class, null);
+		runtimeTracker.open();
 		servicesBundle = installBundle("services-one.jar");
 		servicesBundle.start();
 	}
 
+	@AfterClass
+	public static void afterClass() throws Exception {
+		runtimeTracker.close();
+		servicesBundle.uninstall();
+	}
+
 	@Before
 	public void setUp() throws Exception {
-		runtimeTracker = new ServiceTracker<>(
-			bundleContext, CDIComponentRuntime.class, null);
-		runtimeTracker.open();
-
 		cdiRuntime = runtimeTracker.waitForService(timeout);
-
 		cdiBundle = installBundle("basic-beans.jar");
 		cdiBundle.start();
 	}
 
 	@After
 	public void tearDown() throws Exception {
-		runtimeTracker.close();
 		cdiBundle.uninstall();
 	}
 
@@ -191,12 +183,11 @@ public class AbstractTestCase {
 	static final Bundle bundle = FrameworkUtil.getBundle(CdiBeanTests.class);
 	static final BundleContext bundleContext = bundle.getBundleContext();
 	static final long timeout = 5000;
-	static LoggerAdmin loggerAdmin;
 	static Bundle servicesBundle;
+	static ServiceTracker<CDIComponentRuntime, CDIComponentRuntime> runtimeTracker;
 
 	Bundle cdiBundle;
 	CDIComponentRuntime cdiRuntime;
 	final PromiseFactory promiseFactory = new PromiseFactory(null);
-	ServiceTracker<CDIComponentRuntime, CDIComponentRuntime> runtimeTracker;
 
 }
