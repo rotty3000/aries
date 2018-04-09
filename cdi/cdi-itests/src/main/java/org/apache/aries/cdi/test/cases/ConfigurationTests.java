@@ -44,6 +44,7 @@ public class ConfigurationTests extends AbstractTestCase {
 		runtimeTracker = new ServiceTracker<>(
 			bundleContext, CDIComponentRuntime.class, null);
 		runtimeTracker.open();
+
 		cdiRuntime = runtimeTracker.waitForService(timeout);
 
 		adminTracker = new ServiceTracker<>(bundleContext, ConfigurationAdmin.class, null);

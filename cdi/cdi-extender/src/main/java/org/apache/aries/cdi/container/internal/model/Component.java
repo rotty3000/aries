@@ -36,6 +36,11 @@ public abstract class Component extends Phase {
 
 	Component(Builder<?> builder) {
 		super(builder._containerState, null);
+		_activatorBuilder = builder._activatorBuilder;
+	}
+
+	public InstanceActivator.Builder<?> activatorBuilder() {
+		return _activatorBuilder;
 	}
 
 	public abstract List<ConfigurationTemplateDTO> configurationTemplates();
@@ -50,5 +55,7 @@ public abstract class Component extends Phase {
 	public String toString() {
 		return Arrays.asList(getClass().getSimpleName(), template().name).toString();
 	}
+
+	private final InstanceActivator.Builder<?> _activatorBuilder;
 
 }

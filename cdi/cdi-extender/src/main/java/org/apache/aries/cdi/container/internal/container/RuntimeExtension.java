@@ -22,13 +22,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.context.BeforeDestroyed;
-import javax.enterprise.context.Initialized;
 import javax.enterprise.context.spi.Context;
 import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.event.Observes;
 import javax.enterprise.inject.Any;
 import javax.enterprise.inject.spi.AfterBeanDiscovery;
+import javax.enterprise.inject.spi.AfterDeploymentValidation;
 import javax.enterprise.inject.spi.Annotated;
 import javax.enterprise.inject.spi.AnnotatedField;
 import javax.enterprise.inject.spi.AnnotatedMethod;
@@ -36,6 +35,7 @@ import javax.enterprise.inject.spi.AnnotatedParameter;
 import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.BeforeBeanDiscovery;
+import javax.enterprise.inject.spi.BeforeShutdown;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.enterprise.inject.spi.ProcessInjectionPoint;
@@ -121,7 +121,7 @@ public class RuntimeExtension implements Extension {
 		);
 	}
 
-	void applicationScopedInitialized(@Observes @Initialized(ApplicationScoped.class) Object o, BeanManager bm) {
+	void afterDeploymentValidation(@Observes AfterDeploymentValidation adv, BeanManager bm) {
 		_log.debug(l -> l.debug("CCR @Initialized(ApplicationScoped) on {}", _containerState.bundle()));
 
 		registerService(
@@ -141,7 +141,7 @@ public class RuntimeExtension implements Extension {
 		);
 	}
 
-	void applicationScopedBeforeDestroyed(@Observes @BeforeDestroyed(ApplicationScoped.class) Object o) {
+	void beforeShutdown(@Observes BeforeShutdown bs) {
 		_log.debug(l -> l.debug("CCR @BeforeDestroy(ApplicationScoped) on {}", _containerState.bundle()));
 
 		_configurationListeners.removeIf(

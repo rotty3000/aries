@@ -89,6 +89,11 @@ public class SingleActivator extends InstanceActivator {
 	}
 
 	@Override
+	public Op closeOp() {
+		return Op.of(Mode.CLOSE, Op.Type.SINGLE_ACTIVATOR, instance.template.name);
+	}
+
+	@Override
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public boolean open() {
 		try (Syncro synchro = _lock.open()) {
@@ -214,25 +219,25 @@ public class SingleActivator extends InstanceActivator {
 	}
 
 	@Override
-	public Op closeOp() {
-		return Op.of(Mode.CLOSE, Op.Type.SINGLE_ACTIVATOR, instance.template.name);
+	public Op openOp() {
+		return Op.of(Mode.OPEN, Op.Type.SINGLE_ACTIVATOR, instance.template.name);
 	}
 
 	@Override
-	public Op openOp() {
-		return Op.of(Mode.OPEN, Op.Type.SINGLE_ACTIVATOR, instance.template.name);
+	public String toString() {
+		return Arrays.asList(getClass().getSimpleName(), instance.ident()).toString();
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	Entry<ExtendedActivationDTO, Object> activate(
 		Bean<? extends Object> bean,
 		ExtendedActivationTemplateDTO activationTemplate) {
-
+	
 		ExtendedActivationDTO activationDTO = new ExtendedActivationDTO();
 		activationDTO.errors = new CopyOnWriteArrayList<>();
 		activationDTO.template = activationTemplate;
 		instance.activations.add(activationDTO);
-
+	
 		try (With with = new With(activationDTO)) {
 			try {
 				final Object object = containerState.componentContext().get(
@@ -256,11 +261,6 @@ public class SingleActivator extends InstanceActivator {
 				return new AbstractMap.SimpleImmutableEntry<>(activationDTO, null);
 			}
 		}
-	}
-
-	@Override
-	public String toString() {
-		return Arrays.asList(getClass().getSimpleName(), instance.ident()).toString();
 	}
 
 	private final BeanManager _beanManager;

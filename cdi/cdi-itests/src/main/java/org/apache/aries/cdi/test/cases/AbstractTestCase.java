@@ -78,6 +78,7 @@ public class AbstractTestCase {
 		runtimeTracker = new ServiceTracker<>(
 			bundleContext, CDIComponentRuntime.class, null);
 		runtimeTracker.open();
+
 		cdiRuntime = runtimeTracker.waitForService(timeout);
 
 		cdiBundle = installBundle("basic-beans.jar");

@@ -1,6 +1,8 @@
 package org.apache.aries.cdi.container.internal.container;
 
 import java.util.Arrays;
+import java.util.Dictionary;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -11,7 +13,6 @@ import org.apache.aries.cdi.container.internal.container.Op.Type;
 import org.apache.aries.cdi.container.internal.model.Component;
 import org.apache.aries.cdi.container.internal.model.ExtendedComponentInstanceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationDTO;
-import org.apache.aries.cdi.container.internal.model.FactoryActivator;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.internal.util.Predicates;
 import org.osgi.framework.ServiceRegistration;
@@ -95,8 +96,10 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 
 	@Override
 	public boolean open() {
+		Dictionary<String, Object> properties = new Hashtable<>();
+		properties.put("name", toString());
 		_listenerService = containerState.bundleContext().registerService(
-			org.osgi.service.cm.ConfigurationListener.class, this, null);
+			org.osgi.service.cm.ConfigurationListener.class, this, properties);
 
 		return next.map(next -> (Component)next).map(
 			component -> {
@@ -200,7 +203,8 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 						instance -> event.getPid().equals(instance.pid)
 					).findFirst().isPresent()) {
 
-					ExtendedComponentInstanceDTO instanceDTO = new ExtendedComponentInstanceDTO(containerState, new FactoryActivator.Builder(containerState));
+					ExtendedComponentInstanceDTO instanceDTO = new ExtendedComponentInstanceDTO(
+						containerState, _component.activatorBuilder());
 					instanceDTO.activations = new CopyOnWriteArrayList<>();
 					instanceDTO.configurations = new CopyOnWriteArrayList<>();
 					instanceDTO.pid = event.getPid();
@@ -208,9 +212,7 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 					instanceDTO.references = new CopyOnWriteArrayList<>();
 					instanceDTO.template = component.template();
 
-					if (instances.add(instanceDTO)) {
-						instanceDTO.open();
-					}
+					instances.add(instanceDTO);
 				}
 
 				containerState.findConfig(event.getPid()).ifPresent(
@@ -254,7 +256,6 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 			}
 		);
 	}
-
 
 	private volatile ServiceRegistration<org.osgi.service.cm.ConfigurationListener> _listenerService;
 
