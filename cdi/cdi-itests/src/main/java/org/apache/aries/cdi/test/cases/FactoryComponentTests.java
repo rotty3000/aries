@@ -80,6 +80,30 @@ public class FactoryComponentTests extends AbstractTestCase {
 			assertNotNull(beanServiceB);
 
 			assertFalse(beanServiceA == beanServiceB);
+
+			int trackingCount = trackerA.getTrackingCount();
+
+			configurationA.delete();
+
+			for (int i = 10; (i > 0) && (trackerA.getTrackingCount() == trackingCount); i--) {
+				Thread.sleep(20);
+			}
+
+			beanServiceA = trackerA.getService();
+
+			assertNull(beanServiceA);
+
+			trackingCount = trackerB.getTrackingCount();
+
+			configurationB.delete();
+
+			for (int i = 10; (i > 0) && (trackerB.getTrackingCount() == trackingCount); i--) {
+				Thread.sleep(20);
+			}
+
+			beanServiceB = trackerB.getService();
+
+			assertNull(beanServiceB);
 		}
 		finally {
 			if (configurationA != null) {

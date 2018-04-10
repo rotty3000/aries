@@ -111,7 +111,7 @@ public class ConfigurationListenerTest extends BaseCDIBundleTest {
 		listener.get().configurationEvent(
 			new ConfigurationEvent(caTracker.getServiceReference(), ConfigurationEvent.CM_DELETED, null, pid));
 
-		p1.timeout(200).getValue();
+		p1.timeout(200).getFailure();
 
 		assertNotNull(containerState.containerDTO().components.get(0).instances.get(0).properties);
 		assertNull(containerState.containerDTO().components.get(0).instances.get(0).properties.get("foo"));

@@ -60,18 +60,29 @@ public class JndiExtensionTests extends AbstractTestCase {
 
 		Bundle extensionBundle = et.getServiceReference().getBundle();
 
-		assertNotNull(getBeanManager(cdiBundle));
+		ServiceTracker<BeanManager, BeanManager> bmTracker = getServiceTracker(cdiBundle);
+
+		assertNotNull(bmTracker.waitForService(timeout));
+
+		int trackingCount = bmTracker.getTrackingCount();
 
 		extensionBundle.stop();
 
-		BeanManager beanManager = null;
-		for (int i = 10; (i > 0) && (beanManager = getBeanManager(cdiBundle)) != null; i--) {}
+		for (int i = 10; (i > 0) && (bmTracker.getTrackingCount() == trackingCount); i--) {
+			Thread.sleep(20);
+		}
 
-		assertNull(beanManager);
+		assertNull(bmTracker.getService());
+
+		trackingCount = bmTracker.getTrackingCount();
 
 		extensionBundle.start();
 
-		assertNotNull(getBeanManager(cdiBundle));
+		for (int i = 10; (i > 0) && (bmTracker.getTrackingCount() == trackingCount); i--) {
+			Thread.sleep(20);
+		}
+
+		assertNotNull(bmTracker.getService());
 	}
 
 }
