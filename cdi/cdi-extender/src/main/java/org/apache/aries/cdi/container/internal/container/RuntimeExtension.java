@@ -17,7 +17,6 @@ package org.apache.aries.cdi.container.internal.container;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
@@ -40,6 +39,7 @@ import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.enterprise.inject.spi.ProcessInjectionPoint;
 import javax.enterprise.inject.spi.Producer;
+import javax.enterprise.inject.spi.ProducerFactory;
 
 import org.apache.aries.cdi.container.internal.bean.ConfigurationBean;
 import org.apache.aries.cdi.container.internal.bean.ReferenceBean;
@@ -242,6 +242,20 @@ public class RuntimeExtension implements Extension {
 		);
 	}
 
+	@SuppressWarnings("unchecked")
+	private Producer<Object> createProducer(Object producerObject, Bean<Object> bean, BeanManager bm) {
+		ProducerFactory<Object> producerFactory = null;
+		if (producerObject instanceof AnnotatedField)
+			producerFactory = bm.getProducerFactory((AnnotatedField<Object>)producerObject, bean);
+		else if (producerObject instanceof AnnotatedMethod)
+			producerFactory = bm.getProducerFactory((AnnotatedMethod<Object>)producerObject, bean);
+
+		if (producerFactory == null)
+			return null;
+
+		return producerFactory.createProducer(bean);
+	}
+
 	private boolean fireEvents(ComponentDTO componentDTO, ExtendedComponentInstanceDTO instance, BeanManager bm) {
 		// TODO Check the logic of firing all the queued service events.
 		instance.references.stream().map(ExtendedReferenceDTO.class::cast).filter(
@@ -374,18 +388,7 @@ public class RuntimeExtension implements Extension {
 		final Context context = bm.getContext(activationTemplate.cdiScope);
 		final Bean<Object> bean = (Bean<Object>)bm.resolve(
 			bm.getBeans(activationTemplate.declaringClass, Any.Literal.INSTANCE));
-
-		final Producer producer = Optional.ofNullable(activationTemplate.producer).map(
-			p -> {
-				if (p instanceof AnnotatedField)
-					return bm.getProducerFactory((AnnotatedField)activationTemplate.producer, bean);
-				else if (p instanceof AnnotatedMethod)
-					return bm.getProducerFactory((AnnotatedMethod)activationTemplate.producer, bean);
-				return null;
-			}
-		).filter(Objects::nonNull).map(
-			pf -> pf.createProducer(bean)
-		).orElse(null);
+		final Producer producer = createProducer(activationTemplate.producer, bean, bm);
 
 		Object serviceObject;
 
