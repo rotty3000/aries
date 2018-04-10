@@ -166,6 +166,8 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 		instances.stream().forEach(
 			instance -> instance.configurations.stream().filter(
 				c -> c.template.equals(t)
+			).map(ExtendedConfigurationDTO.class::cast).filter(
+				c -> c.pid.equals(event.getPid())
 			).forEach(
 				c -> {
 					instance.configurations.remove(c);

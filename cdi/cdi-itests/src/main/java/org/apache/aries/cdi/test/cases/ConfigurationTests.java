@@ -67,12 +67,21 @@ public class ConfigurationTests extends AbstractTestCase {
 		Configuration configurationA = null, configurationB = null;
 
 		try {
-			Thread.sleep(1000); // <---- TODO fix this
-			ContainerDTO containerDTO = cdiRuntime.getContainerDTO(tb3Bundle);
+			int attempts = 50;
+			ComponentDTO configurationBeanA = null;
 
-			ComponentDTO configurationBeanA = containerDTO.components.stream().filter(
-				c -> c.template.name.equals("configurationBeanA")
-			).findFirst().orElse(null);
+			while (--attempts > 0) {
+				ContainerDTO containerDTO = cdiRuntime.getContainerDTO(tb3Bundle);
+
+				configurationBeanA = containerDTO.components.stream().filter(
+					c -> c.template.name.equals("configurationBeanA")
+				).findFirst().orElse(null);
+
+				if (configurationBeanA != null) {
+					break;
+				}
+				Thread.sleep(100);
+			}
 
 			List<ConfigurationTemplateDTO> requiredConfigs = configurationBeanA.template.configurations.stream().filter(
 				tconf -> tconf.policy == ConfigurationPolicy.REQUIRED
@@ -102,8 +111,6 @@ public class ConfigurationTests extends AbstractTestCase {
 			p2.put("color", "green");
 			p2.put("ports", new int[] {80});
 			configurationB.update(p2);
-
-			// after this we should eventually get the bean manager...
 
 			ServiceTracker<BeanService, BeanService> stA = new ServiceTracker<BeanService, BeanService>(
 				bundleContext, bundleContext.createFilter(

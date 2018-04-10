@@ -12,8 +12,12 @@
 
 	<logger name="Events.Bundle" level="WARN"/>
 	<logger name="Events.Framework" level="WARN"/>
+
 	<logger name="Events.Service" level="INFO"/>
-	<logger name="Events.Service.org.eclipse.osgi" level="WARN"/>
+	<logger name="Events.Service.org" level="WARN"/>
+	<logger name="Events.Service.cdi-itests" level="INFO"/>
+	<logger name="Events.Service.org.apache.aries" level="INFO"/>
+
 	<logger name="LogService.org.apache.aries.cdi.itests" level="OFF"/>
 
 	<logger name="org.apache.aries.cdi" level="DEBUG"/>
@@ -21,7 +25,7 @@
 	<logger name="org.eclipse" level="ERROR"/>
 	<logger name="org.jboss" level="ERROR"/>
 
-	<root level="DEBUG">
+	<root level="ERROR">
 		<appender-ref ref="STDOUT" />
 	</root>
 </configuration>

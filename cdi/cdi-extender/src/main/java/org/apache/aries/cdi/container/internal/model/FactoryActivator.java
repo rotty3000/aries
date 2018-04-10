@@ -120,6 +120,7 @@ public class FactoryActivator extends InstanceActivator {
 					);
 				}
 			);
+
 			instance.template.configurations.stream().map(ExtendedConfigurationTemplateDTO.class::cast).filter(
 				t -> Objects.nonNull(t.injectionPointType)
 			).forEach(

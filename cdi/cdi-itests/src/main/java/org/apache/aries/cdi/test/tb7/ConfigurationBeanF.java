@@ -29,7 +29,7 @@ import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.FactoryComponent;
 import org.osgi.service.cdi.annotations.Service;
 
-@Service(BeanService.class)
+@Service({BeanService.class, ConfigurationBeanF.class})
 @FactoryComponent
 @ConfigurationBeanF.Props
 public class ConfigurationBeanF implements BeanService<Callable<int[]>> {

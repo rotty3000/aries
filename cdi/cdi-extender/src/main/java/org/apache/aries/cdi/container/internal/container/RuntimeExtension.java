@@ -122,7 +122,7 @@ public class RuntimeExtension implements Extension {
 	}
 
 	void afterDeploymentValidation(@Observes AfterDeploymentValidation adv, BeanManager bm) {
-		_log.debug(l -> l.debug("CCR @Initialized(ApplicationScoped) on {}", _containerState.bundle()));
+		_log.debug(l -> l.debug("CCR AfterDeploymentValidation on {}", _containerState.bundle()));
 
 		registerService(
 			new String[] {BeanManager.class.getName()}, bm,
@@ -142,7 +142,7 @@ public class RuntimeExtension implements Extension {
 	}
 
 	void beforeShutdown(@Observes BeforeShutdown bs) {
-		_log.debug(l -> l.debug("CCR @BeforeDestroy(ApplicationScoped) on {}", _containerState.bundle()));
+		_log.debug(l -> l.debug("CCR BeforeShutdown on {}", _containerState.bundle()));
 
 		_configurationListeners.removeIf(
 			cl -> {
