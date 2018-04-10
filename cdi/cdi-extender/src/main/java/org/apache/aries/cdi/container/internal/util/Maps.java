@@ -94,6 +94,7 @@ public class Maps {
 		return map;
 	}
 
+	@SafeVarargs
 	public static <T> Map<String, T> of(T... args) {
 		Map<String, T> map = new HashMap<>();
 

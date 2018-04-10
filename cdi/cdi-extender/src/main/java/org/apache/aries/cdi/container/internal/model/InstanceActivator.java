@@ -16,16 +16,19 @@ public abstract class InstanceActivator extends Phase {
 
 		public abstract InstanceActivator build();
 
+		@SuppressWarnings("unchecked")
 		public T setInstance(ExtendedComponentInstanceDTO instance) {
 			_instance = instance;
 			return (T)this;
 		}
 
+		@SuppressWarnings("unchecked")
 		public T setReference(ServiceReference<Object> reference) {
 			_reference = reference;
 			return (T)this;
 		}
 
+		@SuppressWarnings("unchecked")
 		public T setReferenceDTO(ExtendedReferenceDTO referenceDTO) {
 			_referenceDTO = referenceDTO;
 			return (T)this;

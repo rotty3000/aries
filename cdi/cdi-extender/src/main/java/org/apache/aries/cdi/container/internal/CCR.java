@@ -32,14 +32,12 @@ import org.osgi.framework.Bundle;
 import org.osgi.service.cdi.runtime.CDIComponentRuntime;
 import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.service.cdi.runtime.dto.template.ContainerTemplateDTO;
-import org.osgi.service.log.Logger;
 import org.osgi.util.promise.PromiseFactory;
 
 public class CCR implements CDIComponentRuntime {
 
 	public CCR(PromiseFactory promiseFactory, Logs logs) {
 		_promiseFactory = promiseFactory;
-		_log = logs.getLogger(getClass());
 	}
 
 	public void add(Bundle bundle, ContainerState containerState) {
@@ -116,8 +114,6 @@ public class CCR implements CDIComponentRuntime {
 		}
 	}
 
-
-	private final Logger _log;
 	private final PromiseFactory _promiseFactory;
 	private final Map<Bundle, ContainerState> _states = new ConcurrentHashMap<>();
 
