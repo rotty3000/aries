@@ -69,8 +69,6 @@ public class FactoryActivator extends InstanceActivator {
 	public boolean close() {
 		try (Syncro synchro = _lock.open()) {
 			if (serviceRegistration != null) {
-				_log.debug(l -> l.debug("CCR Unregistering service {} on {}", serviceRegistration.getReference(), bundle()));
-
 				serviceRegistration.unregister();
 				serviceRegistration = null;
 			}

@@ -8,6 +8,7 @@ import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.container.Op;
 import org.apache.aries.cdi.container.internal.container.Op.Mode;
 import org.apache.aries.cdi.container.internal.container.Op.Type;
+import org.apache.aries.cdi.container.internal.util.Conversions;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
@@ -82,6 +83,18 @@ public class ContainerComponent extends Component {
 
 	@Override
 	public boolean open() {
+		Boolean enabled = _instanceDTO.configurations.stream().filter(
+			c -> c.template.pid.equals(_instanceDTO.template.name)
+		).findFirst().map(
+			c -> Conversions.convert(
+				c.properties.get(_template.name.concat(".enabled"))
+			).defaultValue(Boolean.TRUE).to(Boolean.class)
+		).orElse(Boolean.TRUE);
+
+		if (!enabled) {
+			return _snapshot.enabled = false;
+		}
+
 		submit(_instanceDTO.openOp(), _instanceDTO::open).onFailure(
 			f -> {
 				_log.error(l -> l.error("CCR Error in container component open for {} on {}", _template.name, containerState.bundle()));

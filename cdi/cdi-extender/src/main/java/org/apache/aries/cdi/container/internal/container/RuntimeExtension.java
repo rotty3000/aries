@@ -58,6 +58,7 @@ import org.apache.aries.cdi.container.internal.model.FactoryComponent;
 import org.apache.aries.cdi.container.internal.model.OSGiBean;
 import org.apache.aries.cdi.container.internal.model.ReferenceModel;
 import org.apache.aries.cdi.container.internal.model.SingleComponent;
+import org.apache.aries.cdi.container.internal.util.Conversions;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.internal.util.SRs;
 import org.osgi.framework.Bundle;
@@ -93,11 +94,11 @@ public class RuntimeExtension implements Extension {
 		_singleBuilder = singleBuilder;
 		_factoryBuilder = factoryBuilder;
 
-		_componentDTO = _containerState.containerDTO().components.stream().filter(
+		_containerComponentDTO = _containerState.containerDTO().components.stream().filter(
 			c -> c.template.type == ComponentType.CONTAINER
 		).findFirst().get();
 
-		_instanceDTO = (ExtendedComponentInstanceDTO)_componentDTO.instances.get(0);
+		_containerInstanceDTO = (ExtendedComponentInstanceDTO)_containerComponentDTO.instances.get(0);
 	}
 
 	void beforeBeanDiscovery(@Observes BeforeBeanDiscovery bbd) {
@@ -129,11 +130,11 @@ public class RuntimeExtension implements Extension {
 			Maps.of(CDIConstants.CDI_CONTAINER_ID, _containerState.id()));
 
 		_containerState.submit(
-			Op.of(Mode.OPEN, Type.CONTAINER_FIRE_EVENTS, _containerState.id()), () -> fireEvents(_componentDTO, _instanceDTO, bm)
+			Op.of(Mode.OPEN, Type.CONTAINER_FIRE_EVENTS, _containerState.id()), () -> fireEvents(_containerComponentDTO, _containerInstanceDTO, bm)
 		).then(
 			s-> {
 				return _containerState.submit(
-					Op.of(Mode.OPEN, Type.CONTAINER_PUBLISH_SERVICES, _containerState.id()), () -> registerServices(_componentDTO, _instanceDTO, bm)
+					Op.of(Mode.OPEN, Type.CONTAINER_PUBLISH_SERVICES, _containerState.id()), () -> registerServices(_containerComponentDTO, _containerInstanceDTO, bm)
 				);
 			}
 		).then(
@@ -156,13 +157,11 @@ public class RuntimeExtension implements Extension {
 			}
 		);
 
-		_instanceDTO.activations.clear();
+		_containerInstanceDTO.activations.clear();
 
 		_registrations.removeIf(
 			r -> {
 				try {
-					_log.debug(l -> l.debug("CCR Unregistring service {} on {}", r, _containerState.bundle()));
-
 					r.unregister();
 				}
 				catch (Exception e) {
@@ -205,7 +204,7 @@ public class RuntimeExtension implements Extension {
 				ReferenceBean bean = t.bean;
 				bean.setBeanManager(bm);
 				if (componentTemplate.type == ComponentType.CONTAINER) {
-					_instanceDTO.references.stream().filter(
+					_containerInstanceDTO.references.stream().filter(
 						r -> r.template == t
 					).findFirst().map(
 						ExtendedReferenceDTO.class::cast
@@ -231,7 +230,7 @@ public class RuntimeExtension implements Extension {
 						bean.setProperties(componentTemplate.properties);
 					}
 					else {
-						bean.setProperties(_instanceDTO.properties);
+						bean.setProperties(_containerInstanceDTO.properties);
 					}
 				}
 
@@ -280,6 +279,24 @@ public class RuntimeExtension implements Extension {
 	}
 
 	private Promise<Boolean> initComponent(ExtendedComponentTemplateDTO componentTemplateDTO, BeanManager bm) {
+		Boolean enabled = _containerInstanceDTO.configurations.stream().filter(
+			c -> c.template.pid.equals(_containerInstanceDTO.template.name)
+		).findFirst().map(
+			c -> Conversions.convert(
+				c.properties.get(componentTemplateDTO.name.concat(".enabled"))
+			).defaultValue(Boolean.TRUE).to(Boolean.class)
+		).orElse(Boolean.TRUE);
+
+		if (!enabled) {
+			_containerState.containerDTO().components.stream().filter(
+				c -> c.template == componentTemplateDTO
+			).findFirst().ifPresent(
+				c -> c.enabled = false
+			);
+
+			return _containerState.promiseFactory().resolved(Boolean.TRUE);
+		}
+
 		if (componentTemplateDTO.type == ComponentType.FACTORY) {
 			return initFactoryComponent(componentTemplateDTO, bm);
 		}
@@ -454,8 +471,6 @@ public class RuntimeExtension implements Extension {
 
 		_registrations.add(serviceRegistration);
 
-		_log.debug(l -> l.debug("CCR Registering service {} on {}", serviceRegistration, _containerState.bundle()));
-
 		return serviceRegistration;
 	}
 
@@ -469,12 +484,12 @@ public class RuntimeExtension implements Extension {
 		return true;
 	}
 
-	private final ComponentDTO _componentDTO;
+	private final ComponentDTO _containerComponentDTO;
 	private final ConfigurationListener.Builder _configurationBuilder;
 	private final List<ConfigurationListener> _configurationListeners = new CopyOnWriteArrayList<>();
 	private final ContainerState _containerState;
 	private final FactoryComponent.Builder _factoryBuilder;
-	private final ExtendedComponentInstanceDTO _instanceDTO;
+	private final ExtendedComponentInstanceDTO _containerInstanceDTO;
 	private final Logger _log;
 	private final List<ServiceRegistration<?>> _registrations = new CopyOnWriteArrayList<>();
 	private final SingleComponent.Builder _singleBuilder;

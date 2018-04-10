@@ -83,7 +83,7 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 
 	@Override
 	public void configurationEvent(ConfigurationEvent event) {
-		_log.debug(l -> l.debug("CCR ConfigurationEvent {} on {}", event, bundle()));
+		_log.debug(l -> l.debug("CCR ConfigurationEvent {{}, {}, {}} on {}", event.getType(), event.getFactoryPid(), event.getPid(), bundle()));
 
 		next.map(next -> (Component)next).ifPresent(
 			next -> next.configurationTemplates().stream().filter(

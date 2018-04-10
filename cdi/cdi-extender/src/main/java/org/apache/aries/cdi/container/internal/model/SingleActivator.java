@@ -68,8 +68,6 @@ public class SingleActivator extends InstanceActivator {
 	public boolean close() {
 		try (Syncro synchro = _lock.open()) {
 			if (serviceRegistration != null) {
-				_log.debug(l -> l.debug("CCR Unregistering service {} on {}", serviceRegistration.getReference(), bundle()));
-
 				serviceRegistration.unregister();
 				serviceRegistration = null;
 			}
@@ -232,12 +230,12 @@ public class SingleActivator extends InstanceActivator {
 	Entry<ExtendedActivationDTO, Object> activate(
 		Bean<? extends Object> bean,
 		ExtendedActivationTemplateDTO activationTemplate) {
-	
+
 		ExtendedActivationDTO activationDTO = new ExtendedActivationDTO();
 		activationDTO.errors = new CopyOnWriteArrayList<>();
 		activationDTO.template = activationTemplate;
 		instance.activations.add(activationDTO);
-	
+
 		try (With with = new With(activationDTO)) {
 			try {
 				final Object object = containerState.componentContext().get(
