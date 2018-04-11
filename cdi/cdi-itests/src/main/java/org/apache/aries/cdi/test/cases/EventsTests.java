@@ -16,39 +16,61 @@ package org.apache.aries.cdi.test.cases;
 
 import static org.junit.Assert.*;
 
-import java.util.List;
-import java.util.Set;
+import java.util.Dictionary;
 
-import javax.enterprise.context.spi.CreationalContext;
-import javax.enterprise.inject.spi.Bean;
-import javax.enterprise.inject.spi.BeanManager;
-import javax.enterprise.util.AnnotationLiteral;
-
-import org.apache.aries.cdi.test.interfaces.BeanService;
-import org.apache.aries.cdi.test.interfaces.CdiEventObserverQualifier;
-import org.junit.Ignore;
+import org.apache.aries.cdi.test.interfaces.Pojo;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.ServiceRegistration;
+import org.osgi.util.tracker.ServiceTracker;
 
 public class EventsTests extends AbstractTestCase {
 
-	@Ignore
+	@Override
+	@Before
+	public void setUp() throws Exception {
+	}
+
+	@Override
+	@After
+	public void tearDown() throws Exception {
+	}
+
 	@Test
 	public void testEventsGetSent() throws Exception {
-		BeanManager beanManager = getBeanManager(cdiBundle);
+		Bundle tb9 = installBundle("tb9.jar");
 
-		assertNotNull(beanManager);
+		try {
+			ServiceTracker<Pojo, Pojo> tracker = track("(objectClass=%s)", Pojo.class.getName());
 
-		@SuppressWarnings("serial")
-		Set<Bean<?>> beans = beanManager.getBeans(Object.class, new AnnotationLiteral<CdiEventObserverQualifier>() {});
-		Bean<?> bean = beanManager.resolve(beans);
-		CreationalContext<?> ctx = beanManager.createCreationalContext(bean);
-		Object bcb = beanManager.getReference(bean, Object.class, ctx);
-		assertNotNull(bcb);
-		@SuppressWarnings("unchecked")
-		BeanService<List<Object>> bti = (BeanService<List<Object>>)bcb;
-		List<Object> list = bti.get();
-		assertNotNull(list);
-		assertEquals(1, list.size());
+			Pojo pojo = tracker.waitForService(timeout);
+
+			assertEquals(0, pojo.getCount());
+			assertEquals("[]", pojo.foo(null));
+
+			ServiceRegistration<Integer> int1 = bundleContext.registerService(Integer.class, new Integer(12), null);
+
+			try {
+				assertEquals(1, pojo.getCount());
+				assertEquals("[ADDED]", pojo.foo(null));
+
+				Dictionary<String, Object> properties = int1.getReference().getProperties();
+				properties.put("foo", "bar");
+				int1.setProperties(properties);
+				assertEquals("[UPDATED]", pojo.foo(null));
+			}
+			finally {
+				int1.unregister();
+
+				assertEquals(0, pojo.getCount());
+				assertEquals("[]", pojo.foo(null));
+			}
+		}
+		finally {
+			tb9.uninstall();
+		}
 	}
 
 }

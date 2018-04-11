@@ -22,7 +22,7 @@ public class CDIBundlePhaseTest extends BaseCDIBundleTest {
 
 	@Test
 	public void initial() throws Exception {
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(null).build());
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(bundle.getBundleContext()).build());
 
 		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, null);
 
@@ -72,7 +72,7 @@ public class CDIBundlePhaseTest extends BaseCDIBundleTest {
 						0).getRequirement().getAttributes()
 		).thenReturn(attributes);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(null).build());
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(bundle.getBundleContext()).build());
 
 		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, null);
 
@@ -117,7 +117,7 @@ public class CDIBundlePhaseTest extends BaseCDIBundleTest {
 						0).getRequirement().getAttributes()
 		).thenReturn(attributes);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(null).build());
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(bundle.getBundleContext()).build());
 
 		CDIBundle cdiBundle = new CDIBundle(ccr, containerState, null);
 

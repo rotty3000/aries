@@ -53,7 +53,7 @@ public class ContainerBootstrapTest extends BaseCDIBundleTest {
 
 		ServiceTracker<ConfigurationAdmin, ConfigurationAdmin> caTracker = TestUtil.mockCaSt(bundle);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, new Logs.Builder(null).build());
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, new Logs.Builder(bundle.getBundleContext()).build());
 
 		ComponentDTO componentDTO = new ComponentDTO();
 		componentDTO.instances = new CopyOnWriteArrayList<>();

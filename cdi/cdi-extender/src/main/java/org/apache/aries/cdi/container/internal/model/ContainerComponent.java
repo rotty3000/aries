@@ -11,6 +11,7 @@ import org.apache.aries.cdi.container.internal.container.Op.Type;
 import org.apache.aries.cdi.container.internal.util.Conversions;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
+import org.osgi.service.cdi.runtime.dto.ConfigurationDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 import org.osgi.service.log.Logger;
@@ -83,16 +84,19 @@ public class ContainerComponent extends Component {
 
 	@Override
 	public boolean open() {
-		Boolean enabled = _instanceDTO.configurations.stream().filter(
-			c -> c.template.pid.equals(_instanceDTO.template.name)
-		).findFirst().map(
-			c -> Conversions.convert(
-				c.properties.get(_template.name.concat(".enabled"))
-			).defaultValue(Boolean.TRUE).to(Boolean.class)
-		).orElse(Boolean.TRUE);
+		List<ConfigurationDTO> configurations = _instanceDTO.configurations;
 
-		if (!enabled) {
-			return _snapshot.enabled = false;
+		if (!configurations.isEmpty()) {
+			ConfigurationDTO defaultContainerConfiguration = configurations.get(0);
+
+			Boolean enabled = Conversions.convert(
+					defaultContainerConfiguration.properties.get(
+							_template.name.concat(".enabled"))
+					).defaultValue(Boolean.TRUE).to(Boolean.class);
+
+			if (!enabled) {
+				return _snapshot.enabled = false;
+			}
 		}
 
 		submit(_instanceDTO.openOp(), _instanceDTO::open).onFailure(

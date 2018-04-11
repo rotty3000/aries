@@ -30,17 +30,17 @@ public class ReferenceSync implements ServiceTrackerCustomizer<Object, Object> {
 		_referenceDTO = referenceDTO;
 		_componentInstanceDTO = componentInstanceDTO;
 		_builder = builder;
-		_template = (ExtendedReferenceTemplateDTO)_referenceDTO.template;
+		_templateDTO = (ExtendedReferenceTemplateDTO)_referenceDTO.template;
 		_log = _containerState.containerLogs().getLogger(getClass());
 	}
 
 	@Override
 	public Object addingService(final ServiceReference<Object> reference) {
 		boolean active = _componentInstanceDTO.active;
-		boolean resolved = (_referenceDTO.matches.size() >= _template.minimumCardinality);
-		boolean dynamic = (_template.policy == ReferencePolicy.DYNAMIC);
-		boolean reluctant = (_template.policyOption == ReferencePolicyOption.RELUCTANT);
-		CollectionType collectionType = _template.collectionType;
+		boolean resolved = (_referenceDTO.matches.size() >= _templateDTO.minimumCardinality);
+		boolean dynamic = (_templateDTO.policy == ReferencePolicy.DYNAMIC);
+		boolean reluctant = (_templateDTO.policyOption == ReferencePolicyOption.RELUCTANT);
+		CollectionType collectionType = _templateDTO.collectionType;
 		boolean requiresUpdate = true;
 
 		if (resolved && reluctant && active && !dynamic) {
@@ -51,8 +51,13 @@ public class ReferenceSync implements ServiceTrackerCustomizer<Object, Object> {
 
 		try {
 			if (collectionType == CollectionType.OBSERVER) {
-				ReferenceEventImpl<Object> event = new ReferenceEventImpl<>(_containerState);
+				@SuppressWarnings("unchecked")
+				ReferenceEventImpl<Object> event = new ReferenceEventImpl<>(_containerState, (Class<Object>)_templateDTO.serviceClass);
 				event.addingService(reference);
+				if (active) {
+					_templateDTO.bean.fireEvent(event);
+					requiresUpdate = false;
+				}
 				return event;
 			}
 			else if (collectionType == CollectionType.PROPERTIES) {
@@ -91,7 +96,7 @@ public class ReferenceSync implements ServiceTrackerCustomizer<Object, Object> {
 	@Override
 	@SuppressWarnings("unchecked")
 	public void modifiedService(ServiceReference<Object> reference, Object service) {
-		CollectionType collectionType = _template.collectionType;
+		CollectionType collectionType = _templateDTO.collectionType;
 
 		if (collectionType == CollectionType.OBSERVER) {
 			((ReferenceEventImpl<Object>)service).modifiedService(reference);
@@ -110,10 +115,10 @@ public class ReferenceSync implements ServiceTrackerCustomizer<Object, Object> {
 	@SuppressWarnings("unchecked")
 	public void removedService(ServiceReference<Object> reference, Object service) {
 		boolean active = _componentInstanceDTO.active;
-		boolean resolved = (_referenceDTO.matches.size() >= _template.minimumCardinality);
-		boolean dynamic = (_template.policy == ReferencePolicy.DYNAMIC);
-		boolean reluctant = (_template.policyOption == ReferencePolicyOption.RELUCTANT);
-		CollectionType collectionType = _template.collectionType;
+		boolean resolved = (_referenceDTO.matches.size() >= _templateDTO.minimumCardinality);
+		boolean dynamic = (_templateDTO.policy == ReferencePolicy.DYNAMIC);
+		boolean reluctant = (_templateDTO.policyOption == ReferencePolicyOption.RELUCTANT);
+		CollectionType collectionType = _templateDTO.collectionType;
 		boolean requiresUpdate = false;
 
 		if (resolved && reluctant && active && !dynamic) {
@@ -192,6 +197,6 @@ public class ReferenceSync implements ServiceTrackerCustomizer<Object, Object> {
 	private final Logger _log;
 	private final ExtendedReferenceDTO _referenceDTO;
 	private volatile String _string;
-	private final ExtendedReferenceTemplateDTO _template;
+	private final ExtendedReferenceTemplateDTO _templateDTO;
 
 }

@@ -63,7 +63,7 @@
 -resolve.effective: resolve, active
 -runee: JavaSE-1.8
 -runsystemcapabilities: ${native_capability}
--runfw: org.eclipse.osgi;version='[3.10.0,4.0.0)'
+-runfw: org.eclipse.osgi;version='[3.13.0,4.0.0)'
 -runproperties: \
 	eclipse.log.enabled=false,\
 	logback.configurationFile=file:${.}/logback.xml,\

@@ -54,7 +54,7 @@ public class ConfigurationListenerTest extends BaseCDIBundleTest {
 		mockConfiguration.update(Maps.dict("foo", "bar"));
 		TestUtil.configurations.add(mockConfiguration);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, new Logs.Builder(null).build());
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, new Logs.Builder(bundle.getBundleContext()).build());
 
 		ConfigurationListener configurationListener = new ConfigurationListener.Builder(containerState
 		).component(

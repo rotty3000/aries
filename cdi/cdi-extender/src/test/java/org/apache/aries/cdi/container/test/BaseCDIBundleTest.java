@@ -38,7 +38,6 @@ public class BaseCDIBundleTest {
 		TestUtil.serviceListeners.clear();
 		TestUtil.serviceRegistrations.clear();
 		promiseFactory = new PromiseFactory(Executors.newFixedThreadPool(1));
-		ccr = new CCR(promiseFactory, new Logs.Builder(null).build());
 		ccrChangeCount = new ChangeCount();
 
 		BundleDTO ccrBundleDTO = new BundleDTO();
@@ -90,6 +89,8 @@ public class BaseCDIBundleTest {
 				);
 			}
 		);
+
+		ccr = new CCR(promiseFactory, new Logs.Builder(bundle.getBundleContext()).build());
 	}
 
 }

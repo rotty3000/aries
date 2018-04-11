@@ -14,6 +14,8 @@
 
 package org.apache.aries.cdi.container.internal.model;
 
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
@@ -31,9 +33,13 @@ import org.osgi.service.cdi.reference.ReferenceEvent;
 import org.osgi.service.cdi.reference.ReferenceServiceObjects;
 import org.osgi.service.log.Logger;
 
-public class ReferenceEventImpl<T> implements ReferenceEvent<T> {
+public class ReferenceEventImpl<T> implements ParameterizedType, ReferenceEvent<T> {
 
+	private final Type[] _actualTypeArguments;
 	private final ContainerState _containerState;
+	private final Logger _log;
+	private final Type _rawType = ReferenceEvent.class;
+
 	private final List<ServiceReference<T>> _queue = new CopyOnWriteArrayList<>();
 	private final AtomicBoolean _enqueue = new AtomicBoolean(true);
 	private List<Consumer<T>> onAdding = new CopyOnWriteArrayList<>();
@@ -55,9 +61,25 @@ public class ReferenceEventImpl<T> implements ReferenceEvent<T> {
 	private volatile T service;
 	private volatile ReferenceServiceObjects<T> serviceObjects;
 
-	public ReferenceEventImpl(ContainerState containerState) {
+	public ReferenceEventImpl(ContainerState containerState, Class<T> serviceClass) {
 		_containerState = containerState;
+		_actualTypeArguments = new Type[] {serviceClass};
 		_log = _containerState.containerLogs().getLogger(getClass());
+	}
+
+	@Override
+	public Type getRawType() {
+		return _rawType;
+	}
+
+	@Override
+	public Type[] getActualTypeArguments() {
+		return _actualTypeArguments;
+	}
+
+	@Override
+	public Type getOwnerType() {
+		return null;
 	}
 
 	public ReferenceEventImpl<T> addingService(ServiceReference<T> reference) {
@@ -266,7 +288,7 @@ public class ReferenceEventImpl<T> implements ReferenceEvent<T> {
 		return this;
 	}
 
-	public void flush() {
+	public boolean flush() {
 		_enqueue.set(false);
 		_queue.removeIf(
 			reference -> {
@@ -274,6 +296,7 @@ public class ReferenceEventImpl<T> implements ReferenceEvent<T> {
 				return true;
 			}
 		);
+		return true;
 	}
 
 	@Override
@@ -350,7 +373,5 @@ public class ReferenceEventImpl<T> implements ReferenceEvent<T> {
 	public void onRemoveTuple(Consumer<Entry<Map<String, ?>, T>> consumer) {
 		onRemoveTuple.add(consumer);
 	}
-
-	private final Logger _log;
 
 }

@@ -37,7 +37,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 
 	@Test
 	public void components_simple() throws Exception {
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(null).build());
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(bundle.getBundleContext()).build());
 
 		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
@@ -111,7 +111,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 						0).getRequirement().getAttributes()
 		).thenReturn(attributes);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(null).build());
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(bundle.getBundleContext()).build());
 
 		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
@@ -196,7 +196,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 						0).getRequirement().getAttributes()
 		).thenReturn(attributes);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(null).build());
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(bundle.getBundleContext()).build());
 
 		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);
@@ -423,7 +423,7 @@ public class TemplatesTests extends BaseCDIBundleTest {
 						0).getRequirement().getAttributes()
 		).thenReturn(attributes);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(null).build());
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, null, new Logs.Builder(bundle.getBundleContext()).build());
 
 		ContainerDTO containerDTO = containerState.containerDTO();
 		assertNotNull(containerDTO);

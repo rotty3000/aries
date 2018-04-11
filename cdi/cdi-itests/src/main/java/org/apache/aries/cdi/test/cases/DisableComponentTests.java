@@ -35,9 +35,10 @@ public class DisableComponentTests extends AbstractTestCase {
 		Bundle tb8Bundle = installBundle("tb8.jar");
 
 		ServiceTracker<Pojo, Pojo> tracker = track(
-			"(&(objectClass=%s)(objectClass=*.%s))",
+			"(&(objectClass=%s)(objectClass=*.%s)(service.bundleid=%s))",
 			Pojo.class.getName(),
-			"ContainerBean");
+			"ContainerBean",
+			tb8Bundle.getBundleId());
 
 		Pojo pojo = tracker.waitForService(timeout);
 
@@ -70,7 +71,7 @@ public class DisableComponentTests extends AbstractTestCase {
 
 			configurationA.update(p1);
 
-			for (int i = 20; (i > 0) && (tracker.getTrackingCount() == trackingCount); i--) {
+			for (int i = 30; (i > 0) && (tracker.getTrackingCount() == trackingCount); i--) {
 				Thread.sleep(20);
 			}
 
@@ -96,9 +97,10 @@ public class DisableComponentTests extends AbstractTestCase {
 		Bundle tb8Bundle = installBundle("tb8.jar");
 
 		ServiceTracker<Pojo, Pojo> tracker = track(
-			"(&(objectClass=%s)(objectClass=*.%s))",
+			"(&(objectClass=%s)(objectClass=*.%s)(service.bundleid=%s))",
 			Pojo.class.getName(),
-			"SingleComponentBean");
+			"SingleComponentBean",
+			tb8Bundle.getBundleId());
 
 		Pojo pojo = tracker.waitForService(timeout);
 

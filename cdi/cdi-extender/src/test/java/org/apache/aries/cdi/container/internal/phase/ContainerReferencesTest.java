@@ -63,7 +63,7 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		mockConfiguration.update(Maps.dict("fiz", "buz"));
 		TestUtil.configurations.add(mockConfiguration);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, new Logs.Builder(null).build());
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, new Logs.Builder(bundle.getBundleContext()).build());
 
 		ConfigurationListener configurationListener = new ConfigurationListener.Builder(containerState
 		).component(
@@ -254,7 +254,7 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		mockConfiguration.update(Maps.dict("fiz", "buz"));
 		TestUtil.configurations.add(mockConfiguration);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, new Logs.Builder(null).build());
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, new Logs.Builder(bundle.getBundleContext()).build());
 
 		ContainerComponent containerComponent = new ContainerComponent.Builder(containerState,
 			new ContainerActivator.Builder(containerState, null)
@@ -396,7 +396,7 @@ public class ContainerReferencesTest extends BaseCDIBundleTest {
 		mockConfiguration.update(Maps.dict("fiz", "buz"));
 		TestUtil.configurations.add(mockConfiguration);
 
-		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, new Logs.Builder(null).build());
+		ContainerState containerState = new ContainerState(bundle, ccrBundle, ccrChangeCount, promiseFactory, caTracker, new Logs.Builder(bundle.getBundleContext()).build());
 
 		ContainerComponent containerComponent = new ContainerComponent.Builder(containerState,
 			new ContainerActivator.Builder(containerState, null)

@@ -16,7 +16,6 @@ package org.apache.aries.cdi.container.internal.bean;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -31,7 +30,6 @@ import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.inject.Default;
 import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
-import javax.enterprise.inject.spi.Decorator;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.inject.Provider;
 
@@ -42,17 +40,13 @@ import org.apache.aries.cdi.container.internal.model.ExtendedReferenceTemplateDT
 import org.apache.aries.cdi.container.internal.model.ReferenceEventImpl;
 import org.apache.aries.cdi.container.internal.util.Logs;
 import org.apache.aries.cdi.container.internal.util.Sets;
-import org.jboss.weld.bean.builtin.BeanManagerProxy;
-import org.jboss.weld.injection.CurrentInjectionPoint;
-import org.jboss.weld.injection.EmptyInjectionPoint;
-import org.jboss.weld.manager.BeanManagerImpl;
-import org.jboss.weld.util.Decorators;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cdi.ComponentType;
 import org.osgi.service.cdi.MaximumCardinality;
 import org.osgi.service.cdi.ReferencePolicy;
 import org.osgi.service.cdi.annotations.ComponentScoped;
 import org.osgi.service.cdi.annotations.Reference;
+import org.osgi.service.cdi.reference.ReferenceEvent;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.log.Logger;
 
@@ -141,55 +135,63 @@ public class ReferenceBean implements Bean<Object> {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	private <S> S decorate(CreationalContext<S> c, S s) {
-		if (s == null) return null;
+		return s;
 
-		List<Decorator<?>> decorators = _bm.resolveDecorators(
-			Collections.singleton(_template.serviceClass),
-			new Annotation[0]);
+//		TODO do we want to support decorators/interceptors on in-bound services one day???
+//		==================================================================================
 
-		if (decorators.isEmpty()) {
-			return s;
-		}
-
-		BeanManagerImpl bmi = ((BeanManagerProxy)_bm).delegate();
-		CurrentInjectionPoint cip = bmi.getServices().get(CurrentInjectionPoint.class);
-
-		return Decorators.getOuterDelegate(
-			(Bean<S>)this, s, c, (Class<S>)_template.serviceClass, getIP(cip), bmi, decorators);
-	}
-
-	private InjectionPoint getIP(CurrentInjectionPoint cip) {
-		InjectionPoint ip = cip.peek();
-		return EmptyInjectionPoint.INSTANCE.equals(ip) ? null : ip;
+//		if (s == null) return null;
+//
+//		List<javax.enterprise.inject.spi.Decorator<?>> decorators = _bm.resolveDecorators(
+//			Collections.singleton(_template.serviceClass),
+//			new Annotation[0]);
+//
+//		if (decorators.isEmpty()) {
+//			return s;
+//		}
+//
+//		org.jboss.weld.manager.BeanManagerImpl bmi =
+//			((org.jboss.weld.bean.builtin.BeanManagerProxy)_bm).delegate();
+//		org.jboss.weld.injection.CurrentInjectionPoint cip = bmi.getServices().get(
+//			org.jboss.weld.injection.CurrentInjectionPoint.class);
+//		InjectionPoint ip = cip.peek();
+//		return org.jboss.weld.util.Decorators.getOuterDelegate(
+//			(Bean<S>)this, s, c, (Class<S>)_template.serviceClass,
+//			(org.jboss.weld.injection.EmptyInjectionPoint.INSTANCE.equals(ip) ? null : ip),
+//			bmi, decorators);
 	}
 
 	@Override
 	public void destroy(Object instance, CreationalContext<Object> creationalContext) {
 	}
 
-	public void fireEvents() {
-		if (_template.collectionType != CollectionType.OBSERVER) return;
+	public boolean fireEvents() {
+		if (_template.collectionType != CollectionType.OBSERVER) return true;
 
-		Arrays.stream(
-			_snapshot.serviceTracker.getServices()
-		).map(
-			o -> (ReferenceEventImpl<?>)o
-		).forEach(
-			event -> {
-				try {
-					_bm.getEvent().select(
-						Reference.Literal.of(_template.serviceClass, _template.targetFilter)
-					).fire(event);
-				}
-				catch (Exception e) {
-					_log.error(l -> l.error("CCR observer method error on {}", _snapshot, e));
-				}
+		_snapshot.serviceTracker.getTracked().values().stream().map(
+			ReferenceEvent.class::cast
+		).forEach(this::fireEvent);
 
-				event.flush();
-			}
-		);
+		return true;
+	}
+
+	public boolean fireEvent(ReferenceEvent<?> event) {
+		try {
+//			TODO this is the spec way to do it, but parameterized types are not supported,
+//			so we need to cheat.
+//			_bm.getEvent().select(
+//				Reference.Literal.of(_template.serviceClass, _template.targetFilter)
+//			).fire(event);
+
+			((org.jboss.weld.bean.builtin.BeanManagerProxy)_bm).delegate().getGlobalLenientObserverNotifier().fireEvent(
+				(Type)event, event, Reference.Literal.of(_template.serviceClass, _template.targetFilter));
+		}
+		catch (Exception e) {
+			_log.error(l -> l.error("CCR observer method error on {}", _snapshot, e));
+		}
+
+		return ((ReferenceEventImpl<?>)event).flush();
 	}
 
 	@Override

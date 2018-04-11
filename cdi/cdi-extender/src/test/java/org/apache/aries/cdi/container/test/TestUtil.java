@@ -40,6 +40,7 @@ import org.apache.aries.cdi.container.internal.container.ContainerState;
 import org.apache.aries.cdi.container.internal.model.BeansModel;
 import org.apache.aries.cdi.container.internal.util.Filters;
 import org.apache.aries.cdi.container.internal.util.Logs;
+import org.apache.aries.cdi.container.internal.util.Sfl4jLogger;
 import org.jboss.weld.resources.spi.ResourceLoader;
 import org.jboss.weld.serialization.spi.ProxyServices;
 import org.mockito.stubbing.Answer;
@@ -62,6 +63,7 @@ import org.osgi.namespace.extender.ExtenderNamespace;
 import org.osgi.service.cdi.CDIConstants;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
+import org.osgi.service.log.Logger;
 import org.osgi.service.log.LoggerFactory;
 import org.osgi.util.promise.PromiseFactory;
 import org.osgi.util.tracker.ServiceTracker;
@@ -118,12 +120,7 @@ public class TestUtil {
 		ConfigurationAdmin ca = mock(ConfigurationAdmin.class);
 		bundle.getBundleContext().registerService(ConfigurationAdmin.class, ca, null);
 
-		ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker = new ServiceTracker<>(bundle.getBundleContext(), LoggerFactory.class, null);
-		loggerTracker.open();
-		LoggerFactory lf = mock(LoggerFactory.class);
-		bundle.getBundleContext().registerService(LoggerFactory.class, lf, null);
-
-		return new ContainerState(bundle, ccrBundle, new ChangeCount(), new PromiseFactory(Executors.newFixedThreadPool(1)), caTracker, new Logs.Builder(null).build()) {
+		return new ContainerState(bundle, ccrBundle, new ChangeCount(), new PromiseFactory(Executors.newFixedThreadPool(1)), caTracker, new Logs.Builder(bundle.getBundleContext()).build()) {
 
 			@Override
 			public BeansModel beansModel() {
@@ -249,6 +246,41 @@ public class TestUtil {
 				return null;
 			}
 		).when(bundleContext).addServiceListener(any(), any());
+
+		ServiceTracker<LoggerFactory, LoggerFactory> loggerTracker = new ServiceTracker<>(bundle.getBundleContext(), LoggerFactory.class, null);
+		loggerTracker.open();
+		LoggerFactory lf = mock(LoggerFactory.class);
+		when(lf.getLogger(any(Class.class))).then(
+			(Answer<Logger>) getLogger -> {
+				Class<?> clazz = getLogger.getArgument(0);
+				return new Sfl4jLogger(clazz.getName());
+			}
+		);
+		when(lf.getLogger(anyString())).then(
+			(Answer<Logger>) getLogger -> {
+				String name = getLogger.getArgument(0);
+				return new Sfl4jLogger(name);
+			}
+		);
+		when(lf.getLogger(any(Class.class), any())).then(
+			(Answer<Logger>) getLogger -> {
+				Class<?> clazz = getLogger.getArgument(0);
+				return new Sfl4jLogger(clazz.getName());
+			}
+		);
+		when(lf.getLogger(anyString(), any())).then(
+			(Answer<Logger>) getLogger -> {
+				String name = getLogger.getArgument(0);
+				return new Sfl4jLogger(name);
+			}
+		);
+		when(lf.getLogger(any(), anyString(), any())).then(
+			(Answer<Logger>) getLogger -> {
+				String name = getLogger.getArgument(1);
+				return new Sfl4jLogger(name);
+			}
+		);
+		bundle.getBundleContext().registerService(LoggerFactory.class, lf, null);
 
 		extra.accept(bundle);
 

@@ -130,11 +130,13 @@ public class RuntimeExtension implements Extension {
 			Maps.of(CDIConstants.CDI_CONTAINER_ID, _containerState.id()));
 
 		_containerState.submit(
-			Op.of(Mode.OPEN, Type.CONTAINER_FIRE_EVENTS, _containerState.id()), () -> fireEvents(_containerComponentDTO, _containerInstanceDTO, bm)
+			Op.of(Mode.OPEN, Type.CONTAINER_FIRE_EVENTS, _containerState.id()),
+			() -> fireEvents(_containerComponentDTO, _containerInstanceDTO, bm)
 		).then(
 			s-> {
 				return _containerState.submit(
-					Op.of(Mode.OPEN, Type.CONTAINER_PUBLISH_SERVICES, _containerState.id()), () -> registerServices(_containerComponentDTO, _containerInstanceDTO, bm)
+					Op.of(Mode.OPEN, Type.CONTAINER_PUBLISH_SERVICES, _containerState.id()),
+					() -> registerServices(_containerComponentDTO, _containerInstanceDTO, bm)
 				);
 			}
 		).then(
@@ -262,7 +264,9 @@ public class RuntimeExtension implements Extension {
 		).map(
 			r -> (ExtendedReferenceTemplateDTO)r.template
 		).forEach(
-			t -> t.bean.fireEvents()
+			t -> {
+				t.bean.fireEvents();
+			}
 		);
 
 		return true;

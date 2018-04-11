@@ -39,6 +39,7 @@
 		<full.version>${project.version} (${timestamp} AD)</full.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<surefire.version>2.12</surefire.version>
+		<weld.release>3.0.2.Final</weld.release>
 	</properties>
 
 	<licenses>

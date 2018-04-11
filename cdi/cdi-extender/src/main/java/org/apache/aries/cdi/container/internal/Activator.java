@@ -56,6 +56,7 @@ import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.service.cdi.runtime.CDIComponentRuntime;
 import org.osgi.service.cm.ConfigurationAdmin;
+import org.osgi.service.cm.annotations.RequireConfigurationAdmin;
 import org.osgi.service.log.Logger;
 import org.osgi.service.log.LoggerFactory;
 import org.osgi.util.promise.PromiseFactory;
@@ -65,6 +66,7 @@ import org.osgi.util.tracker.ServiceTracker;
 	name = Constants.BUNDLE_ACTIVATOR,
 	value = "${@class}"
 )
+@RequireConfigurationAdmin
 public class Activator extends AbstractExtender {
 
 	static {
