@@ -30,6 +30,7 @@ import org.apache.aries.cdi.container.internal.model.ExtendedExtensionDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedExtensionTemplateDTO;
 import org.apache.aries.cdi.container.internal.util.Conversions;
 import org.apache.aries.cdi.container.internal.util.SRs;
+import org.apache.aries.cdi.container.internal.util.Throw;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.Filter;
 import org.osgi.framework.ServiceReference;
@@ -222,8 +223,9 @@ public class ExtensionPhase extends Phase {
 
 			try {
 				containerState.promiseFactory().submit(() -> Boolean.TRUE).getValue();
-			} catch (InvocationTargetException | InterruptedException e) {
-				e.printStackTrace();
+			}
+			catch (InvocationTargetException | InterruptedException e) {
+				Throw.exception(e);
 			}
 
 			containerState.bundleContext().ungetService(reference);

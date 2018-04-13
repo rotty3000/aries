@@ -14,8 +14,9 @@
 
 package org.apache.aries.cdi.container.internal.container;
 
+import java.util.Dictionary;
+import java.util.Hashtable;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
@@ -59,7 +60,6 @@ import org.apache.aries.cdi.container.internal.model.OSGiBean;
 import org.apache.aries.cdi.container.internal.model.ReferenceModel;
 import org.apache.aries.cdi.container.internal.model.SingleComponent;
 import org.apache.aries.cdi.container.internal.util.Conversions;
-import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.internal.util.SRs;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.PrototypeServiceFactory;
@@ -72,6 +72,7 @@ import org.osgi.service.cdi.annotations.ComponentScoped;
 import org.osgi.service.cdi.annotations.Configuration;
 import org.osgi.service.cdi.annotations.Reference;
 import org.osgi.service.cdi.runtime.dto.ComponentDTO;
+import org.osgi.service.cdi.runtime.dto.ConfigurationDTO;
 import org.osgi.service.cdi.runtime.dto.template.ComponentTemplateDTO;
 import org.osgi.service.cdi.runtime.dto.template.ConfigurationTemplateDTO;
 import org.osgi.service.log.Logger;
@@ -125,13 +126,16 @@ public class RuntimeExtension implements Extension {
 	void afterDeploymentValidation(@Observes AfterDeploymentValidation adv, BeanManager bm) {
 		_log.debug(l -> l.debug("CCR AfterDeploymentValidation on {}", _containerState.bundle()));
 
+		Dictionary<String, Object> properties = new Hashtable<>();
+		properties.put(CDIConstants.CDI_CONTAINER_ID, _containerState.id());
+
 		registerService(
 			new String[] {BeanManager.class.getName()}, bm,
-			Maps.of(CDIConstants.CDI_CONTAINER_ID, _containerState.id()));
+			properties);
 
 		_containerState.submit(
 			Op.of(Mode.OPEN, Type.CONTAINER_FIRE_EVENTS, _containerState.id()),
-			() -> fireEvents(_containerComponentDTO, _containerInstanceDTO, bm)
+			_containerInstanceDTO::fireEvents
 		).then(
 			s-> {
 				return _containerState.submit(
@@ -257,21 +261,6 @@ public class RuntimeExtension implements Extension {
 		return producerFactory.createProducer(bean);
 	}
 
-	private boolean fireEvents(ComponentDTO componentDTO, ExtendedComponentInstanceDTO instance, BeanManager bm) {
-		// TODO Check the logic of firing all the queued service events.
-		instance.references.stream().map(ExtendedReferenceDTO.class::cast).filter(
-			r -> ((ExtendedReferenceTemplateDTO)r.template).collectionType == CollectionType.OBSERVER
-		).map(
-			r -> (ExtendedReferenceTemplateDTO)r.template
-		).forEach(
-			t -> {
-				t.bean.fireEvents();
-			}
-		);
-
-		return true;
-	}
-
 	private Promise<List<Boolean>> initComponents(BeanManager bm) {
 		List<Promise<Boolean>> promises = _containerState.containerDTO().template.components.stream().filter(
 			t -> t.type != ComponentType.CONTAINER
@@ -283,22 +272,25 @@ public class RuntimeExtension implements Extension {
 	}
 
 	private Promise<Boolean> initComponent(ExtendedComponentTemplateDTO componentTemplateDTO, BeanManager bm) {
-		Boolean enabled = _containerInstanceDTO.configurations.stream().filter(
-			c -> c.template.pid.equals(_containerInstanceDTO.template.name)
-		).findFirst().map(
-			c -> Conversions.convert(
-				c.properties.get(componentTemplateDTO.name.concat(".enabled"))
-			).defaultValue(Boolean.TRUE).to(Boolean.class)
-		).orElse(Boolean.TRUE);
+		List<ConfigurationDTO> configurations = _containerInstanceDTO.configurations;
 
-		if (!enabled) {
-			_containerState.containerDTO().components.stream().filter(
-				c -> c.template == componentTemplateDTO
-			).findFirst().ifPresent(
-				c -> c.enabled = false
-			);
+		if (!configurations.isEmpty()) {
+			ConfigurationDTO defaultContainerConfiguration = configurations.get(0);
 
-			return _containerState.promiseFactory().resolved(Boolean.TRUE);
+			Boolean enabled = Conversions.convert(
+				defaultContainerConfiguration.properties.get(
+					componentTemplateDTO.name.concat(".enabled"))
+			).defaultValue(Boolean.TRUE).to(Boolean.class);
+
+			if (!enabled) {
+				_containerState.containerDTO().components.stream().filter(
+					c -> c.template == componentTemplateDTO
+				).findFirst().ifPresent(
+					c -> c.enabled = false
+				);
+
+				return _containerState.promiseFactory().resolved(Boolean.TRUE);
+			}
 		}
 
 		if (componentTemplateDTO.type == ComponentType.FACTORY) {
@@ -457,10 +449,12 @@ public class RuntimeExtension implements Extension {
 
 		Objects.requireNonNull(serviceObject, "The service object is somehow null on " + this);
 
+		Dictionary<String, Object> properties = new Hashtable<>(
+			componentInstance.componentProperties(activationTemplate.properties));
+
 		ServiceRegistration<?> serviceRegistration = registerService(
 			activationTemplate.serviceClasses.toArray(new String[0]),
-			serviceObject,
-			componentInstance.componentProperties(activationTemplate.properties));
+			serviceObject, properties);
 
 		ExtendedActivationDTO activationDTO = new ExtendedActivationDTO();
 		activationDTO.errors = new CopyOnWriteArrayList<>();
@@ -469,9 +463,9 @@ public class RuntimeExtension implements Extension {
 		componentInstance.activations.add(activationDTO);
 	}
 
-	private ServiceRegistration<?> registerService(String[] serviceTypes, Object serviceObject, Map<String, Object> properties) {
+	private ServiceRegistration<?> registerService(String[] serviceTypes, Object serviceObject, Dictionary<String, Object> properties) {
 		ServiceRegistration<?> serviceRegistration = _containerState.bundleContext().registerService(
-			serviceTypes, serviceObject, Maps.dict(properties));
+			serviceTypes, serviceObject, properties);
 
 		_registrations.add(serviceRegistration);
 

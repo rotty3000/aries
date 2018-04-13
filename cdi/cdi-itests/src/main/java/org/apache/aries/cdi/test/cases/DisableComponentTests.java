@@ -19,6 +19,8 @@ public class DisableComponentTests extends AbstractTestCase {
 	@Before
 	@Override
 	public void setUp() throws Exception {
+		testHeader();
+
 		adminTracker = new ServiceTracker<>(bundleContext, ConfigurationAdmin.class, null);
 		adminTracker.open();
 		configurationAdmin = adminTracker.getService();
@@ -50,14 +52,13 @@ public class DisableComponentTests extends AbstractTestCase {
 			configurationA = configurationAdmin.getConfiguration("osgi.cdi.cdi-itests.tb8", "?");
 
 			Dictionary<String, Object> p1 = new Hashtable<>();
-			p1.put("containerBean.enabled", false);
-
-			int trackingCount = tracker.getTrackingCount();
+			p1.put("cdi-itests.tb8.enabled", false);
 
 			configurationA.update(p1);
 
-			for (int i = 20; (i > 0) && (tracker.getTrackingCount() == trackingCount); i--) {
-				Thread.sleep(20);
+			for (int i = 20; (i > 0) && (!tracker.isEmpty()); i--) {
+				System.out.println("---> " + i);
+				Thread.sleep(200);
 			}
 
 			pojo = tracker.getService();
@@ -67,11 +68,9 @@ public class DisableComponentTests extends AbstractTestCase {
 			p1 = new Hashtable<>();
 			p1.put("containerBean.enabled", true);
 
-			trackingCount = tracker.getTrackingCount();
-
 			configurationA.update(p1);
 
-			for (int i = 30; (i > 0) && (tracker.getTrackingCount() == trackingCount); i--) {
+			for (int i = 30; (i > 0) && (tracker.isEmpty()); i--) {
 				Thread.sleep(20);
 			}
 
@@ -114,11 +113,9 @@ public class DisableComponentTests extends AbstractTestCase {
 			Dictionary<String, Object> p1 = new Hashtable<>();
 			p1.put("singleComponentBean.enabled", false);
 
-			int trackingCount = tracker.getTrackingCount();
-
 			configurationA.update(p1);
 
-			for (int i = 20; (i > 0) && (tracker.getTrackingCount() == trackingCount); i--) {
+			for (int i = 20; (i > 0) && (!tracker.isEmpty()); i--) {
 				Thread.sleep(20);
 			}
 
@@ -129,11 +126,9 @@ public class DisableComponentTests extends AbstractTestCase {
 			p1 = new Hashtable<>();
 			p1.put("singleComponentBean.enabled", true);
 
-			trackingCount = tracker.getTrackingCount();
-
 			configurationA.update(p1);
 
-			for (int i = 10; (i > 0) && (tracker.getTrackingCount() == trackingCount); i--) {
+			for (int i = 10; (i > 0) && (tracker.isEmpty()); i--) {
 				Thread.sleep(20);
 			}
 

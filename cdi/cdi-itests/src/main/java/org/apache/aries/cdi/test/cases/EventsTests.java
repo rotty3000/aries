@@ -24,6 +24,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.ServiceRegistration;
+import org.osgi.service.cdi.runtime.dto.ContainerDTO;
 import org.osgi.util.tracker.ServiceTracker;
 
 public class EventsTests extends AbstractTestCase {
@@ -31,6 +32,9 @@ public class EventsTests extends AbstractTestCase {
 	@Override
 	@Before
 	public void setUp() throws Exception {
+		testHeader();
+
+		cdiRuntime = runtimeTracker.waitForService(timeout);
 	}
 
 	@Override
@@ -39,8 +43,8 @@ public class EventsTests extends AbstractTestCase {
 	}
 
 	@Test
-	public void testEventsGetSent() throws Exception {
-		Bundle tb9 = installBundle("tb9.jar");
+	public void testContainerComponentReferenceEventHandler() throws Exception {
+		Bundle tb = installBundle("tb9.jar");
 
 		try {
 			ServiceTracker<Pojo, Pojo> tracker = track("(objectClass=%s)", Pojo.class.getName());
@@ -50,26 +54,103 @@ public class EventsTests extends AbstractTestCase {
 			assertEquals(0, pojo.getCount());
 			assertEquals("[]", pojo.foo(null));
 
+			ContainerDTO containerDTO = cdiRuntime.getContainerDTO(tb);
+
+			long changeCount = containerDTO.changeCount;
+
 			ServiceRegistration<Integer> int1 = bundleContext.registerService(Integer.class, new Integer(12), null);
 
 			try {
+				for (long i = 10; i > 0 && (cdiRuntime.getContainerDTO(tb).changeCount == changeCount); i--) {
+					Thread.sleep(20);
+				}
+
 				assertEquals(1, pojo.getCount());
 				assertEquals("[ADDED]", pojo.foo(null));
+
+				changeCount = containerDTO.changeCount;
 
 				Dictionary<String, Object> properties = int1.getReference().getProperties();
 				properties.put("foo", "bar");
 				int1.setProperties(properties);
+
+				for (long i = 10; i > 0 && (cdiRuntime.getContainerDTO(tb).changeCount == changeCount); i--) {
+					Thread.sleep(20);
+				}
+
 				assertEquals("[UPDATED]", pojo.foo(null));
 			}
 			finally {
+				changeCount = containerDTO.changeCount;
+
 				int1.unregister();
+
+				for (long i = 10; i > 0 && (cdiRuntime.getContainerDTO(tb).changeCount == changeCount); i--) {
+					Thread.sleep(20);
+				}
 
 				assertEquals(0, pojo.getCount());
 				assertEquals("[]", pojo.foo(null));
 			}
 		}
 		finally {
-			tb9.uninstall();
+			tb.uninstall();
+		}
+	}
+
+	@Test
+	public void testSingleComponentReferenceEventHandler() throws Exception {
+		Bundle tb = installBundle("tb10.jar");
+
+		try {
+			ServiceTracker<Pojo, Pojo> tracker = track("(objectClass=%s)", Pojo.class.getName());
+
+			Pojo pojo = tracker.waitForService(timeout);
+
+			assertEquals(0, pojo.getCount());
+			assertEquals("[]", pojo.foo(null));
+
+			ContainerDTO containerDTO = cdiRuntime.getContainerDTO(tb);
+
+			long changeCount = containerDTO.changeCount;
+
+			ServiceRegistration<Integer> int1 = bundleContext.registerService(Integer.class, new Integer(12), null);
+
+			try {
+				for (long i = 10; i > 0 && (cdiRuntime.getContainerDTO(tb).changeCount == changeCount); i--) {
+					Thread.sleep(20);
+				}
+
+				assertEquals(1, pojo.getCount());
+				assertEquals("[ADDED]", pojo.foo(null));
+
+				changeCount = containerDTO.changeCount;
+
+				Dictionary<String, Object> properties = int1.getReference().getProperties();
+				properties.put("foo", "bar");
+				int1.setProperties(properties);
+
+				for (long i = 10; i > 0 && (cdiRuntime.getContainerDTO(tb).changeCount == changeCount); i--) {
+					Thread.sleep(20);
+				}
+
+				assertEquals("[UPDATED]", pojo.foo(null));
+			}
+			finally {
+				changeCount = containerDTO.changeCount;
+
+				int1.unregister();
+
+				for (long i = 10; i > 0 && (cdiRuntime.getContainerDTO(tb).changeCount == changeCount); i--) {
+					Thread.sleep(20);
+				}
+
+				assertEquals(0, pojo.getCount());
+				assertEquals("[]", pojo.foo(null));
+			}
+		}
+		finally {
+			tb.uninstall();
 		}
 	}
 

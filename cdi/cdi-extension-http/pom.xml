@@ -62,6 +62,7 @@
 			<version>${weld.release}</version>
 			<exclusions>
 				<exclusion>
+					<groupId>javax.enterprise</groupId>
 					<artifactId>cdi-api</artifactId>
 				</exclusion>
 			</exclusions>

@@ -1,5 +1,6 @@
 package org.apache.aries.cdi.container.internal.container;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Dictionary;
 import java.util.Hashtable;
@@ -15,6 +16,7 @@ import org.apache.aries.cdi.container.internal.model.ExtendedComponentInstanceDT
 import org.apache.aries.cdi.container.internal.model.ExtendedConfigurationDTO;
 import org.apache.aries.cdi.container.internal.util.Maps;
 import org.apache.aries.cdi.container.internal.util.Predicates;
+import org.apache.aries.cdi.container.internal.util.Throw;
 import org.osgi.framework.ServiceRegistration;
 import org.osgi.service.cdi.MaximumCardinality;
 import org.osgi.service.cdi.runtime.dto.ComponentInstanceDTO;
@@ -243,6 +245,13 @@ public class ConfigurationListener extends Phase implements org.osgi.service.cm.
 	}
 
 	private void startComponent(Component component) {
+		try {
+			containerState.promiseFactory().submit(() -> Boolean.TRUE).getValue();
+		}
+		catch (InvocationTargetException | InterruptedException e) {
+			Throw.exception(e);
+		}
+
 		submit(component.closeOp(), component::close).then(
 			s -> submit(component.openOp(), component::open).onFailure(
 				f -> {

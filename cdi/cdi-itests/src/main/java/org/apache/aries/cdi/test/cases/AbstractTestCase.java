@@ -32,6 +32,8 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
+import org.junit.rules.TestName;
 import org.osgi.annotation.bundle.Requirement;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
@@ -56,6 +58,8 @@ import org.osgi.util.tracker.ServiceTracker;
 )
 public class AbstractTestCase {
 
+	@Rule public TestName testName = new TestName();
+
 	@BeforeClass
 	public static void beforeClass() throws Exception {
 		runtimeTracker = new ServiceTracker<>(
@@ -71,8 +75,18 @@ public class AbstractTestCase {
 		servicesBundle.uninstall();
 	}
 
+	void testHeader() {
+		System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+		System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+		System.out.println("++ TEST: " + getClass().getSimpleName() + "#" +testName.getMethodName() + " +++++++++++++++++");
+		System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+		System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+	}
+
 	@Before
 	public void setUp() throws Exception {
+		testHeader();
+
 		cdiRuntime = runtimeTracker.waitForService(timeout);
 		cdiBundle = installBundle("basic-beans.jar");
 		cdiBundle.start();

@@ -2,6 +2,7 @@ package org.apache.aries.cdi.container.internal.container;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
 
+import org.apache.aries.cdi.container.internal.container.ComponentContext.With;
 import org.apache.aries.cdi.container.internal.model.CollectionType;
 import org.apache.aries.cdi.container.internal.model.ExtendedComponentInstanceDTO;
 import org.apache.aries.cdi.container.internal.model.ExtendedReferenceDTO;
@@ -55,7 +56,13 @@ public class ReferenceSync implements ServiceTrackerCustomizer<Object, Object> {
 				ReferenceEventImpl<Object> event = new ReferenceEventImpl<>(_containerState, (Class<Object>)_templateDTO.serviceClass);
 				event.addingService(reference);
 				if (active) {
-					_templateDTO.bean.fireEvent(event);
+					_componentInstanceDTO.activations.forEach(
+						a -> {
+							try (With with = new With(a)) {
+								_templateDTO.bean.fireEvent(event);
+							}
+						}
+					);
 					requiresUpdate = false;
 				}
 				return event;

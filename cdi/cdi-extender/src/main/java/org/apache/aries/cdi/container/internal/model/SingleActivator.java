@@ -117,6 +117,7 @@ public class SingleActivator extends InstanceActivator {
 					);
 				}
 			);
+
 			instance.template.configurations.stream().map(ExtendedConfigurationTemplateDTO.class::cast).filter(
 				t -> Objects.nonNull(t.injectionPointType)
 			).forEach(
@@ -251,6 +252,7 @@ public class SingleActivator extends InstanceActivator {
 						instance.activations.remove(a);
 					}
 				};
+				instance.fireEvents();
 				return new AbstractMap.SimpleImmutableEntry<>(activationDTO, object);
 			}
 			catch (Throwable t) {

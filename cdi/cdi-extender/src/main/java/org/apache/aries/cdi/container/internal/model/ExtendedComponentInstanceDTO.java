@@ -112,6 +112,20 @@ public class ExtendedComponentInstanceDTO extends ComponentInstanceDTO {
 		return true;
 	}
 
+	public final boolean fireEvents() {
+		references.stream().map(ExtendedReferenceDTO.class::cast).filter(
+			r -> ((ExtendedReferenceTemplateDTO)r.template).collectionType == CollectionType.OBSERVER
+		).map(
+			r -> (ExtendedReferenceTemplateDTO)r.template
+		).forEach(
+			t -> {
+				t.bean.fireEvents();
+			}
+		);
+
+		return true;
+	}
+
 	public final boolean referencesResolved() {
 		for (ReferenceTemplateDTO template : template.references) {
 			if (template.minimumCardinality > 0) {
